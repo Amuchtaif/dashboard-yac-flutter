@@ -1,0 +1,29 @@
+{
+    "project_info": {
+        "project_number": "191629045859",
+        "project_id": "dashboard-yac",
+        "storage_bucket": "dashboard-yac.firebasestorage.app"
+    },
+    "client": [
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:191629045859:android:3c1e802342da17d3c60856",
+                "android_client_info": {
+                    "package_name": "com.example.dashboard_yac"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyC4Etf0mUOZCkzx80w0JGZyRBhLKYI-hJ0"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
+                }
+            }
+        }
+    ],
+    "configuration_version": "1"
+}
