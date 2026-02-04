@@ -198,7 +198,9 @@ class _MyPermitsTabState extends State<MyPermitsTab> {
     );
 
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(url, headers: {'ngrok-skip-browser-warning': 'true'})
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -662,7 +664,9 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
     );
 
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(url, headers: {'ngrok-skip-browser-warning': 'true'})
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -730,6 +734,7 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
             headers: {
               "Content-Type": "application/json",
               "Accept": "application/json",
+              "ngrok-skip-browser-warning": "true",
             },
             body: bodyData,
           )

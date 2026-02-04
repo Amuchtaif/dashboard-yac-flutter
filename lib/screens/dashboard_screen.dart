@@ -12,7 +12,6 @@ import 'quran_list_screen.dart';
 import 'dzikir_doa_screen.dart';
 import 'assunnah_tv_screen.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'permit_list_screen.dart';
 
 import '../services/notification_service.dart';
 import '../config/api_config.dart';
@@ -53,7 +52,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         var response = await http.post(
           url,
-          headers: {'Content-Type': 'application/json'},
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+          },
           body: jsonEncode({"user_id": userId.toString(), "fcm_token": token}),
         );
 
@@ -96,6 +98,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // 2. Foreground Message Handler
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      debugPrint("🔥 FOREGROUND NOTIF RECEIVED!");
+      debugPrint("Title: ${message.notification?.title}");
+      debugPrint("Body: ${message.notification?.body}");
+      debugPrint("Data: ${message.data}");
+
       if (message.notification != null) {
         if (!mounted) return;
 
@@ -105,53 +112,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           title: message.notification!.title ?? 'Notifikasi Baru',
           body: message.notification!.body ?? '',
         );
-
-        // Show Top SnackBar
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.notifications_active, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        message.notification!.title ?? 'Notifikasi Baru',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        message.notification!.body ?? '',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green, // Primary/Green
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height - 180,
-              left: 10,
-              right: 10,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            action: SnackBarAction(
-              label: 'LIHAT',
-              textColor: Colors.white,
-              onPressed: () {
-                _handleMessageNavigation(message);
-              },
-            ),
-          ),
+      } else {
+        // Fallback jika notifikasi null tapi ada data (kadang terjadi)
+        NotificationService().showLocalNotification(
+          id: message.hashCode,
+          title: message.data['title'] ?? 'Notifikasi Baru',
+          body: message.data['body'] ?? 'Anda memiliki notifikasi baru',
         );
       }
     });
@@ -177,10 +143,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _handleMessageNavigation(RemoteMessage message) {
     if (message.data['screen'] == 'approval') {
       if (!mounted) return;
-      // Navigasi ke halaman Approval / Permit List
+      // Navigasi ke halaman Utama Izin (Agar Tab Persetujuan muncul untuk Manager)
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const PermitListScreen()),
+        MaterialPageRoute(builder: (context) => const MainPermitScreen()),
       );
     }
     // Tambahkan kondisi screen lain jika ada
@@ -213,7 +179,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final url = "$baseUrl/get_dashboard_data.php?user_id=$_userId";
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -274,6 +243,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final response = await http.post(
         Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: jsonEncode({
           "user_id": _userId,
           "type": type,
@@ -358,7 +331,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       extendBody: true, // Allow body to go behind bottom bar
-      body: pages[_currentIndex],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        switchInCurve: Curves.fastOutSlowIn,
+        switchOutCurve: Curves.fastOutSlowIn,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          // Modern Scale + Fade Transition
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.92, end: 1.0).animate(
+                CurvedAnimation(parent: animation, curve: Curves.fastOutSlowIn),
+              ),
+              child: child,
+            ),
+          );
+        },
+        layoutBuilder: (currentChild, previousChildren) {
+          // Ensures correct stacking order during transition
+          return Stack(
+            alignment: Alignment.center,
+            children: <Widget>[
+              ...previousChildren,
+              if (currentChild != null) currentChild,
+            ],
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey<int>(_currentIndex),
+          child: pages[_currentIndex],
+        ),
+      ),
       bottomNavigationBar: Container(
         margin: const EdgeInsets.only(left: 15, right: 15, bottom: 10),
         padding: const EdgeInsets.symmetric(vertical: 6),

@@ -50,7 +50,10 @@ class _PermitListScreenState extends State<PermitListScreen> {
     );
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(
+        url,
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

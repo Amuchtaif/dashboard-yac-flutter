@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
@@ -97,7 +97,10 @@ class NotificationService {
 
       debugPrint('NotificationService: Request URL: $url');
 
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
 
       debugPrint('NotificationService: Response Code: ${response.statusCode}');
       debugPrint('NotificationService: Response Body: ${response.body}');
@@ -169,6 +172,8 @@ class NotificationService {
           priority: Priority.high,
           showWhen: true,
           icon: '@drawable/ic_stat_yac___white',
+          color: Color(0xFF1F3C88), // Blue Primary
+          colorized: true,
         );
 
     const NotificationDetails platformChannelSpecifics = NotificationDetails(

@@ -10,6 +10,10 @@ class AttendanceService {
     try {
       final response = await http.post(
         url,
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: jsonEncode({'action': 'get_history', 'user_id': userId}),
       );
 
@@ -37,6 +41,10 @@ class AttendanceService {
     try {
       final response = await http.post(
         url,
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: jsonEncode({
           'action': 'check_in',
           'user_id': userId,
@@ -69,6 +77,10 @@ class AttendanceService {
     try {
       final response = await http.post(
         url,
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: jsonEncode({
           'action': 'check_out',
           'user_id': userId,

@@ -17,7 +17,10 @@ class AuthService {
     try {
       final response = await http.post(
         Uri.parse(ApiConstants.loginEndpoint),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: jsonEncode({'email': email, 'password': password}),
       );
 

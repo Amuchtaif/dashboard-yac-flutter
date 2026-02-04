@@ -45,7 +45,7 @@
             android:resource="@drawable/ic_stat_yac___white" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
-            android:resource="@color/purple_500" />
+            android:resource="@color/blue_primary" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
