@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 
 class NotificationService {
   // 1. Singleton Pattern
@@ -28,7 +29,7 @@ class NotificationService {
   // 2. Initialization
   Future<void> init() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_stat_yac___white');
 
     const InitializationSettings initializationSettings =
         InitializationSettings(android: initializationSettingsAndroid);
@@ -92,8 +93,7 @@ class NotificationService {
 
       if (userId == null) return [];
 
-      final url =
-          'http://10.0.2.2/dashboard-yac/api/get_notifications.php?user_id=$userId';
+      final url = '${ApiConfig.baseUrl}/get_notifications.php?user_id=$userId';
 
       debugPrint('NotificationService: Request URL: $url');
 
@@ -145,7 +145,7 @@ class NotificationService {
         debugPrint(
           'NotificationService: Triggering local notification for ID: $id',
         );
-        _showLocalNotification(
+        showLocalNotification(
           id: id.hashCode, // Use unique int ID
           title: title,
           body: body,
@@ -154,19 +154,21 @@ class NotificationService {
     }
   }
 
-  Future<void> _showLocalNotification({
+  Future<void> showLocalNotification({
     required int id,
     required String title,
     required String body,
   }) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-          'permit_channel', // specific channel ID
-          'Permit Notifications', // channel name
-          channelDescription: 'Notifications for permit status updates',
+          'high_importance_channel', // Match main.dart & Manifest
+          'High Importance Notifications', // Match main.dart
+          channelDescription:
+              'This channel is used for important notifications.',
           importance: Importance.max,
           priority: Priority.high,
           showWhen: true,
+          icon: '@drawable/ic_stat_yac___white',
         );
 
     const NotificationDetails platformChannelSpecifics = NotificationDetails(

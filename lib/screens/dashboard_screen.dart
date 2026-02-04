@@ -12,8 +12,10 @@ import 'quran_list_screen.dart';
 import 'dzikir_doa_screen.dart';
 import 'assunnah_tv_screen.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'permit_list_screen.dart';
 
 import '../services/notification_service.dart';
+import '../config/api_config.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -81,7 +83,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // --- KONFIGURASI API ---
   // Sesuaikan IP ini. Jika di Emulator Android pakai 10.0.2.2.
   // Jika di HP Asli pakai IP Laptop (misal: 192.168.1.X)
-  final String baseUrl = "http://10.0.2.2/dashboard-yac/api";
+  final String baseUrl = ApiConfig.baseUrl;
 
   @override
   void initState() {
@@ -89,9 +91,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadUserData();
     _updateMyToken();
 
+    // 1. Setup Interacted Message (Click handler)
+    setupInteractedMessage();
+
+    // 2. Foreground Message Handler
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      if (message.notification != null) {
+        if (!mounted) return;
+
+        // Tampilkan Notifikasi Sistem (Floating / Heads Up)
+        NotificationService().showLocalNotification(
+          id: message.hashCode,
+          title: message.notification!.title ?? 'Notifikasi Baru',
+          body: message.notification!.body ?? '',
+        );
+
+        // Show Top SnackBar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.notifications_active, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        message.notification!.title ?? 'Notifikasi Baru',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        message.notification!.body ?? '',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green, // Primary/Green
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).size.height - 180,
+              left: 10,
+              right: 10,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            action: SnackBarAction(
+              label: 'LIHAT',
+              textColor: Colors.white,
+              onPressed: () {
+                _handleMessageNavigation(message);
+              },
+            ),
+          ),
+        );
+      }
+    });
+
     // Init Notification Service (Fire and forget)
     NotificationService().init();
-    // Polling removed: Switched to FCM Push Notifications
+  }
+
+  // --- LOGIC: HANDLE NOTIFICATION CLICK ---
+  Future<void> setupInteractedMessage() async {
+    // 1. App from Terminated State
+    RemoteMessage? initialMessage =
+        await FirebaseMessaging.instance.getInitialMessage();
+
+    if (initialMessage != null) {
+      _handleMessageNavigation(initialMessage);
+    }
+
+    // 2. App from Background State
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageNavigation);
+  }
+
+  void _handleMessageNavigation(RemoteMessage message) {
+    if (message.data['screen'] == 'approval') {
+      if (!mounted) return;
+      // Navigasi ke halaman Approval / Permit List
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PermitListScreen()),
+      );
+    }
+    // Tambahkan kondisi screen lain jika ada
   }
 
   // --- LOGIC 1: LOAD USER DATA ---

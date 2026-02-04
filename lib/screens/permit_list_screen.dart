@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'permit_screen.dart';
+import '../config/api_config.dart';
 
 class PermitListScreen extends StatefulWidget {
   const PermitListScreen({super.key});
@@ -45,7 +46,7 @@ class _PermitListScreenState extends State<PermitListScreen> {
   Future<void> _fetchPermits(String userId) async {
     // URL API (Change IP if needed)
     final url = Uri.parse(
-      "http://10.0.2.2/dashboard-yac/api/get_permits.php?user_id=$userId",
+      "${ApiConfig.baseUrl}/get_permits.php?user_id=$userId",
     );
 
     try {

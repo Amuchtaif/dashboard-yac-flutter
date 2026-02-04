@@ -155,15 +155,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: _primaryBlue,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Institutional Access',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: Colors.grey[500],
-                      ),
-                    ),
                     const SizedBox(height: 20),
 
                     // WHITE CARD

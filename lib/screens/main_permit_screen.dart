@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'permit_screen.dart'; // Pastikan file ini ada
+import '../config/api_config.dart';
 
 class MainPermitScreen extends StatefulWidget {
   const MainPermitScreen({super.key});
@@ -193,7 +194,7 @@ class _MyPermitsTabState extends State<MyPermitsTab> {
     // Pastikan URL API benar
     // Pass position_level so backend can return all data if level == 1
     final url = Uri.parse(
-      "http://10.0.2.2/dashboard-yac/api/get_permits.php?user_id=$userId&position_level=${widget.positionLevel ?? 99}",
+      "${ApiConfig.baseUrl}/get_permits.php?user_id=$userId&position_level=${widget.positionLevel ?? 99}",
     );
 
     try {
@@ -657,7 +658,7 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
     setState(() => _isLoading = true);
 
     final url = Uri.parse(
-      "http://10.0.2.2/dashboard-yac/api/get_approval_list.php?user_id=$userId",
+      "${ApiConfig.baseUrl}/get_approval_list.php?user_id=$userId",
     );
 
     try {
@@ -709,9 +710,7 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
     // Set Loading agar user tidak klik berkali-kali
     setState(() => _isLoading = true);
 
-    final url = Uri.parse(
-      "http://10.0.2.2/dashboard-yac/api/action_permit.php",
-    );
+    final url = Uri.parse("${ApiConfig.baseUrl}/action_permit.php");
 
     try {
       // PERBAIKAN: Gunakan jsonEncode dan Header JSON

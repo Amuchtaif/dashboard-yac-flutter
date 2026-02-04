@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 
 class PermitScreen extends StatefulWidget {
   const PermitScreen({super.key});
@@ -94,7 +95,7 @@ class _PermitScreenState extends State<PermitScreen> {
 
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse("http://10.0.2.2/dashboard-yac/api/submit_permit.php"),
+        Uri.parse("${ApiConfig.baseUrl}/submit_permit.php"),
       );
 
       // Form Fields
