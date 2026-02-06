@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_constants.dart';
 import '../models/user_model.dart';
+import 'permission_service.dart';
 
 class AuthResult {
   final bool success;
@@ -55,6 +57,11 @@ class AuthService {
               DateTime.now().millisecondsSinceEpoch,
             );
 
+            // Fetch user permissions after successful login
+            final permissionService = PermissionService();
+            await permissionService.fetchPermissions(user.id);
+            debugPrint('✅ User permissions loaded for userId: ${user.id}');
+
             return AuthResult(
               success: true,
               message: responseData['message'] ?? 'Login Successful',
@@ -88,6 +95,10 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    // Clear permission cache
+    final permissionService = PermissionService();
+    await permissionService.clear();
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
   }

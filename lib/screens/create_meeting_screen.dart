@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../models/staff_model.dart';
 import '../models/meeting_model.dart';
+import '../services/permission_service.dart';
 
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -46,14 +47,40 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
   int? _loginUserId;
   int? _loginDivisionId;
 
-  DateTime? _selectedDateTime;
+  DateTime? _selectedDate;
+  TimeOfDay? _selectedStartTime; // Waktu mulai rapat
+  TimeOfDay? _selectedEndTime; // Waktu akhir rapat
 
   @override
   void initState() {
     super.initState();
-    initializeDateFormatting('id_ID', null).then((_) {
-      _loadInitialData();
-    });
+    _checkPermissionAndInitialize();
+  }
+
+  /// [SECURITY GUARD] Validasi permission sebelum mengizinkan akses ke halaman ini.
+  /// Meskipun tombol sudah disembunyikan, user masih bisa mencoba akses via deep link
+  /// atau navigasi paksa. Guard ini mencegah akses tidak sah di level kode.
+  Future<void> _checkPermissionAndInitialize() async {
+    final permissionService = PermissionService();
+    await permissionService.loadFromCache();
+
+    if (!permissionService.canCreateMeeting) {
+      // User tidak memiliki akses - redirect kembali
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Anda tidak memiliki akses untuk membuat rapat.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+
+    // Permission valid, lanjutkan inisialisasi
+    await initializeDateFormatting('id_ID', null);
+    _loadInitialData();
   }
 
   Future<void> _loadInitialData() async {
@@ -63,7 +90,6 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
       _loginDivisionId = prefs.getInt('divisionId');
     });
 
-    // Fetch Staff & Divisions
     // Fetch Staff & Divisions
     await Future.wait([
       _fetchStaff(), // Load ALL staff for global search
@@ -155,8 +181,16 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
 
   Future<void> _submitMeeting() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedDateTime == null) {
-      _showSnack("Pilih tanggal & waktu rapat.", isError: true);
+    if (_selectedDate == null) {
+      _showSnack("Pilih tanggal rapat.", isError: true);
+      return;
+    }
+    if (_selectedStartTime == null) {
+      _showSnack("Pilih waktu mulai rapat.", isError: true);
+      return;
+    }
+    if (_selectedEndTime == null) {
+      _showSnack("Pilih waktu selesai rapat.", isError: true);
       return;
     }
 
@@ -195,17 +229,35 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
             ? 1
             : _loginDivisionId!;
 
+    // Build start time DateTime
+    final startDateTime = DateTime(
+      _selectedDate!.year,
+      _selectedDate!.month,
+      _selectedDate!.day,
+      _selectedStartTime!.hour,
+      _selectedStartTime!.minute,
+    );
+
+    // Build end time DateTime
+    final endDateTime = DateTime(
+      _selectedDate!.year,
+      _selectedDate!.month,
+      _selectedDate!.day,
+      _selectedEndTime!.hour,
+      _selectedEndTime!.minute,
+    );
+
     final meeting = Meeting(
       title: _agendaController.text,
-      type: _selectedType,
+      type:
+          _selectedType
+              .toLowerCase(), // Backend expects lowercase: 'online' or 'offline'
       link: _selectedType == 'Online' ? _linkLocationController.text : null,
       location:
           _selectedType == 'Offline' ? _linkLocationController.text : null,
-      date: DateFormat('yyyy-MM-dd').format(_selectedDateTime!),
-      startTime: DateFormat('HH:mm:ss').format(_selectedDateTime!),
-      endTime: DateFormat(
-        'HH:mm:ss',
-      ).format(_selectedDateTime!.add(const Duration(hours: 1))),
+      date: DateFormat('yyyy-MM-dd').format(_selectedDate!),
+      startTime: DateFormat('HH:mm:ss').format(startDateTime),
+      endTime: DateFormat('HH:mm:ss').format(endDateTime),
       participantIds: finalParticipantIds,
       divisionId: division,
       creatorId: creator,
@@ -253,38 +305,68 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
     );
   }
 
-  // --- Date Time Picker (Combined) ---
-  Future<void> _pickDateTime() async {
+  // --- Date Picker ---
+  Future<void> _pickDate() async {
     final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
-      initialDate: now,
+      initialDate: _selectedDate ?? now,
       firstDate: now,
       lastDate: DateTime(now.year + 1),
+      helpText: 'Pilih Tanggal Rapat',
     );
     if (date == null) return;
 
-    if (!mounted) return;
+    setState(() {
+      _selectedDate = date;
+      _dateController.text = DateFormat(
+        'EEEE, dd MMMM yyyy',
+        'id_ID',
+      ).format(date);
+    });
+  }
+
+  // --- Start Time Picker ---
+  Future<void> _pickStartTime() async {
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: _selectedStartTime ?? TimeOfDay.now(),
+      helpText: 'Pilih Waktu Mulai',
     );
 
     if (time == null) return;
 
     setState(() {
-      _selectedDateTime = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
+      _selectedStartTime = time;
+      // Auto-set end time to 1 hour after if not set
+      _selectedEndTime ??= TimeOfDay(
+        hour: (time.hour + 1) % 24,
+        minute: time.minute,
       );
-      _dateController.text = DateFormat(
-        'EEEE, dd MMM • HH:mm',
-        'id_ID',
-      ).format(_selectedDateTime!);
-      // Note: 'id_ID' requires initializeDateFormatting usually, using default if error or just English format if locale not ready
+    });
+  }
+
+  // --- End Time Picker ---
+  Future<void> _pickEndTime() async {
+    // Default to 1 hour after start time if available
+    final initialTime =
+        _selectedStartTime != null
+            ? TimeOfDay(
+              hour: (_selectedStartTime!.hour + 1) % 24,
+              minute: _selectedStartTime!.minute,
+            )
+            : TimeOfDay.now();
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: _selectedEndTime ?? initialTime,
+      helpText: 'Pilih Waktu Selesai',
+    );
+
+    if (time == null) return;
+
+    setState(() {
+      _selectedEndTime = time;
     });
   }
 
@@ -348,18 +430,136 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
 
                         // Tanggal & Waktu
                         _buildLabel("TANGGAL & WAKTU"),
-                        TextFormField(
-                          controller: _dateController,
-                          readOnly: true,
-                          onTap: _pickDateTime,
-                          decoration: _inputDecoration(
-                            "Pilih Tanggal & Waktu",
-                          ).copyWith(
-                            suffixIcon: const Icon(
-                              Icons.calendar_today_outlined,
-                              color: Colors.grey,
+                        // Tanggal
+                        InkWell(
+                          onTap: _pickDate,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF9FAFB),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.calendar_today_outlined,
+                                  color: Colors.grey,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  _selectedDate != null
+                                      ? _dateController.text
+                                      : "Pilih Tanggal",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color:
+                                        _selectedDate != null
+                                            ? Colors.black
+                                            : Colors.grey,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Waktu Mulai & Selesai (Row)
+                        Row(
+                          children: [
+                            // Waktu Mulai
+                            Expanded(
+                              child: InkWell(
+                                onTap: _pickStartTime,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF9FAFB),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.access_time_rounded,
+                                        color: Colors.green,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          _selectedStartTime != null
+                                              ? "Mulai: ${_selectedStartTime!.format(context)}"
+                                              : "Waktu Mulai",
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            color:
+                                                _selectedStartTime != null
+                                                    ? Colors.black
+                                                    : Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Waktu Selesai
+                            Expanded(
+                              child: InkWell(
+                                onTap: _pickEndTime,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF9FAFB),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.access_time_rounded,
+                                        color: Colors.red,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          _selectedEndTime != null
+                                              ? "Selesai: ${_selectedEndTime!.format(context)}"
+                                              : "Waktu Selesai",
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            color:
+                                                _selectedEndTime != null
+                                                    ? Colors.black
+                                                    : Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 24),
 
@@ -734,7 +934,7 @@ class StaffMultiSelectDialog extends StatefulWidget {
 }
 
 class _StaffMultiSelectDialogState extends State<StaffMultiSelectDialog> {
-  List<dynamic> _groupedItems = []; // List of String (Header) or Staff
+  final List<dynamic> _groupedItems = []; // List of String (Header) or Staff
   int _matchingCount = 0;
   final List<Staff> _tempSelected = [];
   final _searchController = TextEditingController();

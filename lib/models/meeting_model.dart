@@ -11,6 +11,9 @@ class Meeting {
   final int divisionId;
   final int creatorId;
   final String status; // upcoming, finished, draft
+  final String? qrToken; // Token untuk QR Code absensi
+  final String? creatorName; // Nama pembuat rapat
+  final String? divisionName; // Nama divisi
 
   Meeting({
     this.id,
@@ -25,20 +28,22 @@ class Meeting {
     required this.divisionId,
     required this.creatorId,
     this.status = 'upcoming',
+    this.qrToken,
+    this.creatorName,
+    this.divisionName,
   });
 
   factory Meeting.fromJson(Map<String, dynamic> json) {
     return Meeting(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()),
       title: json['title'] ?? json['agenda'] ?? 'No Title',
-      type: json['type'] ?? 'Online',
+      type: json['type'] ?? 'online',
       link: json['link'],
       location: json['location'],
-      date: json['date'] ?? '',
+      date: json['date'] ?? json['meeting_date'] ?? '',
       startTime: json['start_time'] ?? json['time'] ?? '',
       endTime: json['end_time'] ?? '',
-      participantIds:
-          [], // Placeholder, usually fetched separately or requires complex parsing
+      participantIds: [],
       divisionId:
           json['division_id'] is int
               ? json['division_id']
@@ -48,6 +53,9 @@ class Meeting {
               ? json['created_by']
               : (int.tryParse(json['created_by']?.toString() ?? '0') ?? 0),
       status: json['status'] ?? 'upcoming',
+      qrToken: json['qr_token'],
+      creatorName: json['creator_name'],
+      divisionName: json['division_name'],
     );
   }
 
@@ -65,6 +73,47 @@ class Meeting {
       'division_id': divisionId,
       'created_by': creatorId,
       'status': status,
+      'qr_token': qrToken,
     };
+  }
+
+  /// Format tanggal ke format Indonesia (Senin, 24 Okt 2023)
+  String get formattedDate {
+    try {
+      final parsed = DateTime.parse(date);
+      final days = [
+        'Minggu',
+        'Senin',
+        'Selasa',
+        'Rabu',
+        'Kamis',
+        'Jumat',
+        'Sabtu',
+      ];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'Mei',
+        'Jun',
+        'Jul',
+        'Agu',
+        'Sep',
+        'Okt',
+        'Nov',
+        'Des',
+      ];
+      return '${days[parsed.weekday % 7]}, ${parsed.day} ${months[parsed.month - 1]} ${parsed.year}';
+    } catch (_) {
+      return date;
+    }
+  }
+
+  /// Format waktu ke format HH:mm - HH:mm WIB
+  String get formattedTime {
+    final start = startTime.length >= 5 ? startTime.substring(0, 5) : startTime;
+    final end = endTime.length >= 5 ? endTime.substring(0, 5) : endTime;
+    return '$start - $end WIB';
   }
 }

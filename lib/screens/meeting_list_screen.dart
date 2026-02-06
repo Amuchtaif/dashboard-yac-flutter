@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../models/meeting_model.dart';
+import '../services/permission_service.dart';
 import 'create_meeting_screen.dart';
+import 'meeting_detail_screen.dart';
 
 class MeetingListScreen extends StatefulWidget {
   const MeetingListScreen({super.key});
@@ -15,10 +17,14 @@ class MeetingListScreen extends StatefulWidget {
 }
 
 class _MeetingListScreenState extends State<MeetingListScreen> {
-  int _selectedTabIndex = 0; // 0: Mendatang, 1: Selesai, 2: Draft
+  int _selectedTabIndex = 0; // 0: Mendatang, 1: Selesai
   List<Meeting> _meetings = [];
   bool _isLoading = true;
   int? _userId;
+
+  // Permission state
+  bool _canCreateMeeting = false;
+  final PermissionService _permissionService = PermissionService();
 
   @override
   void initState() {
@@ -29,6 +35,22 @@ class _MeetingListScreenState extends State<MeetingListScreen> {
   Future<void> _loadUserAndFetch() async {
     final prefs = await SharedPreferences.getInstance();
     _userId = prefs.getInt('userId');
+
+    // Load permissions - first from cache, then fetch fresh from API
+    await _permissionService.loadFromCache();
+
+    // Also fetch fresh permissions if userId is available
+    if (_userId != null) {
+      await _permissionService.fetchPermissions(_userId!);
+    }
+
+    if (mounted) {
+      setState(() {
+        _canCreateMeeting = _permissionService.canCreateMeeting;
+      });
+      debugPrint('📋 MeetingListScreen: canCreateMeeting = $_canCreateMeeting');
+    }
+
     if (_userId != null) {
       _fetchMeetings();
     } else {
@@ -77,20 +99,14 @@ class _MeetingListScreenState extends State<MeetingListScreen> {
 
   List<Meeting> get _filteredMeetings {
     // Simple client-side filter logic
-    // Or simpler: Just rely on hypothetical status field.
-
     // Mapping tabs to status:
     // 0 -> upcoming
     // 1 -> finished
-    // 2 -> draft
 
     String targetStatus = 'upcoming';
     if (_selectedTabIndex == 1) targetStatus = 'finished';
-    if (_selectedTabIndex == 2) targetStatus = 'draft';
 
     return _meetings.where((m) {
-      // If no explicit status, try to infer from date?
-      // For now, let's assume status matches.
       return m.status == targetStatus;
     }).toList();
   }
@@ -152,8 +168,6 @@ class _MeetingListScreenState extends State<MeetingListScreen> {
                   _buildTabButton("Mendatang", 0),
                   const SizedBox(width: 12),
                   _buildTabButton("Selesai", 1),
-                  const SizedBox(width: 12),
-                  _buildTabButton("Draft", 2),
                 ],
               ),
             ),
@@ -167,11 +181,7 @@ class _MeetingListScreenState extends State<MeetingListScreen> {
                       : _filteredMeetings.isEmpty
                       ? Center(
                         child: Text(
-                          "Tidak ada rapat ${_selectedTabIndex == 0
-                              ? 'mendatang'
-                              : _selectedTabIndex == 1
-                              ? 'selesai'
-                              : 'draft'}",
+                          "Tidak ada rapat ${_selectedTabIndex == 0 ? 'mendatang' : 'selesai'}",
                           style: GoogleFonts.poppins(color: Colors.grey),
                         ),
                       )
@@ -189,20 +199,26 @@ class _MeetingListScreenState extends State<MeetingListScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreateMeetingScreen(),
-            ),
-          );
-          _fetchMeetings(); // Refresh on return
-        },
-        backgroundColor: Colors.blueAccent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
-      ),
+      // Dynamic UI: Only show FAB when user has permission to create meeting
+      floatingActionButton:
+          _canCreateMeeting
+              ? FloatingActionButton(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CreateMeetingScreen(),
+                    ),
+                  );
+                  _fetchMeetings(); // Refresh on return
+                },
+                backgroundColor: Colors.blueAccent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.add, color: Colors.white, size: 28),
+              )
+              : null, // Hide FAB when user doesn't have permission
     );
   }
 
@@ -248,180 +264,334 @@ class _MeetingListScreenState extends State<MeetingListScreen> {
   }
 
   Widget _buildMeetingCard(Meeting meeting) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  meeting.title,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF1F2937),
-                  ),
-                ),
-              ),
-              if (meeting.type == 'Online')
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.videocam,
-                    color: Colors.blue,
-                    size: 16,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
+    final isOnline = meeting.type.toLowerCase() == 'online';
+    const primaryColor = Color(0xFF3B82F6);
+    const bgGradient = [Color(0xFF3B82F6), Color(0xFF60A5FA)];
 
-          // Date Time
-          Row(
-            children: [
-              const Icon(
-                Icons.calendar_today,
-                size: 16,
-                color: Color(0xFF6B7280),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                "Tanggal & Waktu",
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  color: const Color(0xFF9CA3AF),
-                ),
-              ),
-            ],
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MeetingDetailScreen(meeting: meeting),
           ),
-          Padding(
-            padding: const EdgeInsets.only(left: 24, top: 2),
-            child: Text(
-              "${meeting.date} • ${meeting.startTime}",
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF374151),
-              ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: primaryColor.withValues(alpha: 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
-          ),
-          const SizedBox(height: 12),
-
-          // Location/Link
-          Row(
-            children: [
-              Icon(
-                meeting.type == 'Online' ? Icons.link : Icons.location_on,
-                size: 16,
-                color: const Color(0xFF6B7280),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                meeting.type == 'Online' ? "Link Rapat" : "Lokasi",
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  color: const Color(0xFF9CA3AF),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Gradient Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: bgGradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
                 ),
               ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 24, top: 2),
-            child: Text(
-              meeting.type == 'Online'
-                  ? (meeting.link ?? "-")
-                  : (meeting.location ?? "-"),
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color:
-                    meeting.type == 'Online'
-                        ? Colors.blue
-                        : const Color(0xFF374151),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-
-          // Action & Participants placeholder
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Participant circles placeholder
-              Flexible(
-                child: SizedBox(
-                  height: 30,
-                  child: Stack(
-                    children: List.generate(3, (index) {
-                      return Positioned(
-                        left: index * 20.0,
-                        child: Container(
-                          width: 30,
-                          height: 30,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+              child: Row(
+                children: [
+                  // Icon container
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      isOnline
+                          ? Icons.videocam_rounded
+                          : Icons.location_on_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isOnline ? 'Rapat Online' : 'Rapat Offline',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.9),
                           ),
-                          child: const Icon(
-                            Icons.person,
-                            size: 16,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          meeting.formattedDate,
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                             color: Colors.white,
                           ),
                         ),
-                      );
-                    }),
+                      ],
+                    ),
                   ),
-                ),
+                  // Time badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.access_time_rounded,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          meeting.startTime.length >= 5
+                              ? meeting.startTime.substring(0, 5)
+                              : meeting.startTime,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () {
-                  // Navigate to detail?
-                },
-                child: Row(
-                  children: [
-                    Text(
-                      "Detail",
-                      style: GoogleFonts.poppins(
-                        color: Colors.blueAccent,
-                        fontWeight: FontWeight.w600,
+            ),
+
+            // Content Section
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
+                    meeting.title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1F2937),
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Location/Link info
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFE5E7EB),
+                        width: 1,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      size: 12,
-                      color: Colors.blueAccent,
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            isOnline ? Icons.link_rounded : Icons.place_rounded,
+                            size: 18,
+                            color: primaryColor,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isOnline ? 'Link Meeting' : 'Lokasi',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  color: const Color(0xFF9CA3AF),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                isOnline
+                                    ? (meeting.link ?? 'Belum tersedia')
+                                    : (meeting.location ?? 'Belum ditentukan'),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color:
+                                      isOnline
+                                          ? const Color(0xFF3B82F6)
+                                          : const Color(0xFF374151),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Bottom row: Creator info & Detail button
+                  Row(
+                    children: [
+                      // Creator info
+                      if (meeting.creatorName != null) ...[
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF6366F1),
+                                const Color(0xFF8B5CF6),
+                              ],
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              meeting.creatorName!.isNotEmpty
+                                  ? meeting.creatorName![0].toUpperCase()
+                                  : '?',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Diselenggarakan oleh',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 10,
+                                  color: const Color(0xFF9CA3AF),
+                                ),
+                              ),
+                              Text(
+                                meeting.creatorName!,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF374151),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        const Spacer(),
+                      ],
+
+                      // Detail button
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: bgGradient),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: primaryColor.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) =>
+                                          MeetingDetailScreen(meeting: meeting),
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Lihat Detail',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.arrow_forward_rounded,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
