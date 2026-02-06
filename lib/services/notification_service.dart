@@ -22,6 +22,11 @@ class NotificationService {
   Timer? _timer;
   final List<String> _localNotificationIds = [];
 
+  final StreamController<String?> _selectNotificationController =
+      StreamController<String?>.broadcast();
+  Stream<String?> get selectNotificationStream =>
+      _selectNotificationController.stream;
+
   final StreamController<int> _unreadCountController =
       StreamController<int>.broadcast();
   Stream<int> get unreadCountStream => _unreadCountController.stream;
@@ -34,7 +39,17 @@ class NotificationService {
     const InitializationSettings initializationSettings =
         InitializationSettings(android: initializationSettingsAndroid);
 
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        debugPrint(
+          'NotificationService: Local Notification Tapped with payload: ${response.payload}',
+        );
+        if (response.payload != null) {
+          _selectNotificationController.add(response.payload);
+        }
+      },
+    );
 
     // Request Permissions (Android 13+)
     await flutterLocalNotificationsPlugin
@@ -62,9 +77,9 @@ class NotificationService {
   void stopPolling() {
     _timer?.cancel();
     _unreadCountController.close();
+    _selectNotificationController.close();
   }
 
-  // 4. Fetch API
   // 4. Fetch API
   Future<void> _fetchNotifications() async {
     try {
@@ -139,6 +154,17 @@ class NotificationService {
       String id = note['id'].toString();
       String title = note['title'] ?? 'Notification';
       String body = note['body'] ?? '';
+      // Assuming 'screen' might be in the notification object from API,
+      // otherwise, we might need to rely on what FCM sends or hardcode based on type.
+      // But here we are processing polled notifications.
+      // The API response might not have 'data' field structured like FCM.
+      // We will try to pass the whole note object or specific fields as payload if possible.
+      // For now, let's just pass a basic payload if available or null.
+      // Usually polling doesn't popup local notifications if they are old,
+      // but logic below checks checking _localNotificationIds.
+
+      // Let's create a payload map from the note object
+      String? payload = jsonEncode(note);
 
       // Check if ID is new
       if (!_localNotificationIds.contains(id)) {
@@ -152,6 +178,7 @@ class NotificationService {
           id: id.hashCode, // Use unique int ID
           title: title,
           body: body,
+          payload: payload,
         );
       }
     }
@@ -161,6 +188,7 @@ class NotificationService {
     required int id,
     required String title,
     required String body,
+    String? payload,
   }) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
@@ -185,6 +213,7 @@ class NotificationService {
       title,
       body,
       platformChannelSpecifics,
+      payload: payload,
     );
   }
 }

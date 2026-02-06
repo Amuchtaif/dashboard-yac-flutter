@@ -44,7 +44,16 @@ class AuthService {
             await prefs.setString('positionName', user.positionName);
             await prefs.setString('phoneNumber', user.phoneNumber);
             await prefs.setInt('positionLevel', user.positionLevel);
+            await prefs.setInt(
+              'divisionId',
+              user.divisionId,
+            ); // Added divisionId
             await prefs.setBool('isLoggedIn', true);
+            // Save Login Timestamp for 12h Session
+            await prefs.setInt(
+              'login_timestamp',
+              DateTime.now().millisecondsSinceEpoch,
+            );
 
             return AuthResult(
               success: true,

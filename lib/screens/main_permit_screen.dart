@@ -512,6 +512,46 @@ class _MyPermitsTabState extends State<MyPermitsTab> {
                                 ],
                               ),
 
+                              // --- REASON SECTION FOR MUDIR (Level 1) ---
+                              if (widget.positionLevel == 1 &&
+                                  permit['reason'] != null) ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[50],
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.grey[200]!,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "Alasan:",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          color: Colors.grey[500],
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "\"${permit['reason']}\"",
+                                        style: GoogleFonts.poppins(
+                                          fontStyle: FontStyle.italic,
+                                          color: Colors.grey[700],
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+
                               const SizedBox(height: 16),
 
                               // Date Range - Enhanced

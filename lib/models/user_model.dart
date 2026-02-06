@@ -7,6 +7,7 @@ class User {
   final String positionName;
   final String phoneNumber;
   final int positionLevel;
+  final int divisionId; // Added divisionId
 
   User({
     required this.id,
@@ -17,6 +18,7 @@ class User {
     required this.positionName,
     required this.phoneNumber,
     required this.positionLevel,
+    required this.divisionId, // Added
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,10 @@ class User {
           json['position_level'] is int
               ? json['position_level']
               : int.tryParse(json['position_level'].toString()) ?? 99,
+      divisionId:
+          json['division_id'] is int
+              ? json['division_id']
+              : int.tryParse(json['division_id']?.toString() ?? '0') ?? 0,
     );
   }
 
@@ -45,6 +51,7 @@ class User {
       'position_name': positionName,
       'phone_number': phoneNumber,
       'position_level': positionLevel,
+      'division_id': divisionId,
     };
   }
 }

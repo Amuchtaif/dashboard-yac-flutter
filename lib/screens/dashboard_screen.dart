@@ -12,6 +12,7 @@ import 'quran_list_screen.dart';
 import 'dzikir_doa_screen.dart';
 import 'assunnah_tv_screen.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'meeting_list_screen.dart'; // import meeting list screen
 
 import '../services/notification_service.dart';
 import '../config/api_config.dart';
@@ -103,6 +104,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       debugPrint("Body: ${message.notification?.body}");
       debugPrint("Data: ${message.data}");
 
+      // Prepare payload with title/body included if they exist in notification
+      Map<String, dynamic> payloadData = Map.from(message.data);
+      if (message.notification != null) {
+        payloadData['title'] = message.notification!.title;
+        payloadData['body'] = message.notification!.body;
+      }
+
       if (message.notification != null) {
         if (!mounted) return;
 
@@ -111,6 +119,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           id: message.hashCode,
           title: message.notification!.title ?? 'Notifikasi Baru',
           body: message.notification!.body ?? '',
+          payload: jsonEncode(payloadData),
         );
       } else {
         // Fallback jika notifikasi null tapi ada data (kadang terjadi)
@@ -118,7 +127,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           id: message.hashCode,
           title: message.data['title'] ?? 'Notifikasi Baru',
           body: message.data['body'] ?? 'Anda memiliki notifikasi baru',
+          payload: jsonEncode(payloadData), // Use the same prepared payload
         );
+      }
+    });
+
+    // 3. Listen to Local Notification Taps
+    NotificationService().selectNotificationStream.listen((String? payload) {
+      if (payload != null) {
+        debugPrint("🔔 Local Notification Tapped! Payload: $payload");
+        try {
+          final Map<String, dynamic> data = jsonDecode(payload);
+          _handleNavigationData(data);
+        } catch (e) {
+          debugPrint("Error parsing payload: $e");
+        }
       }
     });
 
@@ -133,23 +156,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
         await FirebaseMessaging.instance.getInitialMessage();
 
     if (initialMessage != null) {
-      _handleMessageNavigation(initialMessage);
+      _handleNavigationData(initialMessage.data);
     }
 
     // 2. App from Background State
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageNavigation);
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      _handleNavigationData(message.data);
+    });
   }
 
-  void _handleMessageNavigation(RemoteMessage message) {
-    if (message.data['screen'] == 'approval') {
-      if (!mounted) return;
-      // Navigasi ke halaman Utama Izin (Agar Tab Persetujuan muncul untuk Manager)
+  void _handleNavigationData(Map<String, dynamic> data) {
+    debugPrint("🚀 Handling Navigation Data: $data");
+
+    // Check screen type
+    String? screen = data['screen'];
+    String? title = data['title'] ?? '';
+    String? body = data['body'] ?? '';
+
+    if (!mounted) return;
+
+    // Case 1: Approval (Manager)
+    if (screen == 'approval') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const MainPermitScreen()),
       );
     }
-    // Tambahkan kondisi screen lain jika ada
+    // Case 2: Permit Status Update (Staff) - "halaman perizinan"
+    // Also check for "Status anda diperbarui" in title/body as fallback
+    else if (screen == 'permit' ||
+        (title != null && title.toLowerCase().contains('status')) ||
+        (body != null && body.toLowerCase().contains('status'))) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const MainPermitScreen()),
+      );
+    }
   }
 
   // --- LOGIC 1: LOAD USER DATA ---
@@ -1200,6 +1242,13 @@ class HomeTab extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const MainPermitScreen(),
+                      ),
+                    );
+                  } else if (menu['title'] == 'Rapat Pertemuan') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MeetingListScreen(),
                       ),
                     );
                   }

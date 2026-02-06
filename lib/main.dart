@@ -4,7 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
+import 'screens/dashboard_screen.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -15,9 +17,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // KITA HAPUS TRY-CATCH AGAR ERROR ASLINYA MUNCUL
-  debugPrint("🔥 SEDANG MENCOBA KONEK FIREBASE...");
-
+  debugPrint("🔥 INITIALIZING FIREBASE...");
   await Firebase.initializeApp();
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -41,7 +41,38 @@ void main() async {
       >()
       ?.createNotificationChannel(channel);
 
-  debugPrint("✅ FIREBASE BERHASIL KONEK! LANJUT GAS...");
+  debugPrint("✅ FIREBASE CONNECTED!");
+
+  // --- CEK SESI LOGIN (12 JAM) ---
+  final prefs = await SharedPreferences.getInstance();
+  final int? loginTimestamp = prefs.getInt('login_timestamp');
+  final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+  bool isSessionValid = false;
+
+  if (isLoggedIn && loginTimestamp != null) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final diff = now - loginTimestamp;
+    // 12 Jam = 12 * 60 * 60 * 1000 = 43,200,000 ms
+    const sessionTimeout = 43200000;
+
+    if (diff < sessionTimeout) {
+      debugPrint(
+        "✅ SESSION VALID (Login: ${DateTime.fromMillisecondsSinceEpoch(loginTimestamp)})",
+      );
+      isSessionValid = true;
+      // Sliding Expiration: Update timestamp agar session diperpanjang jika aktif
+      await prefs.setInt('login_timestamp', now);
+    } else {
+      debugPrint(
+        "❌ SESSION EXPIRED (Diff: ${diff}ms > ${sessionTimeout}ms). LOGOUT.",
+      );
+      await prefs.clear(); // Reset session
+    }
+  } else {
+    debugPrint("ℹ️ NO ACTIVE SESSION");
+    await prefs.clear();
+  }
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -51,22 +82,24 @@ void main() async {
     ),
   );
 
-  runApp(const MyApp());
+  runApp(MyApp(isSessionValid: isSessionValid));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool isSessionValid;
+  const MyApp({super.key, required this.isSessionValid});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Dashboard YAC',
+      title: 'Aplikasi YAC',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueAccent),
         useMaterial3: true,
         textTheme: GoogleFonts.poppinsTextTheme(),
       ),
-      home: const LoginScreen(),
+      // Jika Sesi Valid -> Dashboard, Jika Tidak -> Login
+      home: isSessionValid ? const DashboardScreen() : const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
