@@ -98,16 +98,42 @@ class _MeetingListScreenState extends State<MeetingListScreen> {
   }
 
   List<Meeting> get _filteredMeetings {
-    // Simple client-side filter logic
-    // Mapping tabs to status:
-    // 0 -> upcoming
-    // 1 -> finished
-
-    String targetStatus = 'upcoming';
-    if (_selectedTabIndex == 1) targetStatus = 'finished';
+    final now = DateTime.now();
 
     return _meetings.where((m) {
-      return m.status == targetStatus;
+      // Parse timestamp rapat
+      DateTime? meetingEnd;
+      try {
+        // Gabungkan date dan endTime
+        final datePart = DateTime.parse(m.date);
+        final timeParts = m.endTime.split(':');
+        final endHour = int.parse(timeParts[0]);
+        final endMinute = int.parse(timeParts[1]);
+
+        meetingEnd = DateTime(
+          datePart.year,
+          datePart.month,
+          datePart.day,
+          endHour,
+          endMinute,
+        );
+      } catch (e) {
+        // Fallback jika format error, gunakan status dari API
+        meetingEnd = null;
+      }
+
+      final bool isFinished =
+          meetingEnd != null
+              ? now.isAfter(meetingEnd)
+              : (m.status.toLowerCase() == 'finished');
+
+      // Tab 0: Mendatang (Not Finished)
+      // Tab 1: Selesai (Finished)
+      if (_selectedTabIndex == 0) {
+        return !isFinished;
+      } else {
+        return isFinished;
+      }
     }).toList();
   }
 

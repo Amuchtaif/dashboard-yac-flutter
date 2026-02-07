@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
@@ -26,6 +28,46 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
   final GlobalKey _qrKey = GlobalKey();
   bool _isSharing = false;
   bool _isSubmittingAbsensi = false;
+  bool _hasAttended = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAttendanceStatus();
+  }
+
+  Future<void> _checkAttendanceStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final attended =
+        prefs.getBool('attended_meeting_${widget.meeting.id}') ?? false;
+    if (mounted) {
+      setState(() {
+        _hasAttended = attended;
+      });
+    }
+  }
+
+  bool get _isMeetingStarted {
+    try {
+      if (widget.meeting.date.isEmpty || widget.meeting.startTime.isEmpty) {
+        return true;
+      }
+      final date = DateTime.parse(widget.meeting.date);
+      final timeParts = widget.meeting.startTime.split(':');
+      if (timeParts.length < 2) return true;
+
+      final startDateTime = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        int.parse(timeParts[0]),
+        int.parse(timeParts[1]),
+      );
+      return DateTime.now().isAfter(startDateTime);
+    } catch (e) {
+      return true; // Fallback to allow if parsing fails
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -193,7 +235,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                             const SizedBox(height: 12),
                             _buildInfoRow(
                               Icons.person_outline,
-                              'Pembicara: ${meeting.creatorName}',
+                              'Penyelenggara: ${meeting.creatorName}',
                             ),
                           ],
 
@@ -332,46 +374,110 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
               ),
             ),
 
-            // Bottom Button
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: () {
-                    _handleScanAbsensi(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3B82F6),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    shadowColor: const Color(0xFF3B82F6).withValues(alpha: 0.4),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.qr_code_scanner,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Scan QR Absensi',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+            // Bottom Buttons
+            if (!_hasAttended)
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    // Scan QR Button
+                    Expanded(
+                      child: SizedBox(
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed:
+                              _isMeetingStarted
+                                  ? () {
+                                    _handleScanAbsensi(context);
+                                  }
+                                  : () {
+                                    _showErrorSnackbar(
+                                      'Rapat belum dimulai. Harap tunggu hingga waktu mulai.',
+                                    );
+                                  },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                _isMeetingStarted
+                                    ? const Color(0xFF3B82F6)
+                                    : Colors.grey,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.qr_code_scanner,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Scan QR',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Upload File Button
+                    Expanded(
+                      child: SizedBox(
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed:
+                              _isMeetingStarted
+                                  ? () {
+                                    _handleUploadQrImage(context);
+                                  }
+                                  : () {
+                                    _showErrorSnackbar(
+                                      'Rapat belum dimulai. Harap tunggu hingga waktu mulai.',
+                                    );
+                                  },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                _isMeetingStarted
+                                    ? const Color(0xFF10B981)
+                                    : Colors.grey,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.upload_file,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Upload QR',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -449,6 +555,71 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
       } else {
         _showErrorSnackbar('QR Code tidak valid untuk rapat ini.');
       }
+    }
+  }
+
+  Future<void> _handleUploadQrImage(BuildContext context) async {
+    final meeting = widget.meeting;
+
+    try {
+      // Pick image from gallery
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (image == null) {
+        return; // User cancelled
+      }
+
+      // Show loading indicator
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => const Center(child: CircularProgressIndicator()),
+        );
+      }
+
+      // Decode QR from image using MobileScannerController
+      final controller = MobileScannerController();
+      final barcodes = await controller.analyzeImage(image.path);
+      await controller.dispose();
+
+      // Close loading dialog
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
+      if (barcodes == null || barcodes.barcodes.isEmpty) {
+        _showErrorSnackbar(
+          'Tidak dapat membaca QR Code dari gambar. Pastikan gambar berisi QR Code yang jelas.',
+        );
+        return;
+      }
+
+      final scannedData = barcodes.barcodes.first.rawValue;
+
+      if (scannedData == null) {
+        _showErrorSnackbar('QR Code tidak dapat dibaca.');
+        return;
+      }
+
+      // Validate QR
+      final expectedToken = meeting.qrToken ?? 'MEET-${meeting.id}';
+
+      if (scannedData == expectedToken) {
+        _confirmAbsensi(context);
+      } else {
+        _showErrorSnackbar('QR Code tidak valid untuk rapat ini.');
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      debugPrint('Error scanning QR from image: $e');
+      _showErrorSnackbar(
+        'Gagal membaca QR Code dari gambar. Silakan coba lagi.',
+      );
     }
   }
 
@@ -583,6 +754,14 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
             margin: const EdgeInsets.all(16),
           ),
         );
+
+        // Save local attendance status
+        await prefs.setBool('attended_meeting_${widget.meeting.id}', true);
+        if (mounted) {
+          setState(() {
+            _hasAttended = true;
+          });
+        }
       } else {
         // Show error from server
         _showErrorSnackbar(data['message'] ?? 'Gagal mencatat absensi');

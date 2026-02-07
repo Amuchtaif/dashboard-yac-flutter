@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'permit_screen.dart'; // Pastikan file ini ada
 import '../config/api_config.dart';
+import '../services/permission_service.dart';
 
 class MainPermitScreen extends StatefulWidget {
   const MainPermitScreen({super.key});
@@ -23,6 +24,8 @@ class _MainPermitScreenState extends State<MainPermitScreen> {
 
   int? _positionLevel;
   bool _isLoadingLevel = true;
+  bool _canApprovePermits = false;
+  final PermissionService _permissionService = PermissionService();
 
   @override
   void initState() {
@@ -32,12 +35,25 @@ class _MainPermitScreenState extends State<MainPermitScreen> {
 
   Future<void> _checkUserLevel() async {
     final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('userId');
+
+    // Load permissions from cache first
+    await _permissionService.loadFromCache();
+
+    // Fetch fresh permissions from API if userId available
+    if (userId != null) {
+      await _permissionService.fetchPermissions(userId);
+    }
+
     setState(() {
-      _positionLevel = prefs.getInt(
-        'positionLevel',
-      ); // Pastikan key ini sesuai saat login
+      _positionLevel = prefs.getInt('positionLevel');
+      _canApprovePermits = _permissionService.canApprovePermits;
       _isLoadingLevel = false;
     });
+
+    debugPrint(
+      '📋 MainPermitScreen: canApprovePermits = $_canApprovePermits, positionLevel = $_positionLevel',
+    );
   }
 
   @override
@@ -49,8 +65,8 @@ class _MainPermitScreenState extends State<MainPermitScreen> {
       );
     }
 
-    // Logic: Level 1, 2, 3 dianggap Manager (Bisa Approve)
-    final bool isManager = _positionLevel != null && _positionLevel! <= 3;
+    // Logic: Use permission from admin panel instead of hardcoded level
+    final bool isManager = _canApprovePermits;
 
     // --- NON-MANAGER VIEW (List Only) ---
     if (!isManager) {

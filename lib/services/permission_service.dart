@@ -14,10 +14,14 @@ class PermissionService {
 
   // Cache permission di memory untuk akses cepat
   bool _canCreateMeeting = false;
+  bool _canApprovePermits = false;
   bool _isLoaded = false;
 
   /// Getter untuk mengecek apakah user bisa membuat rapat
   bool get canCreateMeeting => _canCreateMeeting;
+
+  /// Getter untuk mengecek apakah user bisa menyetujui izin
+  bool get canApprovePermits => _canApprovePermits;
 
   /// Getter untuk mengecek apakah permission sudah di-load
   bool get isLoaded => _isLoaded;
@@ -26,9 +30,10 @@ class PermissionService {
   Future<void> loadFromCache() async {
     final prefs = await SharedPreferences.getInstance();
     _canCreateMeeting = prefs.getBool('can_create_meeting') ?? false;
+    _canApprovePermits = prefs.getBool('can_approve_permits') ?? false;
     _isLoaded = true;
     debugPrint(
-      "📋 Permission Loaded from Cache: canCreateMeeting=$_canCreateMeeting",
+      "📋 Permission Loaded from Cache: canCreateMeeting=$_canCreateMeeting, canApprovePermits=$_canApprovePermits",
     );
   }
 
@@ -54,13 +59,14 @@ class PermissionService {
 
           // Parse permission values (handle both int and string)
           _canCreateMeeting = _parseBool(permissions['can_create_meeting']);
+          _canApprovePermits = _parseBool(permissions['can_approve_permits']);
 
           // Simpan ke SharedPreferences untuk cache
           await _saveToCache();
 
           _isLoaded = true;
           debugPrint(
-            "✅ Permissions Fetched: canCreateMeeting=$_canCreateMeeting",
+            "✅ Permissions Fetched: canCreateMeeting=$_canCreateMeeting, canApprovePermits=$_canApprovePermits",
           );
           return true;
         } else {
@@ -77,10 +83,10 @@ class PermissionService {
     }
   }
 
-  /// Simpan permission ke SharedPreferences
   Future<void> _saveToCache() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('can_create_meeting', _canCreateMeeting);
+    await prefs.setBool('can_approve_permits', _canApprovePermits);
     debugPrint("💾 Permissions saved to cache");
   }
 
@@ -91,13 +97,14 @@ class PermissionService {
     _isLoaded = true;
   }
 
-  /// Reset semua permission (saat logout)
   Future<void> clear() async {
     _canCreateMeeting = false;
+    _canApprovePermits = false;
     _isLoaded = false;
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('can_create_meeting');
+    await prefs.remove('can_approve_permits');
     debugPrint("🗑️ Permissions cleared");
   }
 
@@ -113,12 +120,12 @@ class PermissionService {
     return false;
   }
 
-  /// Validasi apakah user diperbolehkan melakukan aksi tertentu
-  /// Bisa di-extend untuk permission lainnya
   bool hasPermission(String permissionName) {
     switch (permissionName) {
       case 'create_meeting':
         return _canCreateMeeting;
+      case 'approve_permits':
+        return _canApprovePermits;
       default:
         debugPrint("⚠️ Unknown permission: $permissionName");
         return false;

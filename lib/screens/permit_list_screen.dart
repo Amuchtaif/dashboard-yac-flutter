@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart'; // Import for initializeDateFormatting
 import 'package:shared_preferences/shared_preferences.dart';
 import 'permit_screen.dart';
 import '../config/api_config.dart';
@@ -26,6 +27,9 @@ class _PermitListScreenState extends State<PermitListScreen> {
   @override
   void initState() {
     super.initState();
+    initializeDateFormatting('id_ID', null).then((_) {
+      if (mounted) setState(() {});
+    });
     _loadData();
   }
 
@@ -86,8 +90,58 @@ class _PermitListScreenState extends State<PermitListScreen> {
   // Helper to filter permits based on status
   // Assumes API status returns 'Pending', 'Approved', 'Rejected' (case insensitive check recommended)
   List<dynamic> get _filteredPermits {
-    if (_selectedFilter == 'Semua') return _permits;
-    return _permits.where((p) {
+    final now = DateTime.now();
+    final currentMonth = now.month;
+    final currentYear = now.year;
+
+    debugPrint('📅 Current filter: Month=$currentMonth, Year=$currentYear');
+
+    // Filter by month first
+    final currentMonthPermits =
+        _permits.where((p) {
+          DateTime? dateToCheck;
+
+          // Prioritize created_at (Submission Date) based on user feedback
+          if (p['created_at'] != null &&
+              p['created_at'].toString().trim().isNotEmpty) {
+            try {
+              dateToCheck = DateTime.parse(p['created_at'].toString().trim());
+            } catch (e) {
+              debugPrint('❌ Failed to parse created_at: ${p['created_at']}');
+            }
+          }
+
+          // Fallback to start_date if created_at invalid/missing
+          if (dateToCheck == null &&
+              p['start_date'] != null &&
+              p['start_date'].toString().trim().isNotEmpty) {
+            try {
+              dateToCheck = DateTime.parse(p['start_date'].toString().trim());
+            } catch (e) {
+              debugPrint('❌ Failed to parse start_date: ${p['start_date']}');
+            }
+          }
+
+          if (dateToCheck != null) {
+            final isMatch =
+                dateToCheck.month == currentMonth &&
+                dateToCheck.year == currentYear;
+            debugPrint(
+              '🔍 Permit ID=${p['id']}, Date=$dateToCheck, Month=${dateToCheck.month}, Year=${dateToCheck.year}, Match=$isMatch',
+            );
+            return isMatch;
+          }
+          debugPrint('⚠️ Permit ID=${p['id']} has no valid date, excluding.');
+          return false;
+        }).toList();
+
+    debugPrint(
+      '📊 Total permits: ${_permits.length}, After filter: ${currentMonthPermits.length}',
+    );
+
+    if (_selectedFilter == 'Semua') return currentMonthPermits;
+
+    return currentMonthPermits.where((p) {
       String status = (p['status'] ?? '').toString();
       return status.toLowerCase() == _selectedFilter.toLowerCase();
     }).toList();
@@ -213,6 +267,21 @@ class _PermitListScreenState extends State<PermitListScreen> {
                         ),
                       );
                     }).toList(),
+              ),
+            ),
+          ),
+
+          // Period Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            color: Colors.blueAccent.withValues(alpha: 0.05),
+            child: Text(
+              "Periode: ${DateFormat('MMMM yyyy', 'id_ID').format(DateTime.now())}",
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.blueAccent,
               ),
             ),
           ),
