@@ -1,0 +1,95 @@
+  Widget _buildTahfidzMenuGrid(BuildContext context) {
+    final menus = [
+      {'title': 'Absensi Tahfidz', 'icon': Icons.how_to_reg, 'color': Colors.indigo},
+      {'title': 'Absensi Pengampu', 'icon': Icons.co_present, 'color': Colors.deepPurple},
+      {'title': 'Setoran', 'icon': Icons.mic, 'color': Colors.teal},
+      {'title': 'Penilaian', 'icon': Icons.grade, 'color': Colors.orangeAccent},
+    ];
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: menus.map((menu) {
+        return Expanded(
+          child: Container(
+            height: 100, // Fixed height for consistency
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () {
+                  if (menu['title'] == 'Absensi Tahfidz') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const AbsensiTahfidzScreen()),
+                    );
+                  } else if (menu['title'] == 'Absensi Pengampu') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const AbsensiPengampuScreen()),
+                    );
+                  } else if (menu['title'] == 'Setoran') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const SetoranTahfidzScreen()),
+                    );
+                  } else if (menu['title'] == 'Penilaian') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const PenilaianTahfidzScreen()),
+                    );
+                  }
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: (menu['color'] as Color).withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          menu['icon'] as IconData,
+                          color: menu['color'] as Color,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        menu['title'] as String,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        style: GoogleFonts.poppins(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }

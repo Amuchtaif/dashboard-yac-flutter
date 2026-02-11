@@ -36,6 +36,14 @@ class AuthService {
             final userData = responseData['data'];
             final user = User.fromJson(userData);
 
+            // Debug: Print user data received from API
+            debugPrint('🔐 Login Data Received:');
+            debugPrint('   Full Name: ${user.fullName}');
+            debugPrint('   Position Name: ${user.positionName}');
+            debugPrint('   Position Level: ${user.positionLevel}');
+            debugPrint('   Unit Name: ${user.unitName}');
+            debugPrint('   Division Name: ${user.divisionName}');
+
             // Save session data
             final prefs = await SharedPreferences.getInstance();
             await prefs.setInt('userId', user.id);

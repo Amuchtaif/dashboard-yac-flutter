@@ -388,7 +388,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                           onPressed:
                               _isMeetingStarted
                                   ? () {
-                                    _handleScanAbsensi(context);
+                                    _handleScanAbsensi();
                                   }
                                   : () {
                                     _showErrorSnackbar(
@@ -436,7 +436,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                           onPressed:
                               _isMeetingStarted
                                   ? () {
-                                    _handleUploadQrImage(context);
+                                    _handleUploadQrImage();
                                   }
                                   : () {
                                     _showErrorSnackbar(
@@ -534,10 +534,11 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
     );
   }
 
-  Future<void> _handleScanAbsensi(BuildContext context) async {
+  Future<void> _handleScanAbsensi() async {
     final meeting = widget.meeting;
 
     // Navigate to scanner
+    if (!mounted) return;
     final scannedData = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const ScanQrScreen()),
@@ -551,14 +552,14 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
       final expectedToken = meeting.qrToken ?? 'MEET-${meeting.id}';
 
       if (scannedData == expectedToken) {
-        _confirmAbsensi(context);
+        _confirmAbsensi();
       } else {
         _showErrorSnackbar('QR Code tidak valid untuk rapat ini.');
       }
     }
   }
 
-  Future<void> _handleUploadQrImage(BuildContext context) async {
+  Future<void> _handleUploadQrImage() async {
     final meeting = widget.meeting;
 
     try {
@@ -571,13 +572,12 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
       }
 
       // Show loading indicator
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => const Center(child: CircularProgressIndicator()),
-        );
-      }
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(child: CircularProgressIndicator()),
+      );
 
       // Decode QR from image using MobileScannerController
       final controller = MobileScannerController();
@@ -585,9 +585,8 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
       await controller.dispose();
 
       // Close loading dialog
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+      if (!mounted) return;
+      Navigator.of(context).pop();
 
       if (barcodes == null || barcodes.barcodes.isEmpty) {
         _showErrorSnackbar(
@@ -607,7 +606,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
       final expectedToken = meeting.qrToken ?? 'MEET-${meeting.id}';
 
       if (scannedData == expectedToken) {
-        _confirmAbsensi(context);
+        _confirmAbsensi();
       } else {
         _showErrorSnackbar('QR Code tidak valid untuk rapat ini.');
       }
@@ -623,7 +622,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
     }
   }
 
-  void _confirmAbsensi(BuildContext context) {
+  void _confirmAbsensi() {
     showDialog(
       context: context,
       builder:

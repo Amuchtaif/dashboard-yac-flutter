@@ -16,6 +16,13 @@ import 'meeting_list_screen.dart'; // import meeting list screen
 
 import '../services/notification_service.dart';
 import '../config/api_config.dart';
+import 'inventory_category_screen.dart'; // Import Inventory Screen
+import 'payroll_history_screen.dart'; // Import Payroll Screen
+import 'tahfidz/absensi_tahfidz_screen.dart';
+import 'tahfidz/absensi_pengampu_screen.dart';
+import 'tahfidz/setoran_tahfidz_screen.dart';
+import 'tahfidz/penilaian_tahfidz_screen.dart';
+import '../utils/access_control.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -73,6 +80,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _fullName = 'Loading...';
   String _unitName = '';
   String _divisionName = '';
+  String _positionName = '';
   String _userId = "";
 
   // Data Dashboard
@@ -203,6 +211,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _fullName = prefs.getString('fullName') ?? 'User';
       _unitName = prefs.getString('unitName') ?? '';
       _divisionName = prefs.getString('divisionName') ?? '';
+      _positionName = prefs.getString('positionName') ?? '';
       int id = prefs.getInt('userId') ?? 0; // Default 0 jika tidak ada
       _userId = id.toString();
     });
@@ -356,6 +365,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         fullName: _fullName,
         unitName: _unitName,
         deptName: _divisionName,
+        positionName: _positionName,
         recentActivities: _recentActivities,
         isLoading: _isLoadingActivity,
         onAttendanceTap: _handleAttendance,
@@ -472,6 +482,7 @@ class HomeTab extends StatelessWidget {
   final String fullName;
   final String unitName;
   final String deptName;
+  final String positionName;
   final List<dynamic> recentActivities;
   final bool isLoading;
   final VoidCallback onAttendanceTap;
@@ -485,6 +496,7 @@ class HomeTab extends StatelessWidget {
     required this.fullName,
     required this.unitName,
     required this.deptName,
+    required this.positionName,
     required this.recentActivities,
     required this.isLoading,
     required this.onAttendanceTap,
@@ -493,7 +505,6 @@ class HomeTab extends StatelessWidget {
     required this.timeOut,
     required this.todaySchedule,
   });
-
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -517,6 +528,13 @@ class HomeTab extends StatelessWidget {
             _buildSectionTitle('Menu Umum'),
             const SizedBox(height: 12),
             _buildGeneralMenuGrid(context),
+            const SizedBox(height: 24),
+            // Show Tahfidz Menu Only If User Has Permission
+            if (AccessControl.can('view_tahfidz_menu')) ...[
+              _buildSectionTitle('Menu Tahfidz'),
+              const SizedBox(height: 12),
+              _buildTahfidzMenuGrid(context),
+            ],
           ],
         ),
       ),
@@ -551,9 +569,12 @@ class HomeTab extends StatelessWidget {
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
-              if (unitName.isNotEmpty)
+              // Show subtitle: unitName for staff, positionName for managers
+              if (unitName.isNotEmpty || positionName.isNotEmpty)
                 Text(
-                  "$unitName - $deptName",
+                  unitName.isNotEmpty
+                      ? "$unitName - $deptName"
+                      : "$positionName - $deptName",
                   style: GoogleFonts.poppins(
                     fontSize: 10,
                     color: Colors.grey[500],
@@ -1235,69 +1256,91 @@ class HomeTab extends StatelessWidget {
       children:
           menus.map((menu) {
             return Expanded(
-              child: InkWell(
-                onTap: () {
-                  if (menu['title'] == 'Izin Kerja') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MainPermitScreen(),
-                      ),
-                    );
-                  } else if (menu['title'] == 'Rapat Pertemuan') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MeetingListScreen(),
-                      ),
-                    );
-                  }
-                },
-                child: Container(
-                  height: 100, // Fixed height for uniformity
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: (menu['color'] as Color).withValues(
-                            alpha: 0.1,
+              child: Container(
+                height: 100,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () {
+                      if (menu['title'] == 'Izin Kerja') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const MainPermitScreen(),
                           ),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          menu['icon'] as IconData,
-                          color: menu['color'] as Color,
-                          size: 20,
-                        ),
+                        );
+                      } else if (menu['title'] == 'Rapat Pertemuan') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const MeetingListScreen(),
+                          ),
+                        );
+                      } else if (menu['title'] == 'Inventaris Barang') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => const InventoryCategoryScreen(),
+                          ),
+                        );
+                      } else if (menu['title'] == 'Penggajian') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PayrollHistoryScreen(),
+                          ),
+                        );
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 8,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        menu['title'] as String,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        style: GoogleFonts.poppins(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: (menu['color'] as Color).withValues(
+                                alpha: 0.1,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              menu['icon'] as IconData,
+                              color: menu['color'] as Color,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            menu['title'] as String,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            style: GoogleFonts.poppins(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -1327,6 +1370,120 @@ class HomeTab extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildTahfidzMenuGrid(BuildContext context) {
+    final menus = [
+      {
+        'title': 'Absensi Tahfidz',
+        'icon': Icons.how_to_reg,
+        'color': Colors.indigo,
+      },
+      {
+        'title': 'Absensi Pengampu',
+        'icon': Icons.co_present,
+        'color': Colors.deepPurple,
+      },
+      {'title': 'Setoran', 'icon': Icons.mic, 'color': Colors.teal},
+      {'title': 'Penilaian', 'icon': Icons.grade, 'color': Colors.orangeAccent},
+    ];
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children:
+          menus.map((menu) {
+            return Expanded(
+              child: Container(
+                height: 100, // Fixed height for consistency
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () {
+                      if (menu['title'] == 'Absensi Tahfidz') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AbsensiTahfidzScreen(),
+                          ),
+                        );
+                      } else if (menu['title'] == 'Absensi Pengampu') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AbsensiPengampuScreen(),
+                          ),
+                        );
+                      } else if (menu['title'] == 'Setoran') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SetoranTahfidzScreen(),
+                          ),
+                        );
+                      } else if (menu['title'] == 'Penilaian') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => const PenilaianTahfidzScreen(),
+                          ),
+                        );
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 8,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: (menu['color'] as Color).withValues(
+                                alpha: 0.1,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              menu['icon'] as IconData,
+                              color: menu['color'] as Color,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            menu['title'] as String,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            style: GoogleFonts.poppins(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
     );
   }
 }

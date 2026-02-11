@@ -4,9 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'services/permission_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -16,6 +18,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID', null);
 
   debugPrint("🔥 INITIALIZING FIREBASE...");
   await Firebase.initializeApp();
@@ -61,6 +64,8 @@ void main() async {
         "✅ SESSION VALID (Login: ${DateTime.fromMillisecondsSinceEpoch(loginTimestamp)})",
       );
       isSessionValid = true;
+      // Initialize permission service
+      await PermissionService().loadFromCache();
       // Sliding Expiration: Update timestamp agar session diperpanjang jika aktif
       await prefs.setInt('login_timestamp', now);
     } else {

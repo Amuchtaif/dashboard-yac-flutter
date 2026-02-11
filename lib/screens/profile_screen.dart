@@ -18,6 +18,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _divisionName = '';
   String _positionName = '';
   String _phoneNumber = '';
+  int _positionLevel = 99;
   bool _pushNotifications = false;
 
   @override
@@ -35,7 +36,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _divisionName = prefs.getString('divisionName') ?? '';
       _positionName = prefs.getString('positionName') ?? '';
       _phoneNumber = prefs.getString('phoneNumber') ?? '';
+      _positionLevel = prefs.getInt('positionLevel') ?? 99;
     });
+
+    // Debug: Print loaded data
+    debugPrint('📋 Profile Data Loaded:');
+    debugPrint('   Full Name: $_fullName');
+    debugPrint('   Position Name: $_positionName');
+    debugPrint('   Position Level: $_positionLevel');
+    debugPrint('   Unit Name: $_unitName');
+    debugPrint('   Division Name: $_divisionName');
+  }
+
+  /// Returns the position to display in the badge
+  /// Falls back to level-based position names if positionName is empty
+  String _getDisplayPosition() {
+    // If positionName exists, use it directly
+    if (_positionName.isNotEmpty) {
+      return _positionName;
+    }
+
+    // Fallback based on position level for supervisors/managers
+    // Level hierarchy: 1 = Mudir, 2 = Kepala Bidang, 3 = Kepala Unit, 4 = Guru/Musyrif, 5 = Staf
+    if (_positionLevel == 1) {
+      return 'Mudir';
+    } else if (_positionLevel == 2) {
+      return 'Kepala Bidang';
+    } else if (_positionLevel == 3) {
+      return 'Kepala Unit';
+    } else if (_positionLevel == 4) {
+      return 'Guru';
+    } else if (_positionLevel == 5) {
+      return 'Staf';
+    }
+
+    // If no positionName and positionLevel is default (99 or null),
+    // all employee data is likely not filled in database
+    // Return generic fallback
+    return 'Karyawan';
   }
 
   String _getDisplayRole() {
@@ -135,27 +173,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    if (_positionName.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0085FF), // Corporate Blue
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _positionName,
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
+                    // Position Badge - Always shown with fallback
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0085FF), // Corporate Blue
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        _getDisplayPosition(),
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                    ],
+                    ),
+                    const SizedBox(height: 8),
                     if (_getDisplayRole().isNotEmpty)
                       Text(
                         _getDisplayRole(),
