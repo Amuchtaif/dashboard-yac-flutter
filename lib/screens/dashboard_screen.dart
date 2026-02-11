@@ -15,6 +15,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'meeting_list_screen.dart'; // import meeting list screen
 
 import '../services/notification_service.dart';
+import '../services/permission_service.dart';
 import '../config/api_config.dart';
 import 'inventory_category_screen.dart'; // Import Inventory Screen
 import 'payroll_history_screen.dart'; // Import Payroll Screen
@@ -217,6 +218,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     if (_userId != "0") {
+      // 1. Refresh Permissions agar menu sesuai hak akses terbaru
+      await PermissionService().fetchPermissions(int.parse(_userId));
+      if (mounted) setState(() {});
+
+      // 2. Fetch Data Dashboard
       _fetchDashboardData();
     }
   }
@@ -530,7 +536,7 @@ class HomeTab extends StatelessWidget {
             _buildGeneralMenuGrid(context),
             const SizedBox(height: 24),
             // Show Tahfidz Menu Only If User Has Permission
-            if (AccessControl.can('view_tahfidz_menu')) ...[
+            if (AccessControl.can('can_access_tahfidz')) ...[
               _buildSectionTitle('Menu Tahfidz'),
               const SizedBox(height: 12),
               _buildTahfidzMenuGrid(context),
@@ -1385,8 +1391,16 @@ class HomeTab extends StatelessWidget {
         'icon': Icons.co_present,
         'color': Colors.deepPurple,
       },
-      {'title': 'Setoran', 'icon': Icons.mic, 'color': Colors.teal},
-      {'title': 'Penilaian', 'icon': Icons.grade, 'color': Colors.orangeAccent},
+      {
+        'title': 'Setoran',
+        'icon': Icons.edit_note_rounded,
+        'color': Colors.teal,
+      },
+      {
+        'title': 'Penilaian',
+        'icon': Icons.assignment_turned_in_rounded,
+        'color': Colors.orangeAccent,
+      },
     ];
 
     return Row(

@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/tahfidz_service.dart';
+import '../../services/quran_service.dart';
+import '../../models/surah_model.dart';
 
 class SetoranTahfidzScreen extends StatefulWidget {
   const SetoranTahfidzScreen({super.key});
@@ -13,11 +15,17 @@ class SetoranTahfidzScreen extends StatefulWidget {
 
 class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
   final TahfidzService _service = TahfidzService();
+  final QuranService _quranService = QuranService();
 
   List<dynamic> _studentsList = [];
+  List<dynamic> _filteredStudents = [];
   int? _selectedStudentId;
+  String? _selectedStudentName;
 
-  final TextEditingController _surahController = TextEditingController();
+  List<Surah> _surahList = [];
+  List<Surah> _filteredSurahs = [];
+  String? _selectedSurah;
+
   final TextEditingController _ayatStartController = TextEditingController();
   final TextEditingController _ayatEndController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
@@ -29,34 +37,202 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchStudents();
+    _loadInitialData();
   }
 
-  Future<void> _fetchStudents() async {
+  Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
     try {
-      final students = await _service.getStudents();
+      final results = await Future.wait([
+        _service.getStudents(),
+        _quranService.getAllSurahs(),
+      ]);
       setState(() {
-        _studentsList = students;
+        _studentsList = results[0];
+        _filteredStudents = _studentsList;
+        _surahList = results[1] as List<Surah>;
+        _filteredSurahs = _surahList;
       });
     } catch (e) {
-      debugPrint("Error fetching students: $e");
+      debugPrint("Error loading data: $e");
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
+  void _showStudentPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Cari nama siswa...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                      ),
+                      onChanged: (value) {
+                        setModalState(() {
+                          _filteredStudents =
+                              _studentsList
+                                  .where(
+                                    (s) => s['nama_siswa']
+                                        .toString()
+                                        .toLowerCase()
+                                        .contains(value.toLowerCase()),
+                                  )
+                                  .toList();
+                        });
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _filteredStudents.length,
+                      itemBuilder: (context, index) {
+                        final student = _filteredStudents[index];
+                        return ListTile(
+                          title: Text(student['nama_siswa'] ?? ''),
+                          onTap: () {
+                            setState(() {
+                              _selectedStudentId = int.tryParse(
+                                student['id'].toString(),
+                              );
+                              _selectedStudentName = student['nama_siswa'];
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showSurahPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Cari nama surah...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                      ),
+                      onChanged: (value) {
+                        setModalState(() {
+                          _filteredSurahs =
+                              _surahList
+                                  .where(
+                                    (s) => s.namaLatin.toLowerCase().contains(
+                                      value.toLowerCase(),
+                                    ),
+                                  )
+                                  .toList();
+                        });
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _filteredSurahs.length,
+                      itemBuilder: (context, index) {
+                        final surah = _filteredSurahs[index];
+                        return ListTile(
+                          title: Text(surah.namaLatin),
+                          trailing: Text(
+                            surah.nama,
+                            style: GoogleFonts.amiri(fontSize: 18),
+                          ),
+                          onTap: () {
+                            setState(() {
+                              _selectedSurah = surah.namaLatin;
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _submitSetoran() async {
     if (_selectedStudentId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih siswa terlebih dahulu')),
-      );
+      _showError('Pilih siswa terlebih dahulu');
       return;
     }
-    if (_surahController.text.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Nama surah wajib diisi')));
+    if (_selectedSurah == null) {
+      _showError('Pilih surah terlebih dahulu');
       return;
     }
 
@@ -68,10 +244,9 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
     final data = {
       "student_id": _selectedStudentId,
       "date": DateFormat('yyyy-MM-dd').format(DateTime.now()),
-      "surah_start": _surahController.text,
+      "surah_start": _selectedSurah,
       "ayat_start": int.tryParse(_ayatStartController.text) ?? 1,
-      "surah_end":
-          _surahController.text, // Assuming same surah for now, can be extended
+      "surah_end": _selectedSurah,
       "ayat_end": int.tryParse(_ayatEndController.text) ?? 1,
       "status": _quality,
       "notes": _notesController.text,
@@ -79,7 +254,6 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
     };
 
     final result = await _service.submitMemorization(data);
-
     setState(() => _isSubmitting = false);
 
     if (result['success'] == true) {
@@ -92,14 +266,14 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
       );
       Navigator.pop(context);
     } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal: ${result['message']}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showError('Gagal: ${result['message']}');
     }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
   @override
@@ -125,14 +299,6 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                           color: const Color(0xFF1F2937),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Lengkapi detail setoran hafalan siswa hari ini.',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
                       const SizedBox(height: 30),
                       Container(
                         padding: const EdgeInsets.all(24),
@@ -152,62 +318,18 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                           children: [
                             _buildLabel('Pilih Siswa'),
                             const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF9FAFB),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<int>(
-                                  value: _selectedStudentId,
-                                  hint: Text(
-                                    'Cari nama siswa...',
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.grey[400],
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  isExpanded: true,
-                                  icon: Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    color: Colors.grey[400],
-                                  ),
-                                  items:
-                                      _studentsList.map((student) {
-                                        int id =
-                                            int.tryParse(
-                                              student['id'].toString(),
-                                            ) ??
-                                            0;
-                                        return DropdownMenuItem<int>(
-                                          value: id,
-                                          child: Text(
-                                            student['nama_siswa'] ?? 'No Name',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 14,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                        );
-                                      }).toList(),
-                                  onChanged: (newValue) {
-                                    setState(() {
-                                      _selectedStudentId = newValue;
-                                    });
-                                  },
-                                ),
-                              ),
+                            _buildSelectionField(
+                              _selectedStudentName ?? 'Cari nama siswa...',
+                              _showStudentPicker,
+                              icon: Icons.person_search_rounded,
                             ),
                             const SizedBox(height: 20),
                             _buildLabel('Nama Surah'),
                             const SizedBox(height: 8),
-                            _buildTextField(
-                              _surahController,
-                              'Masukkan nama surah...',
+                            _buildSelectionField(
+                              _selectedSurah ?? 'Cari nama surah...',
+                              _showSurahPicker,
+                              icon: Icons.menu_book_rounded,
                             ),
                             const SizedBox(height: 20),
                             Row(
@@ -309,6 +431,43 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                     ],
                   ),
                 ),
+      ),
+    );
+  }
+
+  Widget _buildSelectionField(
+    String text,
+    VoidCallback onTap, {
+    IconData? icon,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 20, color: Colors.grey[400]),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Text(
+                text,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color:
+                      text.contains('...') ? Colors.grey[400] : Colors.black87,
+                ),
+              ),
+            ),
+            Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey[400]),
+          ],
+        ),
       ),
     );
   }
@@ -417,11 +576,7 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
     bool isSelected = _quality == label;
     return Expanded(
       child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _quality = label;
-          });
-        },
+        onTap: () => setState(() => _quality = label),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),

@@ -40,6 +40,7 @@ class PermissionService {
     debugPrint(
       "📋 Permission Loaded from Cache: canCreateMeeting=$_canCreateMeeting, canApprovePermits=$_canApprovePermits",
     );
+    debugPrint("📋 Active Permissions from Cache: $_activePermissions");
   }
 
   /// Fetch permission dari API dan simpan ke cache
@@ -50,18 +51,28 @@ class PermissionService {
         "${ApiConfig.baseUrl}/get_user_permissions.php?user_id=$userId",
       );
 
+      debugPrint("🌐 Fetching permissions from: $url");
+
       final response = await http.get(
         url,
         headers: {'ngrok-skip-browser-warning': 'true'},
       );
+
+      debugPrint("🌐 Permission API Status: ${response.statusCode}");
+      debugPrint("🌐 Permission API Raw Body: ${response.body}");
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
         if (data['success'] == true) {
           final responseData = data['data'];
+          debugPrint("🔍 Response data keys: ${responseData?.keys?.toList()}");
+          debugPrint("🔍 Response data: $responseData");
+
           final permissions =
               responseData['permissions'] as Map<String, dynamic>;
+          debugPrint("🔍 Permissions map: $permissions");
+          debugPrint("🔍 Permissions keys: ${permissions.keys.toList()}");
 
           // Parse permission values (handle both int and string)
           _canCreateMeeting = _parseBool(permissions['can_create_meeting']);
@@ -70,6 +81,9 @@ class PermissionService {
           // Populate active permissions list
           _activePermissions.clear();
           permissions.forEach((key, value) {
+            debugPrint(
+              "   📌 Permission '$key' = '$value' → parseBool: ${_parseBool(value)}",
+            );
             if (_parseBool(value)) {
               _activePermissions.add(key);
             }
@@ -82,19 +96,76 @@ class PermissionService {
           debugPrint(
             "✅ Permissions Fetched: canCreateMeeting=$_canCreateMeeting, canApprovePermits=$_canApprovePermits",
           );
+          debugPrint("✅ Active Permissions List: $_activePermissions");
+          debugPrint(
+            "✅ Has can_access_tahfidz? ${_activePermissions.contains('can_access_tahfidz')}",
+          );
           return true;
         } else {
           debugPrint("❌ Fetch Permissions Failed: ${data['message']}");
-          return false;
         }
       } else {
         debugPrint("❌ Fetch Permissions HTTP Error: ${response.statusCode}");
-        return false;
       }
     } catch (e) {
       debugPrint("❌ Fetch Permissions Error: $e");
-      return false;
     }
+
+    // ============================================
+    // FALLBACK: Jika API gagal (404/error), gunakan
+    // data posisi dari login untuk menentukan permission
+    // Berdasarkan tabel positions di database:
+    //   Level 1 (Mudir):        create_meeting=1, approve=1, tahfidz=0
+    //   Level 2 (Kepala Bidang): create_meeting=1, approve=1, tahfidz=0
+    //   Level 3 (Kepala Unit):   create_meeting=1, approve=1, tahfidz=0
+    //   Level 4 (Guru):          create_meeting=0, approve=0, tahfidz=0
+    //   Level 5 (Staf):          create_meeting=0, approve=0, tahfidz=1
+    //   Level 3 (Kepala Sub):    create_meeting=1, approve=0, tahfidz=0
+    // ============================================
+    debugPrint("⚠️ API failed, using position-based fallback...");
+
+    final prefs = await SharedPreferences.getInstance();
+    final int positionLevel = prefs.getInt('positionLevel') ?? 99;
+    final String positionName = prefs.getString('positionName') ?? '';
+
+    debugPrint(
+      "⚠️ Fallback - positionLevel: $positionLevel, positionName: $positionName",
+    );
+
+    _activePermissions.clear();
+
+    // Permission berdasarkan level posisi
+    if (positionLevel <= 3) {
+      // Mudir, Kepala Bidang, Kepala Unit, Koordinator, Kepala Sub
+      _canCreateMeeting = true;
+      _activePermissions.add('can_create_meeting');
+    }
+    if (positionLevel <= 3) {
+      _canApprovePermits = true;
+      _activePermissions.add('can_approve_permits');
+    }
+
+    // Staf (level 5) punya akses Tahfidz
+    if (positionName.toLowerCase() == 'staf' ||
+        positionName.toLowerCase() == 'staff') {
+      _activePermissions.add('can_access_tahfidz');
+    }
+
+    // Kepala Sub (level 3) punya create meeting tapi tidak approve
+    if (positionName.toLowerCase() == 'kepala sub') {
+      _canApprovePermits = false;
+      _activePermissions.remove('can_approve_permits');
+    }
+
+    await _saveToCache();
+    _isLoaded = true;
+
+    debugPrint("⚠️ Fallback Permissions Applied: $_activePermissions");
+    debugPrint(
+      "⚠️ Has can_access_tahfidz? ${_activePermissions.contains('can_access_tahfidz')}",
+    );
+
+    return false; // Indicate we used fallback, not API
   }
 
   Future<void> _saveToCache() async {
@@ -137,7 +208,13 @@ class PermissionService {
   }
 
   bool hasPermission(String permissionName) {
-    if (_activePermissions.contains(permissionName)) return true;
+    debugPrint(
+      "🔐 hasPermission('$permissionName') called. isLoaded=$_isLoaded, activePermissions=$_activePermissions",
+    );
+    if (_activePermissions.contains(permissionName)) {
+      debugPrint("🔐 ✅ '$permissionName' FOUND in activePermissions");
+      return true;
+    }
 
     // Fallback untuk backward compatibility jika diperlukan
     switch (permissionName) {
@@ -146,7 +223,7 @@ class PermissionService {
       case 'approve_permits':
         return _canApprovePermits;
       default:
-        // Cek di list string (sudah dilakukan di atas)
+        debugPrint("🔐 ❌ '$permissionName' NOT FOUND in activePermissions");
         return false;
     }
   }

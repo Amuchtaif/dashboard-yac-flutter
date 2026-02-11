@@ -2,7 +2,7 @@ import '../services/permission_service.dart';
 
 class AccessControl {
   /// Helper untuk mengecek apakah user memiliki permission tertentu.
-  /// Contoh: AccessControl.can('view_tahfidz_menu')
+  /// Contoh: AccessControl.can('can_access_tahfidz')
   static bool can(String permissionName) {
     return PermissionService().hasPermission(permissionName);
   }

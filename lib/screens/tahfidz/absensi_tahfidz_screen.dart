@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -22,18 +23,110 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
   bool _isSubmitting = false;
   int? _teacherId;
 
+  // Halaqoh Opening State
+  bool _isHalaqohOpened = false;
+  String? _selectedJadwal;
+  final List<String> _jadwalOptions = ['Pagi', 'Siang', 'Sore'];
+  Timer? _timer;
+  String _currentTime = "";
+
   @override
   void initState() {
     super.initState();
     _loadTeacherId();
-    _fetchStudents();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _currentTime = DateFormat('HH:mm:ss').format(DateTime.now());
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadTeacherId() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _teacherId = prefs.getInt('userId');
-    });
+    int? id = prefs.getInt('userId');
+    setState(() => _teacherId = id);
+
+    if (_teacherId != null) {
+      await _checkHalaqohStatus();
+    } else {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _checkHalaqohStatus() async {
+    setState(() => _isLoading = true);
+    try {
+      final history = await _service.getTeacherAttendanceHistory(
+        teacherId: _teacherId,
+        date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      );
+
+      if (history.isNotEmpty) {
+        setState(() {
+          _isHalaqohOpened = true;
+          // Set session based on check-in notes if possible, or default to current
+          if (history.first['notes'] != null) {
+            _selectedSession = history.first['notes'];
+          }
+        });
+        await _fetchStudents();
+      }
+    } catch (e) {
+      debugPrint("Error checking halaqoh status: $e");
+    } finally {
+      if (!_isHalaqohOpened) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleBukaHalaqoh() async {
+    if (_teacherId == null) return;
+    if (_selectedJadwal == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Silakan pilih jadwal halaqoh terlebih dahulu'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    final result = await _service.submitTeacherAttendance(
+      teacherId: _teacherId!,
+      action: 'check_in',
+      notes: _selectedJadwal,
+    );
+    setState(() => _isSubmitting = false);
+
+    if (result['success'] == true) {
+      setState(() {
+        _isHalaqohOpened = true;
+        _selectedSession = _selectedJadwal!;
+      });
+      _fetchStudents();
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal: ${result['message']}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _fetchStudents() async {
@@ -42,7 +135,6 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
       final students = await _service.getStudents();
       setState(() {
         _students = students;
-        // Default status: Hadir
         for (var s in _students) {
           int id = int.tryParse(s['id'].toString()) ?? 0;
           if (id != 0) {
@@ -62,12 +154,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
   }
 
   Future<void> _submitAttendance() async {
-    if (_teacherId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User ID not found, please login again')),
-      );
-      return;
-    }
+    if (_teacherId == null) return;
 
     setState(() => _isSubmitting = true);
 
@@ -107,11 +194,15 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(body: const Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         title: Text(
-          'Absensi Santri Tahfidz',
+          _isHalaqohOpened ? 'Absensi Santri' : 'Buka Halaqoh',
           style: GoogleFonts.poppins(
             color: Colors.black87,
             fontWeight: FontWeight.w600,
@@ -121,15 +212,16 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchStudents,
-          ),
+          if (_isHalaqohOpened)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _fetchStudents,
+            ),
         ],
       ),
       body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
+          !_isHalaqohOpened
+              ? _buildOpeningView()
               : Column(
                 children: [
                   _buildHeader(),
@@ -150,78 +242,192 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
     );
   }
 
+  Widget _buildOpeningView() {
+    return SingleChildScrollView(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Text(
+              DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(DateTime.now()),
+              style: GoogleFonts.poppins(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _currentTime.isEmpty ? "--:--" : _currentTime,
+              style: GoogleFonts.poppins(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.indigo,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Pilih Jadwal Halaqoh:",
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children:
+                  _jadwalOptions.map((jadwal) {
+                    bool isSelected = _selectedJadwal == jadwal;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedJadwal = jadwal),
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.indigo : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color:
+                                  isSelected
+                                      ? Colors.indigo
+                                      : Colors.grey[300]!,
+                            ),
+                          ),
+                          child: Text(
+                            jadwal,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: isSelected ? Colors.white : Colors.black87,
+                              fontWeight:
+                                  isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: _isSubmitting ? null : _handleBukaHalaqoh,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+                child:
+                    _isSubmitting
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                          'Buka Halaqoh',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.white,
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _selectedDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) {
-                      setState(() => _selectedDate = picked);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today,
-                          size: 18,
-                          color: Colors.blue,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          DateFormat('dd MMMM yyyy').format(_selectedDate),
-                          style: GoogleFonts.poppins(),
-                        ),
-                      ],
-                    ),
-                  ),
+          Expanded(
+            child: InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2030),
+                );
+                if (picked != null) {
+                  setState(() => _selectedDate = picked);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey[200]!),
                 ),
-                child: DropdownButton<String>(
-                  value: _selectedSession,
-                  underline: const SizedBox(),
-                  items:
-                      ['Pagi', 'Sore'].map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value, style: GoogleFonts.poppins()),
-                        );
-                      }).toList(),
-                  onChanged: (newValue) {
-                    setState(() {
-                      _selectedSession = newValue!;
-                    });
-                  },
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_month,
+                      size: 18,
+                      color: Colors.blue,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      DateFormat('dd MMM yyyy').format(_selectedDate),
+                      style: GoogleFonts.poppins(fontSize: 13),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: DropdownButton<String>(
+              value: _selectedSession,
+              underline: const SizedBox(),
+              items:
+                  ['Pagi', 'Siang', 'Sore'].map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(
+                        value,
+                        style: GoogleFonts.poppins(fontSize: 13),
+                      ),
+                    );
+                  }).toList(),
+              onChanged: (newValue) {
+                setState(() {
+                  _selectedSession = newValue!;
+                });
+              },
+            ),
           ),
         ],
       ),
@@ -342,7 +548,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
                     ),
                   )
                   : Text(
-                    'Simpan Absensi',
+                    'Simpan Absensi Santri',
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
