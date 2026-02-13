@@ -90,6 +90,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _timeOut = "-";
   String _todaySchedule = "Loading...";
   List<dynamic> _recentActivities = [];
+  bool _isKoordinator = false;
   bool _isLoadingActivity = false;
 
   // --- KONFIGURASI API ---
@@ -263,6 +264,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             // 4. History
             _recentActivities = data['history'] ?? [];
+
+            // 5. Check Koordinator
+            _isKoordinator =
+                data['user_profile']?['is_koordinator'] == 1 ||
+                data['user_profile']?['is_koordinator'] == true ||
+                data['user_profile']?['is_koordinator'] == "1" ||
+                _positionName.toLowerCase().contains('koordinator');
           });
         }
       } else {
@@ -379,6 +387,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         timeIn: _timeIn,
         timeOut: _timeOut,
         todaySchedule: _todaySchedule,
+        isKoordinator: _isKoordinator,
       ),
       const Center(child: Text("Halaman Berita")),
       const Center(child: Text("Halaman Kinerja")),
@@ -495,7 +504,9 @@ class HomeTab extends StatelessWidget {
   final String attendanceStatus;
   final String timeIn;
   final String timeOut;
+
   final String todaySchedule;
+  final bool isKoordinator;
 
   const HomeTab({
     super.key,
@@ -510,6 +521,7 @@ class HomeTab extends StatelessWidget {
     required this.timeIn,
     required this.timeOut,
     required this.todaySchedule,
+    required this.isKoordinator,
   });
   @override
   Widget build(BuildContext context) {
@@ -1380,124 +1392,251 @@ class HomeTab extends StatelessWidget {
   }
 
   Widget _buildTahfidzMenuGrid(BuildContext context) {
-    final menus = [
-      {
-        'title': 'Absensi Tahfidz',
-        'icon': Icons.how_to_reg,
-        'color': Colors.indigo,
-      },
-      {
-        'title': 'Absensi Pengampu',
-        'icon': Icons.co_present,
-        'color': Colors.deepPurple,
-      },
-      {
-        'title': 'Setoran',
-        'icon': Icons.edit_note_rounded,
-        'color': Colors.teal,
-      },
-      {
-        'title': 'Penilaian',
-        'icon': Icons.assignment_turned_in_rounded,
-        'color': Colors.orangeAccent,
-      },
-    ];
+    if (isKoordinator || AccessControl.can('is_koordinator')) {
+      // COORDINATOR VIEW
+      // Rows: Absensi (2 cols), Penilaian (Full), Setoran (Full)
+      final absensiMenus = [
+        {
+          'title': 'Absensi Tahfidz',
+          'icon': Icons.how_to_reg,
+          'color': Colors.indigo,
+        },
+        {
+          'title': 'Absensi Pengampu',
+          'icon': Icons.co_present,
+          'color': Colors.deepPurple,
+        },
+      ];
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children:
-          menus.map((menu) {
-            return Expanded(
-              child: Container(
-                height: 100, // Fixed height for consistency
-                margin: const EdgeInsets.symmetric(horizontal: 4),
+      return Column(
+        children: [
+          Row(
+            children:
+                absensiMenus
+                    .map(
+                      (menu) => Expanded(child: _buildMenuCard(context, menu)),
+                    )
+                    .toList(),
+          ),
+          const SizedBox(height: 8),
+          _buildFullWidthMenuCard(context, {
+            'title': 'Penilaian',
+            'icon': Icons.assignment_turned_in_rounded,
+            'color': Colors.orangeAccent,
+          }),
+          const SizedBox(height: 12),
+          _buildFullWidthMenuCard(context, {
+            'title': 'Setoran',
+            'icon': Icons.edit_note_rounded,
+            'color': Colors.teal,
+          }),
+        ],
+      );
+    } else {
+      // NON-COORDINATOR VIEW
+      final mainMenus = [
+        {
+          'title': 'Absensi Tahfidz',
+          'icon': Icons.how_to_reg,
+          'color': Colors.indigo,
+        },
+        {
+          'title': 'Penilaian',
+          'icon': Icons.assignment_turned_in_rounded,
+          'color': Colors.orangeAccent,
+        },
+      ];
+
+      return Column(
+        children: [
+          Row(
+            children:
+                mainMenus
+                    .map(
+                      (menu) => Expanded(child: _buildMenuCard(context, menu)),
+                    )
+                    .toList(),
+          ),
+          const SizedBox(height: 12),
+          _buildFullWidthMenuCard(context, {
+            'title': 'Setoran',
+            'icon': Icons.edit_note_rounded,
+            'color': Colors.teal,
+          }),
+        ],
+      );
+    }
+  }
+
+  Widget _buildMenuCard(BuildContext context, Map<String, dynamic> menu) {
+    return Container(
+      height: 100,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _handleMenuNavigation(context, menu['title'] as String),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  color: (menu['color'] as Color).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
                 ),
-                child: Material(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () {
-                      if (menu['title'] == 'Absensi Tahfidz') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AbsensiTahfidzScreen(),
-                          ),
-                        );
-                      } else if (menu['title'] == 'Absensi Pengampu') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AbsensiPengampuScreen(),
-                          ),
-                        );
-                      } else if (menu['title'] == 'Setoran') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SetoranTahfidzScreen(),
-                          ),
-                        );
-                      } else if (menu['title'] == 'Penilaian') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => const PenilaianTahfidzScreen(),
-                          ),
-                        );
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 8,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: (menu['color'] as Color).withValues(
-                                alpha: 0.1,
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              menu['icon'] as IconData,
-                              color: menu['color'] as Color,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            menu['title'] as String,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            style: GoogleFonts.poppins(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                child: Icon(
+                  menu['icon'] as IconData,
+                  color: menu['color'] as Color,
+                  size: 20,
                 ),
               ),
-            );
-          }).toList(),
+              const SizedBox(height: 6),
+              Text(
+                menu['title'] as String,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: GoogleFonts.poppins(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+  }
+
+  Widget _buildFullWidthMenuCard(
+    BuildContext context,
+    Map<String, dynamic> menu,
+  ) {
+    return Container(
+      width: double.infinity,
+      height: 80,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: [
+            (menu['color'] as Color).withValues(alpha: 0.1),
+            Colors.white,
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _handleMenuNavigation(context, menu['title'] as String),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: (menu['color'] as Color).withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    menu['icon'] as IconData,
+                    color: menu['color'] as Color,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        menu['title'] as String,
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        "Input Hafalan Baru Santri",
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: (menu['color'] as Color).withValues(alpha: 0.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleMenuNavigation(BuildContext context, String title) {
+    if (title == 'Absensi Tahfidz') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AbsensiTahfidzScreen()),
+      );
+    } else if (title == 'Absensi Pengampu') {
+      if (isKoordinator) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AbsensiPengampuScreen(),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Akses ditolak. Menu ini hanya untuk koordinator."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } else if (title == 'Setoran') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const SetoranTahfidzScreen()),
+      );
+    } else if (title == 'Penilaian') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PenilaianTahfidzScreen()),
+      );
+    }
   }
 }

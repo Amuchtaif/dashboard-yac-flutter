@@ -43,6 +43,7 @@ try {
         'can_create_meeting',
         'can_approve_permits',
         'can_access_tahfidz',
+        'is_koordinator',
     ];
 
     // Inisialisasi semua permission dengan default false
@@ -89,7 +90,7 @@ try {
     // STEP 2: Fallback ke permission default dari posisi
     // ====================================
     $stmt2 = $conn->prepare("
-        SELECT p.can_create_meeting, p.can_approve_permits, p.can_access_tahfidz
+        SELECT p.can_create_meeting, p.can_approve_permits, p.can_access_tahfidz, p.is_koordinator
         FROM employees e 
         JOIN positions p ON e.position_id = p.id 
         WHERE e.user_id = ?
@@ -104,6 +105,7 @@ try {
             $permissions['can_create_meeting'] = intval($row2['can_create_meeting'] ?? 0);
             $permissions['can_approve_permits'] = intval($row2['can_approve_permits'] ?? 0);
             $permissions['can_access_tahfidz'] = intval($row2['can_access_tahfidz'] ?? 0);
+            $permissions['is_koordinator'] = intval($row2['is_koordinator'] ?? 0);
         }
         $stmt2->close();
     }

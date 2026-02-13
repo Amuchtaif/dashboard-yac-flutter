@@ -59,7 +59,7 @@ class AuthService {
               user.divisionId,
             ); // Added divisionId
             await prefs.setBool('isLoggedIn', true);
-            // Save Login Timestamp for 12h Session
+            // Save Login Timestamp for 24h Session
             await prefs.setInt(
               'login_timestamp',
               DateTime.now().millisecondsSinceEpoch,

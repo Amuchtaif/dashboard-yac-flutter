@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../../services/tahfidz_service.dart';
 import '../../services/quran_service.dart';
 import '../../models/surah_model.dart';
+import '../../providers/tahfidz_provider.dart';
 
 class SetoranTahfidzScreen extends StatefulWidget {
   const SetoranTahfidzScreen({super.key});
@@ -21,6 +23,7 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
   List<dynamic> _filteredStudents = [];
   int? _selectedStudentId;
   String? _selectedStudentName;
+  String? _selectedStudentClass;
 
   List<Surah> _surahList = [];
   List<Surah> _filteredSurahs = [];
@@ -43,14 +46,24 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
   Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
     try {
-      final results = await Future.wait([
-        _service.getStudents(),
-        _quranService.getAllSurahs(),
-      ]);
+      final prefs = await SharedPreferences.getInstance();
+      final int? teacherId = prefs.getInt('userId');
+      final String? teacherName = prefs.getString('fullName');
+
+      // Use provider to fetch students
+      if (!mounted) return;
+      final provider = Provider.of<TahfidzProvider>(context, listen: false);
+      if (provider.myStudents.isEmpty) {
+        await provider.fetchMyStudents(teacherId, teacherName: teacherName);
+      } else {
+        provider.setTeacherInfo(teacherId, teacherName);
+      }
+
+      final surahs = await _quranService.getAllSurahs();
       setState(() {
-        _studentsList = results[0];
+        _studentsList = provider.myStudents;
         _filteredStudents = _studentsList;
-        _surahList = results[1] as List<Surah>;
+        _surahList = surahs;
         _filteredSurahs = _surahList;
       });
     } catch (e) {
@@ -102,37 +115,102 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                       onChanged: (value) {
                         setModalState(() {
                           _filteredStudents =
-                              _studentsList
-                                  .where(
-                                    (s) => s['nama_siswa']
+                              _studentsList.where((s) {
+                                final name =
+                                    (s['nama_siswa'] ??
+                                            s['nama_santri'] ??
+                                            s['nama_lengkap'] ??
+                                            s['full_name'] ??
+                                            s['name'] ??
+                                            '')
                                         .toString()
-                                        .toLowerCase()
-                                        .contains(value.toLowerCase()),
-                                  )
-                                  .toList();
+                                        .toLowerCase();
+                                return name.contains(value.toLowerCase());
+                              }).toList();
                         });
                       },
                     ),
                   ),
                   Expanded(
-                    child: ListView.builder(
-                      itemCount: _filteredStudents.length,
-                      itemBuilder: (context, index) {
-                        final student = _filteredStudents[index];
-                        return ListTile(
-                          title: Text(student['nama_siswa'] ?? ''),
-                          onTap: () {
-                            setState(() {
-                              _selectedStudentId = int.tryParse(
-                                student['id'].toString(),
-                              );
-                              _selectedStudentName = student['nama_siswa'];
-                            });
-                            Navigator.pop(context);
-                          },
-                        );
-                      },
-                    ),
+                    child:
+                        _filteredStudents.isEmpty
+                            ? Center(
+                              child: Text(
+                                "Anda belum memiliki daftar santri binaan.",
+                                style: GoogleFonts.poppins(color: Colors.grey),
+                              ),
+                            )
+                            : ListView.builder(
+                              itemCount: _filteredStudents.length,
+                              itemBuilder: (context, index) {
+                                final student = _filteredStudents[index];
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors.blue[50],
+                                    child: Text(
+                                      (student['nama_siswa'] ??
+                                              student['nama_santri'] ??
+                                              student['nama_lengkap'] ??
+                                              student['full_name'] ??
+                                              student['name'] ??
+                                              '?')
+                                          .toString()
+                                          .substring(0, 1)
+                                          .toUpperCase(),
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.blueAccent,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    student['nama_siswa'] ??
+                                        student['nama_santri'] ??
+                                        student['nama_lengkap'] ??
+                                        student['full_name'] ??
+                                        student['name'] ??
+                                        'No Name',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    "Kelas: ${student['kelas'] ?? student['nama_kelas'] ?? student['tingkat'] ?? student['unit_name'] ?? student['nama_unit'] ?? student['division_name'] ?? student['nama_halaqah'] ?? student['halaqah'] ?? student['nama_halaqoh'] ?? student['halaqoh'] ?? student['rombel'] ?? student['jenjang'] ?? '-'}",
+                                    style: GoogleFonts.poppins(fontSize: 12),
+                                  ),
+                                  onTap: () {
+                                    final name =
+                                        student['nama_siswa'] ??
+                                        student['nama_santri'] ??
+                                        student['nama_lengkap'] ??
+                                        student['full_name'] ??
+                                        student['name'] ??
+                                        'No Name';
+                                    final klass =
+                                        student['kelas'] ??
+                                        student['nama_kelas'] ??
+                                        student['tingkat'] ??
+                                        student['unit_name'] ??
+                                        student['nama_unit'] ??
+                                        student['division_name'] ??
+                                        student['nama_halaqah'] ??
+                                        student['halaqah'] ??
+                                        student['nama_halaqoh'] ??
+                                        student['halaqoh'] ??
+                                        student['rombel'] ??
+                                        student['jenjang'];
+                                    setState(() {
+                                      _selectedStudentId = int.tryParse(
+                                        student['id'].toString(),
+                                      );
+                                      _selectedStudentName = name;
+                                      _selectedStudentClass = klass;
+                                    });
+                                    Navigator.pop(context);
+                                  },
+                                );
+                              },
+                            ),
                   ),
                 ],
               ),
@@ -238,8 +316,8 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
 
     setState(() => _isSubmitting = true);
 
-    final prefs = await SharedPreferences.getInstance();
-    int? teacherId = prefs.getInt('userId');
+    final provider = Provider.of<TahfidzProvider>(context, listen: false);
+    final int? teacherId = provider.teacherId;
 
     final data = {
       "student_id": _selectedStudentId,
@@ -316,10 +394,25 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            _buildLabel('Nama Pengampu'),
+                            const SizedBox(height: 8),
+                            Consumer<TahfidzProvider>(
+                              builder: (context, provider, child) {
+                                return _buildReadOnlyField(
+                                  provider.teacherName ?? 'Memuat...',
+                                  icon: Icons.person_pin_rounded,
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 20),
                             _buildLabel('Pilih Siswa'),
                             const SizedBox(height: 8),
                             _buildSelectionField(
-                              _selectedStudentName ?? 'Cari nama siswa...',
+                              _selectedStudentName != null
+                                  ? (_selectedStudentClass != null
+                                      ? '$_selectedStudentName - $_selectedStudentClass'
+                                      : _selectedStudentName!)
+                                  : 'Cari nama siswa...',
                               _showStudentPicker,
                               icon: Icons.person_search_rounded,
                             ),
@@ -468,6 +561,40 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
             Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey[400]),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyField(String text, {IconData? icon}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: 20,
+              color: Colors.blueAccent.withValues(alpha: 0.7),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey[400]),
+        ],
       ),
     );
   }

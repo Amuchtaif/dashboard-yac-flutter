@@ -26,6 +26,26 @@ class TahfidzService {
     return [];
   }
 
+  Future<List<dynamic>> getMyStudents(int? teacherId) async {
+    if (teacherId == null) return [];
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/tahfidz/get_my_students.php?teacher_id=$teacherId"),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching my students: $e");
+    }
+    return [];
+  }
+
   Future<List<dynamic>> getTeachers() async {
     try {
       final response = await http.get(
@@ -86,8 +106,12 @@ class TahfidzService {
   }) async {
     try {
       String query = "";
-      if (date != null) query += "&date=$date";
-      if (studentId != null) query += "&student_id=$studentId";
+      if (date != null) {
+        query += "date=$date";
+      }
+      if (studentId != null) {
+        query += "${query.isEmpty ? "" : "&"}student_id=$studentId";
+      }
 
       final response = await http.get(
         Uri.parse("$baseUrl/tahfidz/get_student_attendance.php?$query"),
@@ -111,6 +135,7 @@ class TahfidzService {
     required int teacherId,
     required String action, // 'check_in' or 'check_out'
     String? notes,
+    String? time, // Pass device time
   }) async {
     try {
       final response = await http.post(
@@ -123,6 +148,7 @@ class TahfidzService {
           "teacher_id": teacherId,
           "action": action,
           "notes": notes,
+          "time": time,
         }),
       );
       if (response.statusCode == 200) {
@@ -143,8 +169,12 @@ class TahfidzService {
   }) async {
     try {
       String query = "";
-      if (date != null) query += "&date=$date";
-      if (teacherId != null) query += "&teacher_id=$teacherId";
+      if (date != null) {
+        query += "date=$date";
+      }
+      if (teacherId != null) {
+        query += "${query.isEmpty ? "" : "&"}teacher_id=$teacherId";
+      }
 
       final response = await http.get(
         Uri.parse("$baseUrl/tahfidz/get_teacher_attendance.php?$query"),
@@ -188,6 +218,40 @@ class TahfidzService {
     }
   }
 
+  Future<List<dynamic>> getMemorizationHistory({
+    int? teacherId,
+    int? studentId,
+    String? date,
+  }) async {
+    try {
+      String query = "";
+      if (teacherId != null) {
+        query += "teacher_id=$teacherId";
+      }
+      if (studentId != null) {
+        query += "${query.isEmpty ? "" : "&"}student_id=$studentId";
+      }
+      if (date != null) {
+        query += "${query.isEmpty ? "" : "&"}date=$date";
+      }
+
+      final response = await http.get(
+        Uri.parse("$baseUrl/tahfidz/get_memorization.php?$query"),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching memorization history: $e");
+    }
+    return [];
+  }
+
   // --- Assessment (Penilaian) ---
   Future<Map<String, dynamic>> submitAssessment(
     Map<String, dynamic> data,
@@ -198,6 +262,7 @@ class TahfidzService {
         headers: {
           'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true',
+          'Access-Control-Allow-Origin': '*',
         },
         body: jsonEncode(data),
       );
@@ -211,5 +276,43 @@ class TahfidzService {
     } catch (e) {
       return {"success": false, "message": "Error: $e"};
     }
+  }
+
+  Future<List<dynamic>> getAssessmentHistory({
+    int? teacherId,
+    int? studentId,
+    String? date,
+    String? category,
+  }) async {
+    try {
+      String query = "";
+      if (teacherId != null) {
+        query += "teacher_id=$teacherId";
+      }
+      if (studentId != null) {
+        query += "${query.isEmpty ? "" : "&"}student_id=$studentId";
+      }
+      if (date != null) {
+        query += "${query.isEmpty ? "" : "&"}date=$date";
+      }
+      if (category != null) {
+        query += "${query.isEmpty ? "" : "&"}category=$category";
+      }
+
+      final response = await http.get(
+        Uri.parse("$baseUrl/tahfidz/get_assessments.php?$query"),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching assessment history: $e");
+    }
+    return [];
   }
 }

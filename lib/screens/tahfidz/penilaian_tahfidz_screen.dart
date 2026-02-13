@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../../services/tahfidz_service.dart';
+import '../../providers/tahfidz_provider.dart';
 
 class PenilaianTahfidzScreen extends StatefulWidget {
   const PenilaianTahfidzScreen({super.key});
@@ -36,9 +38,20 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
   Future<void> _fetchStudents() async {
     setState(() => _isLoading = true);
     try {
-      final students = await _service.getStudents();
+      final prefs = await SharedPreferences.getInstance();
+      final int? teacherId = prefs.getInt('userId');
+      final String? teacherName = prefs.getString('fullName');
+
+      if (!mounted) return;
+      final provider = Provider.of<TahfidzProvider>(context, listen: false);
+      if (provider.myStudents.isEmpty) {
+        await provider.fetchMyStudents(teacherId, teacherName: teacherName);
+      } else {
+        provider.setTeacherInfo(teacherId, teacherName);
+      }
+
       setState(() {
-        _studentsList = students;
+        _studentsList = provider.myStudents;
       });
     } catch (e) {
       debugPrint("Error fetching students: $e");
@@ -57,8 +70,8 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
 
     setState(() => _isSubmitting = true);
 
-    final prefs = await SharedPreferences.getInstance();
-    int? teacherId = prefs.getInt('userId');
+    final provider = Provider.of<TahfidzProvider>(context, listen: false);
+    final int? teacherId = provider.teacherId;
 
     int tajweed = int.tryParse(_tajweedController.text) ?? 0;
     int fluency = int.tryParse(_fluencyController.text) ?? 0;
@@ -230,6 +243,12 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
   }
 
   Widget _buildStudentDropdown() {
+    if (_studentsList.isEmpty) {
+      return Text(
+        "Anda belum memiliki daftar santri binaan.",
+        style: GoogleFonts.poppins(fontSize: 12, color: Colors.red[400]),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -246,7 +265,13 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
                 int id = int.tryParse(s['id'].toString()) ?? 0;
                 return DropdownMenuItem<int>(
                   value: id,
-                  child: Text(s['nama_siswa'] ?? '-'),
+                  child: Text(
+                    "${s['nama_siswa'] ?? s['nama_santri'] ?? s['nama_lengkap'] ?? s['full_name'] ?? s['name'] ?? '-'}${s['kelas'] != null
+                        ? ' - Kelas ${s['kelas']}'
+                        : s['nama_kelas'] != null
+                        ? ' - Kelas ${s['nama_kelas']}'
+                        : ''}",
+                  ),
                 );
               }).toList(),
           onChanged: (val) => setState(() => _selectedStudentId = val),

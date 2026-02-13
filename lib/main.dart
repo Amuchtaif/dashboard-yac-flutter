@@ -6,9 +6,11 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'services/permission_service.dart';
+import 'providers/tahfidz_provider.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -46,7 +48,7 @@ void main() async {
 
   debugPrint("✅ FIREBASE CONNECTED!");
 
-  // --- CEK SESI LOGIN (12 JAM) ---
+  // --- CEK SESI LOGIN (24 JAM) ---
   final prefs = await SharedPreferences.getInstance();
   final int? loginTimestamp = prefs.getInt('login_timestamp');
   final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
@@ -56,8 +58,8 @@ void main() async {
   if (isLoggedIn && loginTimestamp != null) {
     final now = DateTime.now().millisecondsSinceEpoch;
     final diff = now - loginTimestamp;
-    // 12 Jam = 12 * 60 * 60 * 1000 = 43,200,000 ms
-    const sessionTimeout = 43200000;
+    // 24 Jam = 24 * 60 * 60 * 1000 = 86,400,000 ms
+    const sessionTimeout = 86400000;
 
     if (diff < sessionTimeout) {
       debugPrint(
@@ -87,7 +89,12 @@ void main() async {
     ),
   );
 
-  runApp(MyApp(isSessionValid: isSessionValid));
+  runApp(
+    MultiProvider(
+      providers: [ChangeNotifierProvider(create: (_) => TahfidzProvider())],
+      child: MyApp(isSessionValid: isSessionValid),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

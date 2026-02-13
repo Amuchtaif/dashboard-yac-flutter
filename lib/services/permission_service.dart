@@ -146,9 +146,14 @@ class PermissionService {
     }
 
     // Staf (level 5) punya akses Tahfidz
-    if (positionName.toLowerCase() == 'staf' ||
-        positionName.toLowerCase() == 'staff') {
+    if (positionName.toLowerCase().contains('staf') ||
+        positionName.toLowerCase().contains('staff') ||
+        positionName.toLowerCase().contains('koordinator')) {
       _activePermissions.add('can_access_tahfidz');
+    }
+
+    if (positionName.toLowerCase().contains('koordinator')) {
+      _activePermissions.add('is_koordinator');
     }
 
     // Kepala Sub (level 3) punya create meeting tapi tidak approve
