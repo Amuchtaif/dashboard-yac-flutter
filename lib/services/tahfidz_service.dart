@@ -193,6 +193,31 @@ class TahfidzService {
     return [];
   }
 
+  Future<Map<String, dynamic>> verifyTeacherAttendance({
+    required int attendanceId,
+    required String action, // 'approve' or 'reject'
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/tahfidz/verify_teacher_attendance.php"),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({"id": attendanceId, "action": action}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {
+        "success": false,
+        "message": "Server error ${response.statusCode}",
+      };
+    } catch (e) {
+      return {"success": false, "message": "Error: $e"};
+    }
+  }
+
   // --- Memorization (Setoran) ---
   Future<Map<String, dynamic>> submitMemorization(
     Map<String, dynamic> data,

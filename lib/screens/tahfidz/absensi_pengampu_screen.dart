@@ -13,95 +13,80 @@ class AbsensiPengampuScreen extends StatefulWidget {
 class _AbsensiPengampuScreenState extends State<AbsensiPengampuScreen> {
   final TahfidzService _service = TahfidzService();
   bool _isLoading = true;
-  bool _isSubmitting = false;
-  List<dynamic> _teachers = [];
-  final Map<int, String> _attendanceStatus = {};
+  List<dynamic> _pendingList = [];
   final DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    _fetchTeachers();
+    _fetchPendingAttendance();
   }
 
-  Future<void> _fetchTeachers() async {
+  Future<void> _fetchPendingAttendance() async {
     setState(() => _isLoading = true);
     try {
-      final teachers = await _service.getTeachers();
-      final history = await _service.getTeacherAttendanceHistory(
-        date: DateFormat('yyyy-MM-dd').format(_selectedDate),
-      );
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final history = await _service.getTeacherAttendanceHistory(date: dateStr);
 
       setState(() {
-        _teachers = teachers;
-        // Map history to teachers
-        for (var t in _teachers) {
-          int id = int.tryParse(t['id'].toString()) ?? 0;
-          if (id != 0) {
-            final record = history.firstWhere(
-              (h) => h['teacher_id'].toString() == id.toString(),
-              orElse: () => null,
-            );
-            if (record != null) {
-              // Map legacy status to new options
-              String rawStatus = record['action'] ?? 'HADIR';
-              if (rawStatus == 'check_in') {
-                _attendanceStatus[id] = 'HADIR';
-              } else {
-                _attendanceStatus[id] = rawStatus.toUpperCase();
-              }
-            } else {
-              _attendanceStatus[id] =
-                  'HADIR'; // Default to HADIR for convenience
-            }
-          }
-        }
+        _pendingList =
+            history.where((record) {
+              final isVerified = record['is_verified'].toString() == '1';
+              final statusApproval =
+                  record['status_approval']?.toString().toLowerCase() ??
+                  'pending';
+              // It is pending if NOT verified AND status is pending
+              return !isVerified && statusApproval == 'pending';
+            }).toList();
       });
     } catch (e) {
-      debugPrint("Error fetching teachers or history: $e");
+      debugPrint("Error fetching pending attendance: $e");
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _handleSaveAttendance() async {
-    setState(() => _isSubmitting = true);
-    int successCount = 0;
-    int failCount = 0;
+  Future<void> _handleVerification(int id, String action, String name) async {
+    // Optimistic UI update
+    final index = _pendingList.indexWhere(
+      (r) => r['id'].toString() == id.toString(),
+    );
+    if (index == -1) return;
 
-    // Simulate bulk submission by calling each individually
-    // In a real scenario, a bulk endpoint would be better
-    for (var entry in _attendanceStatus.entries) {
-      final result = await _service.submitTeacherAttendance(
-        teacherId: entry.key,
-        action: entry.value.toLowerCase(),
-        time: DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
-        notes: "Absensi Koordinator",
-      );
+    final item = _pendingList[index];
+    setState(() {
+      _pendingList.removeAt(index);
+    });
 
-      if (result['success'] == true) {
-        successCount++;
-      } else {
-        failCount++;
-      }
-    }
-
-    setState(() => _isSubmitting = false);
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          failCount == 0
-              ? 'Seluruh absensi berhasil disimpan!'
-              : '$successCount berhasil, $failCount gagal.',
-        ),
-        backgroundColor: failCount == 0 ? Colors.green : Colors.orange,
-      ),
+    final result = await _service.verifyTeacherAttendance(
+      attendanceId: id,
+      action: action,
     );
 
-    if (failCount == 0) {
-      Navigator.pop(context);
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$name berhasil ${action == 'approve' ? 'diverifikasi' : 'ditolak'}',
+          ),
+          backgroundColor: action == 'approve' ? Colors.green : Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    } else {
+      // Revert if failed
+      setState(() {
+        _pendingList.insert(index, item);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memproses: ${result['message']}')),
+      );
     }
   }
 
@@ -114,13 +99,12 @@ class _AbsensiPengampuScreenState extends State<AbsensiPengampuScreen> {
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(30),
-              bottomRight: Radius.circular(30),
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(30),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: Colors.black.withOpacity(0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
@@ -128,32 +112,32 @@ class _AbsensiPengampuScreenState extends State<AbsensiPengampuScreen> {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              child: Row(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 20,
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Absensi Pengampu',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF2D3142),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 20,
+                        ),
+                        onPressed: () => Navigator.pop(context),
                       ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.calendar_month_outlined),
-                    onPressed: () {
-                      // Date picker functionality could go here
-                    },
+                      Expanded(
+                        child: Text(
+                          'Verifikasi Kehadiran',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF2D3142),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 40),
+                    ],
                   ),
                 ],
               ),
@@ -164,340 +148,287 @@ class _AbsensiPengampuScreenState extends State<AbsensiPengampuScreen> {
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : Stack(
-                children: [
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildActiveSessionHeader(),
-                        const SizedBox(height: 25),
-                        _buildStatisticsRow(),
-                        const SizedBox(height: 30),
-                        Text(
-                          'DAFTAR PENGAMPU',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1.2,
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                        const SizedBox(height: 15),
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _teachers.length,
+              : RefreshIndicator(
+                onRefresh: _fetchPendingAttendance,
+                child:
+                    _pendingList.isEmpty
+                        ? _buildEmptyState()
+                        : ListView.builder(
+                          padding: const EdgeInsets.all(20),
+                          itemCount: _pendingList.length,
                           itemBuilder: (context, index) {
-                            final teacher = _teachers[index];
-                            final id =
-                                int.tryParse(teacher['id'].toString()) ?? 0;
-                            return _buildTeacherCard(teacher, id);
+                            return _buildVerificationCard(_pendingList[index]);
                           },
                         ),
-                        const SizedBox(height: 100), // Space for button
-                      ],
-                    ),
-                  ),
-                  _buildBottomBar(),
-                ],
               ),
     );
   }
 
-  Widget _buildActiveSessionHeader() {
+  Widget _buildEmptyState() {
     return Center(
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            'SESI AKTIF',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.lightBlue[400],
-              letterSpacing: 1.5,
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.check_circle_outline_rounded,
+              size: 80,
+              color: Colors.green[400],
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 20),
           Text(
-            DateFormat('EEEE, d MMM yyyy', 'id_ID').format(_selectedDate),
+            "Semua Beres!",
             style: GoogleFonts.poppins(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: const Color(0xFF2D3142),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
+          Text(
+            "Semua kehadiran telah terverifikasi",
+            style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVerificationCard(dynamic record) {
+    // Data parsing
+    final teacherName = record['teacher_name'] ?? 'Pengampu';
+    final unitName = record['unit_name'] ?? 'Unit Tahfidz';
+    String notes = record['notes'] ?? 'Siang';
+    if (!notes.toLowerCase().contains('halaqoh')) {
+      notes = "Halaqoh $notes"; // Customize display
+    }
+    final photoUrl = record['teacher_photo'];
+    final timeIn =
+        record['check_in_time'] != null && record['check_in_time'] != ''
+            ? record['check_in_time'].toString().substring(0, 5)
+            : '--:--';
+
+    final attendanceId = int.tryParse(record['id'].toString()) ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF42A5F5).withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  width: 55,
+                  height: 55,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                    color: Colors.grey[100],
+                    image:
+                        (photoUrl != null && photoUrl != '')
+                            ? DecorationImage(
+                              image: NetworkImage(photoUrl),
+                              fit: BoxFit.cover,
+                            )
+                            : null,
+                  ),
+                  child:
+                      (photoUrl == null || photoUrl == '')
+                          ? Icon(
+                            Icons.person,
+                            color: Colors.grey[400],
+                            size: 30,
+                          )
+                          : null,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        teacherName,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: const Color(0xFF2D3142),
+                        ),
+                      ),
+                      Text(
+                        unitName,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.blue[50]?.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.blue[100]!),
+              color: const Color(0xFFF8F9FA),
+              border: Border.symmetric(
+                horizontal: BorderSide(color: Colors.grey[200]!),
+              ),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(
-                  Icons.wb_sunny_outlined,
-                  size: 16,
-                  color: Colors.blue[400],
+                Row(
+                  children: [
+                    Icon(
+                      Icons.wb_sunny_rounded,
+                      size: 16,
+                      color: Colors.orange[400],
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      notes,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF2D3142),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  'Sesi Pagi (07:30 - 11:30)',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.blue[400],
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50], // Light blue for time
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[100]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.access_time_filled,
+                        size: 14,
+                        color: Colors.blue[600],
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        "Check-in: $timeIn",
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed:
+                        () => _handleVerification(
+                          attendanceId,
+                          'reject',
+                          teacherName,
+                        ),
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: Colors.red[50],
+                      foregroundColor: Colors.red[600],
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: Colors.red[100]!),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.close_rounded, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Tolak",
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed:
+                        () => _handleVerification(
+                          attendanceId,
+                          'approve',
+                          teacherName,
+                        ),
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: const Color(0xFF42A5F5),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shadowColor: const Color(0xFF42A5F5).withOpacity(0.4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.check_rounded, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Verifikasi",
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStatisticsRow() {
-    int total = _teachers.length;
-    int hadir = _attendanceStatus.values.where((s) => s == 'HADIR').length;
-    int izin = _attendanceStatus.values.where((s) => s == 'IZIN').length;
-    int alfa = _attendanceStatus.values.where((s) => s == 'ALFA').length;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildStatBox('TOTAL', total.toString(), Colors.blue),
-          _buildStatBox('HADIR', hadir.toString(), Colors.teal),
-          _buildStatBox('IZIN', izin.toString(), Colors.amber),
-          _buildStatBox('ALFA', alfa.toString(), Colors.pink),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatBox(String label, String value, Color color) {
-    return Container(
-      width: 85,
-      height: 90,
-      margin: const EdgeInsets.only(right: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[500],
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF2D3142),
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.only(top: 4),
-            width: 30,
-            height: 3,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTeacherCard(dynamic teacher, int id) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 55,
-                height: 55,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  image: DecorationImage(
-                    image:
-                        (teacher['foto'] != null && teacher['foto'] != "")
-                            ? NetworkImage(teacher['foto'])
-                            : const AssetImage(
-                                  'assets/images/default_avatar.png',
-                                )
-                                as ImageProvider,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                child:
-                    (teacher['foto'] == null || teacher['foto'] == "")
-                        ? const Icon(Icons.person, color: Colors.grey, size: 30)
-                        : null,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      teacher['nama_lengkap'] ?? teacher['name'] ?? 'Pengampu',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: const Color(0xFF2D3142),
-                      ),
-                    ),
-                    Text(
-                      teacher['unit_name'] ?? 'Halaqoh Al-Jazari',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.grey[500],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStatusButton(id, 'HADIR', Colors.teal),
-              _buildStatusButton(id, 'IZIN', Colors.amber),
-              _buildStatusButton(id, 'SAKIT', Colors.orange),
-              _buildStatusButton(id, 'ALFA', Colors.pink),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusButton(int teacherId, String status, Color color) {
-    bool isSelected = _attendanceStatus[teacherId] == status;
-
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _attendanceStatus[teacherId] = status;
-          });
-        },
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? color : Colors.white,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: isSelected ? color : color.withValues(alpha: 0.2),
-              width: 1.2,
-            ),
-          ),
-          child: Text(
-            status,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: isSelected ? Colors.white : color,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomBar() {
-    return Positioned(
-      bottom: 25,
-      left: 20,
-      right: 20,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withValues(alpha: 0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: ElevatedButton(
-          onPressed: _isSubmitting ? null : _handleSaveAttendance,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF42A5F5),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            elevation: 0,
-          ),
-          child:
-              _isSubmitting
-                  ? const SizedBox(
-                    height: 24,
-                    width: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                  : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.save_rounded, size: 20),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Simpan Absensi',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-        ),
       ),
     );
   }
