@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../services/tahfidz_service.dart';
 import '../../providers/tahfidz_provider.dart';
+import '../../utils/access_control.dart';
 
 class PenilaianTahfidzScreen extends StatefulWidget {
   const PenilaianTahfidzScreen({super.key});
@@ -29,10 +30,35 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
   bool _isLoading = true;
   bool _isSubmitting = false;
 
+  // Coordinator state
+  bool _isKoordinator = false;
+  DateTime _coordSelectedDate = DateTime.now();
+  List<dynamic> _coordAssessmentRecords = [];
+
   @override
   void initState() {
     super.initState();
-    _fetchStudents();
+    _isKoordinator = AccessControl.can('is_koordinator');
+    if (_isKoordinator) {
+      _fetchCoordinatorData();
+    } else {
+      _fetchStudents();
+    }
+  }
+
+  Future<void> _fetchCoordinatorData() async {
+    setState(() => _isLoading = true);
+    try {
+      final dateStr = DateFormat('yyyy-MM-dd').format(_coordSelectedDate);
+      final records = await _service.getAssessmentHistory(date: dateStr);
+      if (mounted) {
+        setState(() => _coordAssessmentRecords = records);
+      }
+    } catch (e) {
+      debugPrint('Error fetching coordinator assessment data: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _fetchStudents() async {
@@ -116,6 +142,12 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // --- COORDINATOR VIEW ---
+    if (_isKoordinator) {
+      return _buildCoordinatorView();
+    }
+
+    // --- PENGAMPU VIEW ---
     return Scaffold(
       backgroundColor: const Color(0xFFF0F8FF),
       appBar: AppBar(
@@ -348,6 +380,352 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  // ====== COORDINATOR VIEW ======
+  Widget _buildCoordinatorView() {
+    final dateStr = DateFormat(
+      'dd MMMM yyyy',
+      'id_ID',
+    ).format(_coordSelectedDate);
+
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        title: Text(
+          'Monitoring Penilaian',
+          style: GoogleFonts.poppins(
+            color: Colors.black87,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchCoordinatorData,
+            tooltip: 'Muat Ulang',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Date Picker Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: Colors.white,
+            child: Row(
+              children: [
+                Icon(Icons.calendar_today, size: 20, color: Colors.orange[400]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _coordSelectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) {
+                        setState(() => _coordSelectedDate = picked);
+                        _fetchCoordinatorData();
+                      }
+                    },
+                    child: Text(
+                      dateStr,
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: () {
+                    setState(
+                      () =>
+                          _coordSelectedDate = _coordSelectedDate.subtract(
+                            const Duration(days: 1),
+                          ),
+                    );
+                    _fetchCoordinatorData();
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: () {
+                    setState(
+                      () =>
+                          _coordSelectedDate = _coordSelectedDate.add(
+                            const Duration(days: 1),
+                          ),
+                    );
+                    _fetchCoordinatorData();
+                  },
+                ),
+              ],
+            ),
+          ),
+          // Summary
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Total Penilaian: ${_coordAssessmentRecords.length}',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.orange[800],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Records List
+          Expanded(
+            child:
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _coordAssessmentRecords.isEmpty
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.assessment_outlined,
+                            size: 64,
+                            color: Colors.grey[300],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Belum ada penilaian pada tanggal ini',
+                            style: GoogleFonts.poppins(color: Colors.grey[500]),
+                          ),
+                        ],
+                      ),
+                    )
+                    : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _coordAssessmentRecords.length,
+                      itemBuilder: (context, index) {
+                        final record = _coordAssessmentRecords[index];
+                        return _buildCoordAssessmentCard(record);
+                      },
+                    ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoordAssessmentCard(Map<String, dynamic> record) {
+    final studentName = record['student_name'] ?? '-';
+    final category = record['category'] ?? '-';
+    final tajweed = record['tajweed_score']?.toString() ?? '-';
+    final fluency = record['fluency_score']?.toString() ?? '-';
+    final makhraj = record['makhraj_score']?.toString() ?? '-';
+    final teacherName = record['teacher_name'] ?? '-';
+    final comments = record['comments'] ?? '';
+
+    // Calculate average
+    double avg = 0;
+    int count = 0;
+    for (var score in [
+      record['tajweed_score'],
+      record['fluency_score'],
+      record['makhraj_score'],
+    ]) {
+      if (score != null) {
+        avg +=
+            (score is int
+                ? score.toDouble()
+                : double.tryParse(score.toString()) ?? 0);
+        count++;
+      }
+    }
+    if (count > 0) avg = avg / count;
+
+    Color avgColor;
+    if (avg >= 80) {
+      avgColor = Colors.green;
+    } else if (avg >= 60) {
+      avgColor = Colors.orange;
+    } else {
+      avgColor = Colors.red;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Colors.orange.withValues(alpha: 0.1),
+                  child: Text(
+                    studentName.toString().substring(0, 1).toUpperCase(),
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange[800],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        studentName,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        'Pengampu: $teacherName',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: avgColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    avg.toStringAsFixed(0),
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: avgColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _buildCoordScoreChip('Tajwid', tajweed),
+                const SizedBox(width: 8),
+                _buildCoordScoreChip('Kelancaran', fluency),
+                const SizedBox(width: 8),
+                _buildCoordScoreChip('Makhraj', makhraj),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.purple.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'Kategori: $category',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  color: Colors.purple,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (comments.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(Icons.note, size: 16, color: Colors.grey[400]),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      comments,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCoordScoreChip(String label, String score) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Column(
+          children: [
+            Text(
+              score,
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              label,
+              style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[500]),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

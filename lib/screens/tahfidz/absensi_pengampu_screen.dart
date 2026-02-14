@@ -104,7 +104,7 @@ class _AbsensiPengampuScreenState extends State<AbsensiPengampuScreen> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
@@ -223,7 +223,7 @@ class _AbsensiPengampuScreenState extends State<AbsensiPengampuScreen> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF42A5F5).withOpacity(0.08),
+            color: const Color(0xFF42A5F5).withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -242,7 +242,7 @@ class _AbsensiPengampuScreenState extends State<AbsensiPengampuScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 5),
                       ),
@@ -405,7 +405,9 @@ class _AbsensiPengampuScreenState extends State<AbsensiPengampuScreen> {
                       backgroundColor: const Color(0xFF42A5F5),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shadowColor: const Color(0xFF42A5F5).withOpacity(0.4),
+                      shadowColor: const Color(
+                        0xFF42A5F5,
+                      ).withValues(alpha: 0.4),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),

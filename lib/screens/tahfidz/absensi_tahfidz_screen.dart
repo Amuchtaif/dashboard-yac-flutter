@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../services/tahfidz_service.dart';
 import '../../providers/tahfidz_provider.dart';
+import '../../utils/access_control.dart';
 
 class AbsensiTahfidzScreen extends StatefulWidget {
   const AbsensiTahfidzScreen({super.key});
@@ -24,6 +25,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
   bool _isLoading = true;
   bool _isSubmitting = false;
   int? _teacherId;
+  bool _isKoordinator = false;
 
   // Halaqoh Opening State
   bool _isHalaqohOpened = false;
@@ -35,11 +37,56 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
   String _searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
 
+  // Coordinator State
+  List<dynamic> _coordinatorStudents = [];
+  List<dynamic> _halaqahGroups = [];
+  int? _selectedGroupId;
+  String? _coordSelectedSession;
+
   @override
   void initState() {
     super.initState();
-    _loadTeacherId();
+    _isKoordinator = AccessControl.can('is_koordinator');
+    if (_isKoordinator) {
+      _loadHalaqahGroups();
+      _fetchCoordinatorData();
+    } else {
+      _loadTeacherId();
+    }
     _startTimer();
+  }
+
+  Future<void> _loadHalaqahGroups() async {
+    try {
+      final groups = await _service.getHalaqahGroups();
+      if (mounted) {
+        setState(() => _halaqahGroups = groups);
+      }
+    } catch (e) {
+      debugPrint('Error loading halaqah groups: $e');
+    }
+  }
+
+  Future<void> _fetchCoordinatorData() async {
+    setState(() => _isLoading = true);
+    try {
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final attendanceRecords = await _service.getStudentAttendanceHistory(
+        date: dateStr,
+        session: _coordSelectedSession,
+        groupId: _selectedGroupId,
+      );
+
+      if (mounted) {
+        setState(() {
+          _coordinatorStudents = attendanceRecords;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching coordinator student data: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _startTimer() {
@@ -65,7 +112,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
     String? name = prefs.getString('fullName');
     setState(() => _teacherId = id);
 
-    if (_teacherId != null) {
+    if (!_isKoordinator && _teacherId != null) {
       if (!mounted) return;
       Provider.of<TahfidzProvider>(
         context,
@@ -318,6 +365,12 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
       return Scaffold(body: const Center(child: CircularProgressIndicator()));
     }
 
+    // --- COORDINATOR VIEW ---
+    if (_isKoordinator) {
+      return _buildCoordinatorView();
+    }
+
+    // --- PENGAMPU VIEW ---
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -1106,6 +1159,458 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ====== COORDINATOR VIEW ======
+  Widget _buildCoordinatorView() {
+    final dateStr = DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate);
+    int hadir =
+        _coordinatorStudents.where((s) => s['status'] == 'Hadir').length;
+    int sakit =
+        _coordinatorStudents.where((s) => s['status'] == 'Sakit').length;
+    int izin = _coordinatorStudents.where((s) => s['status'] == 'Izin').length;
+    int alpha =
+        _coordinatorStudents.where((s) => s['status'] == 'Alpha').length;
+
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        title: Text(
+          'Absensi Tahfidz',
+          style: GoogleFonts.poppins(
+            color: Colors.black87,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchCoordinatorData,
+            tooltip: 'Muat Ulang',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Date Picker Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: Colors.white,
+            child: Row(
+              children: [
+                Icon(Icons.calendar_today, size: 20, color: Colors.indigo[400]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) {
+                        setState(() => _selectedDate = picked);
+                        _fetchCoordinatorData();
+                      }
+                    },
+                    child: Text(
+                      dateStr,
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: () {
+                    setState(
+                      () =>
+                          _selectedDate = _selectedDate.subtract(
+                            const Duration(days: 1),
+                          ),
+                    );
+                    _fetchCoordinatorData();
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: () {
+                    setState(
+                      () =>
+                          _selectedDate = _selectedDate.add(
+                            const Duration(days: 1),
+                          ),
+                    );
+                    _fetchCoordinatorData();
+                  },
+                ),
+              ],
+            ),
+          ),
+          // Filter Row: Kelompok Halaqoh + Sesi Halaqoh
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.white,
+            child: Row(
+              children: [
+                // Kelompok Halaqoh
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int?>(
+                        isExpanded: true,
+                        value: _selectedGroupId,
+                        hint: Text(
+                          'Semua Halaqoh',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        items: [
+                          DropdownMenuItem<int?>(
+                            value: null,
+                            child: Text(
+                              'Semua Halaqoh',
+                              style: GoogleFonts.poppins(fontSize: 13),
+                            ),
+                          ),
+                          ..._halaqahGroups.map((g) {
+                            return DropdownMenuItem<int?>(
+                              value: int.tryParse(g['id'].toString()),
+                              child: Text(
+                                g['group_name'] ?? '-',
+                                style: GoogleFonts.poppins(fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }),
+                        ],
+                        onChanged: (val) {
+                          setState(() => _selectedGroupId = val);
+                          _fetchCoordinatorData();
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Sesi Halaqoh
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String?>(
+                        isExpanded: true,
+                        value: _coordSelectedSession,
+                        hint: Text(
+                          'Semua Sesi',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        items: [
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text(
+                              'Semua Sesi',
+                              style: GoogleFonts.poppins(fontSize: 13),
+                            ),
+                          ),
+                          ..._jadwalOptions.map((s) {
+                            return DropdownMenuItem<String?>(
+                              value: s,
+                              child: Text(
+                                s,
+                                style: GoogleFonts.poppins(fontSize: 13),
+                              ),
+                            );
+                          }),
+                        ],
+                        onChanged: (val) {
+                          setState(() => _coordSelectedSession = val);
+                          _fetchCoordinatorData();
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Stats Row
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildCoordStatChip(
+                    Icons.people,
+                    '${_coordinatorStudents.length}',
+                    'Total',
+                    Colors.grey[700]!,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _buildCoordStatChip(
+                    Icons.check_circle,
+                    '$hadir',
+                    'Hadir',
+                    Colors.green,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _buildCoordStatChip(
+                    Icons.local_hospital,
+                    '$sakit',
+                    'Sakit',
+                    Colors.orange,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _buildCoordStatChip(
+                    Icons.info,
+                    '$izin',
+                    'Izin',
+                    Colors.blue,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _buildCoordStatChip(
+                    Icons.cancel,
+                    '$alpha',
+                    'Alpha',
+                    Colors.red,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Student List
+          Expanded(
+            child:
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _coordinatorStudents.isEmpty
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.people_outline,
+                            size: 64,
+                            color: Colors.grey[300],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Belum ada data absensi santri',
+                            style: GoogleFonts.poppins(color: Colors.grey[500]),
+                          ),
+                        ],
+                      ),
+                    )
+                    : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _coordinatorStudents.length,
+                      itemBuilder: (context, index) {
+                        final student = _coordinatorStudents[index];
+                        return _buildCoordStudentCard(student);
+                      },
+                    ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoordStatChip(
+    IconData icon,
+    String count,
+    String label,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            count,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoordStudentCard(dynamic record) {
+    final studentName = record['student_name']?.toString() ?? '-';
+    final kelas = record['kelas']?.toString() ?? '-';
+    final tingkat = record['tingkat']?.toString() ?? '-';
+    final status = record['status']?.toString() ?? '-';
+    final session = record['session']?.toString() ?? '-';
+
+    Color statusColor;
+    IconData statusIcon;
+    switch (status) {
+      case 'Hadir':
+        statusColor = Colors.green;
+        statusIcon = Icons.check_circle;
+        break;
+      case 'Sakit':
+        statusColor = Colors.orange;
+        statusIcon = Icons.local_hospital;
+        break;
+      case 'Izin':
+        statusColor = Colors.blue;
+        statusIcon = Icons.info;
+        break;
+      case 'Alpha':
+        statusColor = Colors.red;
+        statusIcon = Icons.cancel;
+        break;
+      default:
+        statusColor = Colors.grey;
+        statusIcon = Icons.help_outline;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: statusColor.withValues(alpha: 0.1),
+              child: Text(
+                studentName.substring(0, 1).toUpperCase(),
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  color: statusColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    studentName,
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        'Kelas $kelas  •  $tingkat',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          session,
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            color: Colors.indigo,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(statusIcon, size: 14, color: statusColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    status,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: statusColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

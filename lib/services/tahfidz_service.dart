@@ -103,6 +103,8 @@ class TahfidzService {
   Future<List<dynamic>> getStudentAttendanceHistory({
     String? date,
     String? studentId,
+    String? session,
+    int? groupId,
   }) async {
     try {
       String query = "";
@@ -111,6 +113,12 @@ class TahfidzService {
       }
       if (studentId != null) {
         query += "${query.isEmpty ? "" : "&"}student_id=$studentId";
+      }
+      if (session != null) {
+        query += "${query.isEmpty ? "" : "&"}session=$session";
+      }
+      if (groupId != null) {
+        query += "${query.isEmpty ? "" : "&"}group_id=$groupId";
       }
 
       final response = await http.get(
@@ -126,6 +134,25 @@ class TahfidzService {
       }
     } catch (e) {
       debugPrint("Error fetching student attendance: $e");
+    }
+    return [];
+  }
+
+  Future<List<dynamic>> getHalaqahGroups() async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/tahfidz/get_halaqah_groups.php"),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching halaqah groups: $e");
     }
     return [];
   }

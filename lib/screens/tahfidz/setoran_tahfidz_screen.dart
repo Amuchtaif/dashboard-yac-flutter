@@ -7,6 +7,7 @@ import '../../services/tahfidz_service.dart';
 import '../../services/quran_service.dart';
 import '../../models/surah_model.dart';
 import '../../providers/tahfidz_provider.dart';
+import '../../utils/access_control.dart';
 
 class SetoranTahfidzScreen extends StatefulWidget {
   const SetoranTahfidzScreen({super.key});
@@ -37,10 +38,35 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
   bool _isLoading = true;
   bool _isSubmitting = false;
 
+  // Coordinator state
+  bool _isKoordinator = false;
+  DateTime _coordSelectedDate = DateTime.now();
+  List<dynamic> _coordMemorizationRecords = [];
+
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
+    _isKoordinator = AccessControl.can('is_koordinator');
+    if (_isKoordinator) {
+      _fetchCoordinatorData();
+    } else {
+      _loadInitialData();
+    }
+  }
+
+  Future<void> _fetchCoordinatorData() async {
+    setState(() => _isLoading = true);
+    try {
+      final dateStr = DateFormat('yyyy-MM-dd').format(_coordSelectedDate);
+      final records = await _service.getMemorizationHistory(date: dateStr);
+      if (mounted) {
+        setState(() => _coordMemorizationRecords = records);
+      }
+    } catch (e) {
+      debugPrint('Error fetching coordinator memorization data: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _loadInitialData() async {
@@ -356,6 +382,12 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // --- COORDINATOR VIEW ---
+    if (_isKoordinator) {
+      return _buildCoordinatorView();
+    }
+
+    // --- PENGAMPU VIEW ---
     return Scaffold(
       backgroundColor: const Color(0xFFF0F8FF),
       body: SafeArea(
@@ -730,6 +762,299 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
               color: isSelected ? Colors.blueAccent : Colors.grey[500],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ====== COORDINATOR VIEW ======
+  Widget _buildCoordinatorView() {
+    final dateStr = DateFormat(
+      'dd MMMM yyyy',
+      'id_ID',
+    ).format(_coordSelectedDate);
+
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        title: Text(
+          'Monitoring Setoran',
+          style: GoogleFonts.poppins(
+            color: Colors.black87,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchCoordinatorData,
+            tooltip: 'Muat Ulang',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Date Picker Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: Colors.white,
+            child: Row(
+              children: [
+                Icon(Icons.calendar_today, size: 20, color: Colors.indigo[400]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _coordSelectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) {
+                        setState(() => _coordSelectedDate = picked);
+                        _fetchCoordinatorData();
+                      }
+                    },
+                    child: Text(
+                      dateStr,
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: () {
+                    setState(
+                      () =>
+                          _coordSelectedDate = _coordSelectedDate.subtract(
+                            const Duration(days: 1),
+                          ),
+                    );
+                    _fetchCoordinatorData();
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: () {
+                    setState(
+                      () =>
+                          _coordSelectedDate = _coordSelectedDate.add(
+                            const Duration(days: 1),
+                          ),
+                    );
+                    _fetchCoordinatorData();
+                  },
+                ),
+              ],
+            ),
+          ),
+          // Summary
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Total Setoran: ${_coordMemorizationRecords.length}',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.indigo,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Records List
+          Expanded(
+            child:
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _coordMemorizationRecords.isEmpty
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.menu_book_outlined,
+                            size: 64,
+                            color: Colors.grey[300],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Belum ada setoran pada tanggal ini',
+                            style: GoogleFonts.poppins(color: Colors.grey[500]),
+                          ),
+                        ],
+                      ),
+                    )
+                    : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _coordMemorizationRecords.length,
+                      itemBuilder: (context, index) {
+                        final record = _coordMemorizationRecords[index];
+                        return _buildCoordRecordCard(record);
+                      },
+                    ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoordRecordCard(Map<String, dynamic> record) {
+    final studentName = record['student_name'] ?? '-';
+    final surah = record['surah_name'] ?? '-';
+    final ayatStart = record['ayat_start']?.toString() ?? '-';
+    final ayatEnd = record['ayat_end']?.toString() ?? '-';
+    final quality = record['quality'] ?? '-';
+    final teacherName = record['teacher_name'] ?? '-';
+    final notes = record['notes'] ?? '';
+
+    Color qualityColor;
+    switch (quality) {
+      case 'Lancar':
+        qualityColor = Colors.green;
+        break;
+      case 'Kurang Lancar':
+        qualityColor = Colors.orange;
+        break;
+      case 'Tidak Lancar':
+        qualityColor = Colors.red;
+        break;
+      default:
+        qualityColor = Colors.grey;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Colors.indigo.withValues(alpha: 0.1),
+                  child: Text(
+                    studentName.toString().substring(0, 1).toUpperCase(),
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.indigo,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        studentName,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        'Pengampu: $teacherName',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: qualityColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    quality,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: qualityColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.menu_book, size: 16, color: Colors.indigo[300]),
+                const SizedBox(width: 6),
+                Text(
+                  '$surah: $ayatStart - $ayatEnd',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+            if (notes.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(Icons.note, size: 16, color: Colors.grey[400]),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      notes,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
         ),
       ),
     );

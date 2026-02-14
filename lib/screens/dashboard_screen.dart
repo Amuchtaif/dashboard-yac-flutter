@@ -1420,15 +1420,17 @@ class HomeTab extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _buildFullWidthMenuCard(context, {
-            'title': 'Penilaian',
-            'icon': Icons.assignment_turned_in_rounded,
-            'color': Colors.orangeAccent,
+            'title': 'Setoran',
+            'subtitle': 'Pantau hafalan baru santri',
+            'icon': Icons.edit_note_rounded,
+            'color': Colors.teal,
           }),
           const SizedBox(height: 12),
           _buildFullWidthMenuCard(context, {
-            'title': 'Setoran',
-            'icon': Icons.edit_note_rounded,
-            'color': Colors.teal,
+            'title': 'Penilaian',
+            'subtitle': 'Pantau penilaian santri',
+            'icon': Icons.assignment_turned_in_rounded,
+            'color': Colors.orangeAccent,
           }),
         ],
       );
@@ -1442,6 +1444,7 @@ class HomeTab extends StatelessWidget {
         },
         {
           'title': 'Penilaian',
+          'subtitle': 'Input penilaian santri',
           'icon': Icons.assignment_turned_in_rounded,
           'color': Colors.orangeAccent,
         },
@@ -1460,6 +1463,7 @@ class HomeTab extends StatelessWidget {
           const SizedBox(height: 12),
           _buildFullWidthMenuCard(context, {
             'title': 'Setoran',
+            'subtitle': 'Input hafalan baru santri',
             'icon': Icons.edit_note_rounded,
             'color': Colors.teal,
           }),
@@ -1583,7 +1587,7 @@ class HomeTab extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        "Input Hafalan Baru Santri",
+                        menu['subtitle'] as String? ?? '',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: Colors.grey[600],
