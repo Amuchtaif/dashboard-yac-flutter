@@ -32,7 +32,6 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
 
   // Coordinator state
   bool _isKoordinator = false;
-  DateTime _coordSelectedDate = DateTime.now();
   List<dynamic> _coordAssessmentRecords = [];
 
   @override
@@ -49,8 +48,8 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
   Future<void> _fetchCoordinatorData() async {
     setState(() => _isLoading = true);
     try {
-      final dateStr = DateFormat('yyyy-MM-dd').format(_coordSelectedDate);
-      final records = await _service.getAssessmentHistory(date: dateStr);
+      // Fetch all assessments for coordinator (no date filter)
+      final records = await _service.getAssessmentHistory();
       if (mounted) {
         setState(() => _coordAssessmentRecords = records);
       }
@@ -385,11 +384,6 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
 
   // ====== COORDINATOR VIEW ======
   Widget _buildCoordinatorView() {
-    final dateStr = DateFormat(
-      'dd MMMM yyyy',
-      'id_ID',
-    ).format(_coordSelectedDate);
-
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -415,65 +409,6 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
       ),
       body: Column(
         children: [
-          // Date Picker Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Colors.white,
-            child: Row(
-              children: [
-                Icon(Icons.calendar_today, size: 20, color: Colors.orange[400]),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: InkWell(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: _coordSelectedDate,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2030),
-                      );
-                      if (picked != null) {
-                        setState(() => _coordSelectedDate = picked);
-                        _fetchCoordinatorData();
-                      }
-                    },
-                    child: Text(
-                      dateStr,
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.chevron_left),
-                  onPressed: () {
-                    setState(
-                      () =>
-                          _coordSelectedDate = _coordSelectedDate.subtract(
-                            const Duration(days: 1),
-                          ),
-                    );
-                    _fetchCoordinatorData();
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right),
-                  onPressed: () {
-                    setState(
-                      () =>
-                          _coordSelectedDate = _coordSelectedDate.add(
-                            const Duration(days: 1),
-                          ),
-                    );
-                    _fetchCoordinatorData();
-                  },
-                ),
-              ],
-            ),
-          ),
           // Summary
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -517,7 +452,7 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Belum ada penilaian pada tanggal ini',
+                            'Belum ada data penilaian yang diinput',
                             style: GoogleFonts.poppins(color: Colors.grey[500]),
                           ),
                         ],

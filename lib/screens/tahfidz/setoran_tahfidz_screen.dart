@@ -938,7 +938,7 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
       case 'Kurang Lancar':
         qualityColor = Colors.orange;
         break;
-      case 'Tidak Lancar':
+      case 'Ulang':
         qualityColor = Colors.red;
         break;
       default:
