@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'payroll_detail_screen.dart';
+import '../services/payroll_service.dart';
+import 'package:intl/intl.dart';
 
 class PayrollHistoryScreen extends StatefulWidget {
   const PayrollHistoryScreen({super.key});
@@ -9,41 +13,138 @@ class PayrollHistoryScreen extends StatefulWidget {
 }
 
 class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
-  // Dummy Data
-  final List<Map<String, dynamic>> _payrolls = [
-    {
-      'period': 'Februari 2026',
-      'amount': 'Rp 8.500.000',
-      'status': 'TERBAYAR',
-      'isPaid': true,
-    },
-    {
-      'period': 'Januari 2026',
-      'amount': 'Rp 8.500.000',
-      'status': 'TERBAYAR',
-      'isPaid': true,
-    },
-  ];
+  final PayrollService _payrollService = PayrollService();
+  List<Map<String, dynamic>> _payrolls = [];
+  bool _isLoading = true;
+  String? _userId;
+  double _totalPaidYear = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      final rawId = prefs.get('user_id') ?? prefs.get('userId');
+      if (rawId is int) {
+        _userId = rawId.toString();
+      } else {
+        _userId = rawId?.toString();
+      }
+    });
+
+    if (_userId != null && _userId != "0" && _userId != "null") {
+      _fetchPayrolls();
+    } else {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _fetchPayrolls() async {
+    if (_userId == null || _userId == "0" || _userId == "null") {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    if (mounted) setState(() => _isLoading = true);
+
+    try {
+      final results = await _payrollService.getPayrollHistory(
+        userId: int.parse(_userId!),
+      );
+
+      double total = 0;
+      for (var p in results) {
+        final net = p['gaji_netto'];
+        double netValue = 0;
+        if (net is num) {
+          netValue = net.toDouble();
+        } else if (net is String) {
+          netValue = double.tryParse(net) ?? 0;
+        }
+        total += netValue;
+      }
+
+      if (mounted) {
+        setState(() {
+          _payrolls = results;
+          _totalPaidYear = total;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Gagal memuat data gaji: $e")));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA), // Background slightly off-white
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 24),
-              _buildTitleSection(),
-              const SizedBox(height: 20),
-              _buildSummaryCard(),
-              const SizedBox(height: 24),
-              ..._payrolls.map((payroll) => _buildPayrollCard(payroll)),
-            ],
-          ),
+      backgroundColor: const Color(0xFFFAFAFA),
+      body: RefreshIndicator(
+        onRefresh: _fetchPayrolls,
+        child: SafeArea(
+          child:
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(context),
+                        const SizedBox(height: 24),
+                        _buildTitleSection(),
+                        const SizedBox(height: 20),
+                        _buildSummaryCard(),
+                        const SizedBox(height: 24),
+                        _payrolls.isEmpty
+                            ? _buildEmptyState()
+                            : Column(
+                              children:
+                                  _payrolls
+                                      .map(
+                                        (payroll) => _buildPayrollCard(payroll),
+                                      )
+                                      .toList(),
+                            ),
+                      ],
+                    ),
+                  ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 100),
+        child: Column(
+          children: [
+            Icon(
+              Icons.payments_outlined,
+              size: 64,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "Belum ada data penggajian",
+              style: GoogleFonts.poppins(color: Colors.grey.shade500),
+            ),
+          ],
         ),
       ),
     );
@@ -110,6 +211,11 @@ class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
   }
 
   Widget _buildSummaryCard() {
+    final currencyFormat = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -131,7 +237,7 @@ class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'TOTAL TERBAYAR 2026',
+                'TOTAL TERBAYAR ${DateTime.now().year}',
                 style: GoogleFonts.poppins(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -158,7 +264,7 @@ class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                'Rp 17.000.000',
+                currencyFormat.format(_totalPaidYear),
                 style: GoogleFonts.poppins(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -168,7 +274,7 @@ class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 4, left: 8),
                 child: Text(
-                  '/ 2 Bulan',
+                  '/ ${_payrolls.length} Bulan',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: Colors.grey.shade500,
@@ -184,127 +290,162 @@ class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
   }
 
   Widget _buildPayrollCard(Map<String, dynamic> data) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Card (Periode & Status)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Periode',
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: Colors.grey.shade400,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    data['period'],
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  data['status'],
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+    final currencyFormat = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+    final monthNames = [
+      '',
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
 
-          // Inner Blue Box (Gaji Bersih)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F8FF), // Very light blue background
-              borderRadius: BorderRadius.circular(16),
+    final periodStr =
+        "${monthNames[int.parse(data['periode_bulan'])]} ${data['periode_tahun']}";
+    final amount = double.tryParse(data['gaji_netto'].toString()) ?? 0;
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PayrollDetailScreen(payrollData: data),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
             ),
-            child: Row(
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Card (Periode & Status)
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'GAJI BERSIH',
+                      'Periode',
                       style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.blueGrey.shade300,
+                        fontSize: 11,
+                        color: Colors.grey.shade400,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          data['amount'],
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF0085FF),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.visibility,
-                          size: 16,
-                          color: Colors.blue.shade300,
-                        ),
-                      ],
+                    const SizedBox(height: 2),
+                    Text(
+                      periodStr,
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
                     ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
                   ),
-                  child: Icon(
-                    Icons.chevron_right_rounded,
-                    color: Colors.blue.shade400,
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    data['status'] ?? 'TERBAYAR',
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade600,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+
+            // Inner Blue Box (Gaji Bersih)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F8FF), // Very light blue background
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'GAJI BERSIH',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blueGrey.shade300,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            currencyFormat.format(amount),
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF0085FF),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.visibility,
+                            size: 16,
+                            color: Colors.blue.shade300,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      color: Colors.blue.shade400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

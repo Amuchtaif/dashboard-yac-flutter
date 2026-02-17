@@ -1,5 +1,6 @@
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,6 +24,8 @@ import 'tahfidz/absensi_tahfidz_screen.dart';
 import 'tahfidz/absensi_pengampu_screen.dart';
 import 'tahfidz/setoran_tahfidz_screen.dart';
 import 'tahfidz/penilaian_tahfidz_screen.dart';
+import '../services/attendance_service.dart';
+import '../models/location_model.dart';
 import '../utils/access_control.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -93,10 +96,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isKoordinator = false;
   bool _isLoadingActivity = false;
 
-  // --- KONFIGURASI API ---
-  // Sesuaikan IP ini. Jika di Emulator Android pakai 10.0.2.2.
-  // Jika di HP Asli pakai IP Laptop (misal: 192.168.1.X)
   final String baseUrl = ApiConfig.baseUrl;
+  List<LocationModel> _locations = [];
 
   @override
   void initState() {
@@ -157,6 +158,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // Init Notification Service (Fire and forget)
     NotificationService().init();
+    _fetchLocations();
+  }
+
+  Future<void> _fetchLocations() async {
+    _locations = await AttendanceService().getLocations();
+    if (mounted) setState(() {});
   }
 
   // --- LOGIC: HANDLE NOTIFICATION CLICK ---
@@ -214,7 +221,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _unitName = prefs.getString('unitName') ?? '';
       _divisionName = prefs.getString('divisionName') ?? '';
       _positionName = prefs.getString('positionName') ?? '';
-      int id = prefs.getInt('userId') ?? 0; // Default 0 jika tidak ada
+      int id =
+          prefs.getInt('user_id') ??
+          prefs.getInt('userId') ??
+          0; // Try both keys
       _userId = id.toString();
     });
 
@@ -287,57 +297,349 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _handleAttendance() async {
     if (_attendanceStatus == "SELESAI") return;
 
-    // 1. Ambil Lokasi
+    // 1. Flow Berdasarkan Status
+    if (_attendanceStatus == "BELUM_ABSEN" ||
+        _attendanceStatus == "SUDAH_MASUK") {
+      // Check-in & Check-out flow: Sekarang keduanya butuh pilih lokasi
+      if (_locations.isEmpty) {
+        _showLoadingSnackBar("Mengambil data lokasi...");
+        await _fetchLocations();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+
+      if (_locations.isEmpty) {
+        _showSnackBar(
+          message: "Data lokasi kantor tidak tersedia",
+          isError: true,
+        );
+        return;
+      }
+
+      if (_locations.length == 1) {
+        _handleAttendanceWithGPS(_locations.first);
+      } else {
+        _showLocationPicker();
+      }
+    }
+  }
+
+  Future<void> _handleAttendanceWithGPS(LocationModel location) async {
+    // Ambil GPS & Cek Mock
     Position? position;
     try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Sedang mengambil lokasi...")),
-      );
+      _showLoadingSnackBar("Mengambil lokasi GPS...");
       position = await _determinePosition();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      _showSnackBar(message: "Gagal ambil lokasi: $e", isError: true);
-      return;
-    }
-
-    // 2. Kirim ke API
-    String type = (_attendanceStatus == "BELUM_ABSEN") ? "IN" : "OUT";
-    final url = "$baseUrl/attendance.php";
-
-    try {
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode({
-          "user_id": _userId,
-          "type": type,
-          "latitude": position.latitude.toString(),
-          "longitude": position.longitude.toString(),
-        }),
-      );
-
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-      final data = jsonDecode(response.body);
+      if (position.isMocked) {
+        _showInvalidLocationDialog();
+        return;
+      }
 
-      _showSnackBar(
-        message: data['message'] ?? "Terjadi kesalahan",
-        isError: !(data['success'] == true),
-      );
-
-      if (data['success'] == true) {
-        _fetchDashboardData(); // Refresh data dashboard
+      if (_attendanceStatus == "BELUM_ABSEN") {
+        _executeCheckIn(location, position);
+      } else {
+        _executeCheckOut(position);
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      _showSnackBar(message: "Gagal terhubung ke server", isError: true);
+      _showSnackBar(message: "Gagal ambil lokasi: $e", isError: true);
     }
+  }
+
+  void _showInvalidLocationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (_) => AlertDialog(
+            title: const Text("Lokasi Tidak Valid"),
+            content: const Text(
+              "Mock location (GPS Palsu) terdeteksi. Silakan matikan aplikasi Fake GPS Anda untuk melanjutkan absensi.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _executeCheckIn(
+    LocationModel location,
+    Position position,
+  ) async {
+    try {
+      _showLoadingSnackBar("Sedang mengirim absensi...");
+      final result = await AttendanceService().checkIn(
+        userId: int.parse(_userId),
+        locationId: location.id,
+        lat: position.latitude,
+        lng: position.longitude,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      if (result['success'] == true || result['status'] == true) {
+        _showSnackBar(message: result['message'] ?? "Absen masuk berhasil");
+        _fetchDashboardData();
+      } else {
+        _showErrorDialog(result['message'] ?? "Gagal melakukan absensi");
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      _showSnackBar(message: "Kesalahan jaringan: $e", isError: true);
+    }
+  }
+
+  Future<void> _executeCheckOut(Position position) async {
+    try {
+      _showLoadingSnackBar("Sedang mengirim absensi...");
+      final result = await AttendanceService().checkOut(
+        userId: int.parse(_userId),
+        lat: position.latitude,
+        lng: position.longitude,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      if (result['success'] == true || result['status'] == true) {
+        _showSnackBar(message: result['message'] ?? "Absen pulang berhasil");
+        _fetchDashboardData();
+      } else {
+        _showErrorDialog(result['message'] ?? "Gagal melakukan absensi");
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      _showSnackBar(message: "Kesalahan jaringan: $e", isError: true);
+    }
+  }
+
+  void _showLoadingSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(message),
+          ],
+        ),
+        duration: const Duration(seconds: 10),
+      ),
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text("Gagal"),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Tutup"),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showLocationPicker() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "LocationPicker",
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, anim1, anim2) {
+        return _buildLocationPickerContent(context);
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        final curve = Curves.easeOutQuart.transform(anim1.value);
+        return BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: 5 * anim1.value,
+            sigmaY: 5 * anim1.value,
+          ),
+          child: FadeTransition(
+            opacity: anim1,
+            child: Transform.translate(
+              offset: Offset(0, 50 * (1 - curve)),
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLocationPickerContent(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 450),
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.business_rounded,
+                size: 40,
+                color: Colors.blue,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              "Pilih Lokasi Kantor",
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 24)),
+            const SizedBox(height: 24),
+            Flexible(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.4,
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _locations.length,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemBuilder: (context, index) {
+                    final loc = _locations[index];
+                    return InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                        _handleAttendanceWithGPS(loc);
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade200),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.location_on,
+                                size: 22,
+                                color: Colors.blue,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    loc.name,
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  if (loc.address.isNotEmpty)
+                                    Text(
+                                      loc.address,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: Colors.grey.shade400,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                "Batal",
+                style: GoogleFonts.poppins(
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showSnackBar({required String message, bool isError = false}) {
@@ -368,6 +670,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
+      timeLimit: const Duration(seconds: 15),
     );
   }
 
@@ -547,11 +850,16 @@ class HomeTab extends StatelessWidget {
             const SizedBox(height: 12),
             _buildGeneralMenuGrid(context),
             const SizedBox(height: 24),
+            _buildSectionTitle('Menu Pendidikan'),
+            const SizedBox(height: 12),
+            _buildEducationMenuGrid(context),
+            const SizedBox(height: 24),
             // Show Tahfidz Menu Only If User Has Permission
             if (AccessControl.can('can_access_tahfidz')) ...[
               _buildSectionTitle('Menu Tahfidz'),
               const SizedBox(height: 12),
               _buildTahfidzMenuGrid(context),
+              const SizedBox(height: 24),
             ],
           ],
         ),
@@ -1269,95 +1577,96 @@ class HomeTab extends StatelessWidget {
       {'title': 'Penggajian', 'icon': Icons.payments, 'color': Colors.pink},
     ];
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 4,
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 16,
+      childAspectRatio: 0.8,
       children:
           menus.map((menu) {
-            return Expanded(
-              child: Container(
-                height: 100,
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+            return Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () {
+                    if (menu['title'] == 'Izin Kerja') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MainPermitScreen(),
+                        ),
+                      );
+                    } else if (menu['title'] == 'Rapat Pertemuan') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MeetingListScreen(),
+                        ),
+                      );
+                    } else if (menu['title'] == 'Inventaris Barang') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const InventoryCategoryScreen(),
+                        ),
+                      );
+                    } else if (menu['title'] == 'Penggajian') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const PayrollHistoryScreen(),
+                        ),
+                      );
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 4,
                     ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () {
-                      if (menu['title'] == 'Izin Kerja') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const MainPermitScreen(),
-                          ),
-                        );
-                      } else if (menu['title'] == 'Rapat Pertemuan') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const MeetingListScreen(),
-                          ),
-                        );
-                      } else if (menu['title'] == 'Inventaris Barang') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => const InventoryCategoryScreen(),
-                          ),
-                        );
-                      } else if (menu['title'] == 'Penggajian') {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const PayrollHistoryScreen(),
-                          ),
-                        );
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 8,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: (menu['color'] as Color).withValues(
-                                alpha: 0.1,
-                              ),
-                              shape: BoxShape.circle,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: (menu['color'] as Color).withValues(
+                              alpha: 0.1,
                             ),
-                            child: Icon(
-                              menu['icon'] as IconData,
-                              color: menu['color'] as Color,
-                              size: 20,
-                            ),
+                            shape: BoxShape.circle,
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            menu['title'] as String,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            style: GoogleFonts.poppins(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          child: Icon(
+                            menu['icon'] as IconData,
+                            color: menu['color'] as Color,
+                            size: 20,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          menu['title'] as String,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.poppins(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1387,6 +1696,71 @@ class HomeTab extends StatelessWidget {
               ),
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _buildEducationMenuGrid(BuildContext context) {
+    final row1 = [
+      {
+        'title': 'Data Siswa',
+        'icon': Icons.people_outline,
+        'color': Colors.blue,
+      },
+      {
+        'title': 'Data Guru',
+        'icon': Icons.person_outline,
+        'color': Colors.green,
+      },
+      {
+        'title': 'Kelas',
+        'icon': Icons.meeting_room_outlined,
+        'color': Colors.orange,
+      },
+      {
+        'title': 'Mata Pelajaran',
+        'icon': Icons.book_outlined,
+        'color': Colors.purple,
+      },
+    ];
+    final row2 = [
+      {
+        'title': 'Jadwal Mengajar',
+        'icon': Icons.calendar_today_outlined,
+        'color': Colors.pink,
+        'flex': 2,
+      },
+      {
+        'title': 'Absensi Siswa',
+        'icon': Icons.how_to_reg_outlined,
+        'color': Colors.cyan,
+      },
+      {
+        'title': 'Kalender Akademik',
+        'icon': Icons.event_note_outlined,
+        'color': Colors.indigo,
+      },
+    ];
+
+    return Column(
+      children: [
+        Row(
+          children:
+              row1
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children:
+              row2.map((menu) {
+                int flex = menu['flex'] as int? ?? 1;
+                return Expanded(
+                  flex: flex,
+                  child: _buildMenuCard(context, menu),
+                );
+              }).toList(),
+        ),
       ],
     );
   }
@@ -1641,6 +2015,18 @@ class HomeTab extends StatelessWidget {
         context,
         MaterialPageRoute(builder: (context) => const PenilaianTahfidzScreen()),
       );
+    } else if ([
+      'Data Siswa',
+      'Data Guru',
+      'Kelas & Rombel',
+      'Mata Pelajaran',
+      'Jadwal',
+      'Absensi Siswa',
+      'Kalender Akademik',
+    ].contains(title)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Menu $title akan segera hadir')));
     }
   }
 }

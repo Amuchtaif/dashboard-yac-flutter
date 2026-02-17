@@ -13,28 +13,24 @@ class InventoryCategoryScreen extends StatefulWidget {
 class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
   // Data Dummy untuk Kategori (Sesuai gambar)
   final List<Map<String, dynamic>> _categories = [
-    {'title': 'Bidang IT', 'count': 124, 'icon': Icons.terminal_rounded},
+    {'title': 'Bidang Pendidikan', 'count': 0, 'icon': Icons.school_rounded},
     {
-      'title': 'Bidang Operasional',
-      'count': 85,
-      'icon': Icons.display_settings_rounded, // Icon slider/tuning
+      'title': 'Bidang Dakwah & Sosial',
+      'count': 0,
+      'icon': Icons.volunteer_activism_rounded,
     },
     {
-      'title': 'Bidang HRD',
-      'count': 42,
-      'icon': Icons.badge_rounded, // Icon ID Card
+      'title': 'Bidang Ekonomi',
+      'count': 0,
+      'icon': Icons.account_balance_rounded,
     },
+    {'title': 'Bidang Umum', 'count': 0, 'icon': Icons.inventory_2_rounded},
     {
-      'title': 'Bidang Umum',
-      'count': 210,
-      'icon': Icons.inventory_2_rounded, // Box icon
-    },
-    {
-      'title': 'Keuangan',
-      'count': 56,
+      'title': 'Bendahara',
+      'count': 0,
       'icon': Icons.account_balance_wallet_rounded,
     },
-    {'title': 'Pendidikan', 'count': 18, 'icon': Icons.school_rounded},
+    {'title': 'Personalia', 'count': 0, 'icon': Icons.badge_rounded},
   ];
 
   @override

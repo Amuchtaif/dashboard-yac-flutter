@@ -1,12 +1,37 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../core/api_constants.dart';
+import '../config/api_config.dart';
 import '../models/attendance_model.dart';
+import '../models/location_model.dart';
 import 'package:intl/intl.dart';
 
 class AttendanceService {
+  final String baseUrl = ApiConfig.baseUrl;
+
+  Future<List<LocationModel>> getLocations() async {
+    final url = Uri.parse('$baseUrl/get_locations.php');
+    try {
+      final response = await http.get(
+        url,
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if ((data['success'] == true || data['status'] == true) &&
+            data['data'] != null) {
+          final List<dynamic> list = data['data'];
+          return list.map((json) => LocationModel.fromJson(json)).toList();
+        }
+      }
+    } catch (e) {
+      // print('Error fetching locations: $e');
+    }
+    return [];
+  }
+
   Future<List<AttendanceActivity>> getHistory(int userId) async {
-    final url = Uri.parse('${ApiConstants.baseUrl}attendance.php');
+    final url = Uri.parse('$baseUrl/attendance.php');
     try {
       final response = await http.post(
         url,
@@ -19,7 +44,8 @@ class AttendanceService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['success'] == true && data['data'] != null) {
+        if ((data['success'] == true || data['status'] == true) &&
+            data['data'] != null) {
           final List<dynamic> historyList = data['data'];
           return historyList
               .map((json) => AttendanceActivity.fromJson(json))
@@ -32,12 +58,13 @@ class AttendanceService {
     return [];
   }
 
-  Future<Map<String, dynamic>> checkIn(
-    int userId,
-    double lat,
-    double lng,
-  ) async {
-    final url = Uri.parse('${ApiConstants.baseUrl}attendance.php');
+  Future<Map<String, dynamic>> checkIn({
+    required int userId,
+    required int locationId,
+    required double lat,
+    required double lng,
+  }) async {
+    final url = Uri.parse('$baseUrl/attendance.php');
     try {
       final response = await http.post(
         url,
@@ -48,32 +75,26 @@ class AttendanceService {
         body: jsonEncode({
           'action': 'check_in',
           'user_id': userId,
-          'type': 'Check In',
+          'location_id': locationId,
+          'type': 'IN',
           'latitude': lat,
           'longitude': lng,
           'timestamp': DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
         }),
       );
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        return {
-          'success': false,
-          'message': 'Server error: ${response.statusCode}',
-        };
-      }
+      return jsonDecode(response.body);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
     }
   }
 
-  Future<Map<String, dynamic>> checkOut(
-    int userId,
-    double lat,
-    double lng,
-  ) async {
-    final url = Uri.parse('${ApiConstants.baseUrl}attendance.php');
+  Future<Map<String, dynamic>> checkOut({
+    required int userId,
+    required double lat,
+    required double lng,
+  }) async {
+    final url = Uri.parse('$baseUrl/attendance.php');
     try {
       final response = await http.post(
         url,
@@ -84,21 +105,14 @@ class AttendanceService {
         body: jsonEncode({
           'action': 'check_out',
           'user_id': userId,
-          'type': 'Check Out',
+          'type': 'OUT',
           'latitude': lat,
           'longitude': lng,
           'timestamp': DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
         }),
       );
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        return {
-          'success': false,
-          'message': 'Server error: ${response.statusCode}',
-        };
-      }
+      return jsonDecode(response.body);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
     }
