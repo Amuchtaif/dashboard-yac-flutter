@@ -24,6 +24,7 @@ import 'tahfidz/absensi_tahfidz_screen.dart';
 import 'tahfidz/absensi_pengampu_screen.dart';
 import 'tahfidz/setoran_tahfidz_screen.dart';
 import 'tahfidz/penilaian_tahfidz_screen.dart';
+import 'teaching_schedule_screen.dart';
 import '../services/attendance_service.dart';
 import '../models/location_model.dart';
 import '../utils/access_control.dart';
@@ -2015,15 +2016,12 @@ class HomeTab extends StatelessWidget {
         context,
         MaterialPageRoute(builder: (context) => const PenilaianTahfidzScreen()),
       );
-    } else if ([
-      'Data Siswa',
-      'Data Guru',
-      'Kelas & Rombel',
-      'Mata Pelajaran',
-      'Jadwal',
-      'Absensi Siswa',
-      'Kalender Akademik',
-    ].contains(title)) {
+    } else if (title == 'Jadwal Mengajar') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const TeachingScheduleScreen()),
+      );
+    } else {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Menu $title akan segera hadir')));

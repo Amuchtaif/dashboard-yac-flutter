@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'teaching_schedule_screen.dart';
 
 class EducationMenuScreen extends StatelessWidget {
   const EducationMenuScreen({super.key});
@@ -101,11 +102,20 @@ class EducationMenuScreen extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Menu ${item['title']} akan segera hadir'),
-              ),
-            );
+            if (item['title'] == 'Jadwal') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TeachingScheduleScreen(),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Menu ${item['title']} akan segera hadir'),
+                ),
+              );
+            }
           },
           borderRadius: BorderRadius.circular(24),
           child: Padding(
