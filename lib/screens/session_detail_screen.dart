@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'teaching_journal_screen.dart';
 
 class SessionDetailScreen extends StatelessWidget {
   final Map<String, dynamic> sessionData;
@@ -43,7 +45,7 @@ class SessionDetailScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -78,7 +80,7 @@ class SessionDetailScreen extends StatelessWidget {
 
                     // Title
                     Text(
-                      sessionData['subject'] ?? 'Mata Pelajaran',
+                      sessionData['subject_name'] ?? 'Mata Pelajaran',
                       style: GoogleFonts.poppins(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -90,12 +92,12 @@ class SessionDetailScreen extends StatelessWidget {
                     // Subtitle (Class & Teacher)
                     _buildIconText(
                       Icons.people_outline,
-                      sessionData['class'] ?? 'Kelas',
+                      sessionData['class_name'] ?? 'Kelas',
                     ),
                     const SizedBox(height: 8),
                     _buildIconText(
                       Icons.person_outline,
-                      sessionData['teacher'] ?? 'Ust. Ahmad Fauzi',
+                      sessionData['teacher_name'] ?? 'Guru',
                     ),
                     const SizedBox(height: 32),
 
@@ -103,19 +105,19 @@ class SessionDetailScreen extends StatelessWidget {
                     _buildInfoItem(
                       Icons.access_time_filled,
                       'WAKTU SESI',
-                      sessionData['time'] ?? '00:00 - 00:00',
+                      '${sessionData['start_time']} - ${sessionData['end_time']}',
                     ),
                     const SizedBox(height: 20),
                     _buildInfoItem(
                       Icons.calendar_today,
                       'TANGGAL',
-                      'Senin, 24 Mei 2024', // Static for now, can be dynamic
+                      DateFormat('EEEE, d MMMM yyyy').format(DateTime.now()),
                     ),
                     const SizedBox(height: 20),
                     _buildInfoItem(
                       Icons.location_on,
                       'LOKASI',
-                      sessionData['location'] ?? 'Lokasi',
+                      sessionData['room_name'] ?? 'Lokasi',
                     ),
                     const SizedBox(height: 32),
 
@@ -133,9 +135,9 @@ class SessionDetailScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildAgendaItem('Murojaah Surah Al-Mulk (Ayat 1-30)'),
-                    _buildAgendaItem('Setoran Hafalan Baru Juz 30 (An-Naba)'),
-                    _buildAgendaItem('Tashih Tajwid & Makharijul Huruf'),
+                    _buildAgendaItem(
+                      'Silakan isi jurnal untuk mencatat agenda.',
+                    ),
                   ],
                 ),
               ),
@@ -147,8 +149,21 @@ class SessionDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: ElevatedButton(
           onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Membuka Presensi Sesi Ini...')),
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder:
+                    (context) => TeachingJournalScreen(
+                      scheduleId:
+                          (sessionData['id'] ?? sessionData['schedule_id'])
+                              .toString(),
+                      date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                      subjectName:
+                          sessionData['subject_name'] ?? 'Mata Pelajaran',
+                      className: sessionData['class_name'] ?? 'Kelas',
+                      teacherName: sessionData['teacher_name'] ?? 'Guru',
+                    ),
+              ),
             );
           },
           style: ElevatedButton.styleFrom(
@@ -163,10 +178,10 @@ class SessionDetailScreen extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.person_add_alt_1),
+              const Icon(Icons.edit_note_rounded),
               const SizedBox(width: 8),
               Text(
-                'Buka Presensi Sesi Ini',
+                'Isi Jurnal & Absensi',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,

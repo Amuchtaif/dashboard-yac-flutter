@@ -9,10 +9,14 @@ class PayrollService {
     required int userId,
     String? bulan,
     String? tahun,
+    int? limit,
+    int? page,
   }) async {
     String urlString = '$baseUrl/payroll.php?user_id=$userId';
     if (bulan != null) urlString += '&bulan=$bulan';
     if (tahun != null) urlString += '&tahun=$tahun';
+    if (limit != null) urlString += '&limit=$limit';
+    if (page != null) urlString += '&page=$page';
 
     final url = Uri.parse(urlString);
 

@@ -28,6 +28,9 @@ import 'teaching_schedule_screen.dart';
 import '../services/attendance_service.dart';
 import '../models/location_model.dart';
 import '../utils/access_control.dart';
+import 'student_data_screen.dart';
+import 'academic_calendar_screen.dart';
+import 'teacher_data_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -1162,7 +1165,7 @@ class HomeTab extends StatelessWidget {
 
   Widget _buildStatusCard() {
     final now = DateTime.now();
-    final dateStr = DateFormat('MMM dd, yyyy').format(now);
+    final dateStr = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(now);
 
     String statusLabel = "Belum Absen";
     Color statusColor = Colors.grey;
@@ -1174,14 +1177,14 @@ class HomeTab extends StatelessWidget {
     if (attendanceStatus == "SUDAH_MASUK") {
       statusLabel = "Sudah Masuk";
       statusColor = Colors.green;
-      displayTime = timeIn;
+      displayTime = _formatTime(timeIn);
       btnText = "Absen Pulang";
       btnColor = Colors.orange;
       btnIcon = Icons.logout;
     } else if (attendanceStatus == "SELESAI") {
       statusLabel = "Selesai";
       statusColor = Colors.blue;
-      displayTime = timeOut;
+      displayTime = _formatTime(timeOut);
       btnText = "Sampai Jumpa";
       btnColor = Colors.grey;
       btnIcon = Icons.check_circle;
@@ -1339,6 +1342,30 @@ class HomeTab extends StatelessWidget {
     );
   }
 
+  String _formatTime(String time) {
+    if (time == "-" || time.isEmpty) return "--:--";
+    try {
+      // Handle HH:mm:ss result from DB
+      final parts = time.split(':');
+      if (parts.length >= 2) {
+        return "${parts[0]}:${parts[1]}";
+      }
+      return time;
+    } catch (e) {
+      return time;
+    }
+  }
+
+  String _formatDateIndo(String dateStr) {
+    if (dateStr == "-" || dateStr.isEmpty) return "-";
+    try {
+      final date = DateTime.parse(dateStr);
+      return DateFormat('dd MMM yyyy', 'id_ID').format(date);
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
   Widget _buildRecentActivityList() {
     if (isLoading) {
       return const Center(
@@ -1376,8 +1403,8 @@ class HomeTab extends StatelessWidget {
         children:
             recentActivities.map((activity) {
               String type = activity['type'] ?? "Activity";
-              String time = activity['time'] ?? "-";
-              String date = activity['date'] ?? "-";
+              String time = _formatTime(activity['time'] ?? "-");
+              String date = _formatDateIndo(activity['date'] ?? "-");
               String status = activity['status'] ?? "Hadir";
               bool isMasuk = type.toLowerCase().contains("masuk");
 
@@ -2020,6 +2047,21 @@ class HomeTab extends StatelessWidget {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const TeachingScheduleScreen()),
+      );
+    } else if (title == 'Data Siswa') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const StudentDataScreen()),
+      );
+    } else if (title == 'Kalender Akademik') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AcademicCalendarScreen()),
+      );
+    } else if (title == 'Data Guru') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const TeacherDataScreen()),
       );
     } else {
       ScaffoldMessenger.of(

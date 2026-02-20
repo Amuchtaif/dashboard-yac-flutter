@@ -9,4 +9,11 @@ class ApiConstants {
 
   // Auth Endpoints
   static const String loginEndpoint = '${baseUrl}login.php';
+
+  // Teacher Endpoints
+  static const String teacherSchedule = '${baseUrl}teacher/get_schedule.php';
+  static const String teacherStudents =
+      '${baseUrl}teacher/get_students_by_schedule.php';
+  static const String submitTeacherAttendance =
+      '${baseUrl}teacher/submit_attendance.php';
 }

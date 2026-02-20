@@ -18,6 +18,7 @@ class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
   bool _isLoading = true;
   String? _userId;
   double _totalPaidYear = 0;
+  int _selectedYear = DateTime.now().year;
 
   @override
   void initState() {
@@ -54,6 +55,8 @@ class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
     try {
       final results = await _payrollService.getPayrollHistory(
         userId: int.parse(_userId!),
+        tahun: _selectedYear.toString(),
+        limit: 50,
       );
 
       double total = 0;
@@ -107,6 +110,8 @@ class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
                         _buildHeader(context),
                         const SizedBox(height: 24),
                         _buildTitleSection(),
+                        const SizedBox(height: 20),
+                        _buildYearFilter(),
                         const SizedBox(height: 20),
                         _buildSummaryCard(),
                         const SizedBox(height: 24),
@@ -210,6 +215,53 @@ class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
     );
   }
 
+  Widget _buildYearFilter() {
+    final currentYear = DateTime.now().year;
+    final years = [currentYear, currentYear - 1];
+
+    return Row(
+      children:
+          years.map((year) {
+            bool isSelected = _selectedYear == year;
+            return Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: ChoiceChip(
+                label: Text(
+                  year == currentYear
+                      ? "Tahun Ini ($year)"
+                      : "Tahun Lalu ($year)",
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? Colors.white : Colors.black87,
+                  ),
+                ),
+                selected: isSelected,
+                selectedColor: const Color(0xFF0085FF),
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color:
+                        isSelected ? Colors.transparent : Colors.grey.shade200,
+                  ),
+                ),
+                showCheckmark: false,
+                onSelected: (bool selected) {
+                  if (selected) {
+                    setState(() {
+                      _selectedYear = year;
+                    });
+                    _fetchPayrolls();
+                  }
+                },
+              ),
+            );
+          }).toList(),
+    );
+  }
+
   Widget _buildSummaryCard() {
     final currencyFormat = NumberFormat.currency(
       locale: 'id_ID',
@@ -237,7 +289,7 @@ class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'TOTAL TERBAYAR ${DateTime.now().year}',
+                'TOTAL TERBAYAR $_selectedYear',
                 style: GoogleFonts.poppins(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,

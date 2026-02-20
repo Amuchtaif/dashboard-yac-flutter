@@ -84,8 +84,8 @@ void main() async {
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      statusBarBrightness: Brightness.light,
+      statusBarIconBrightness: Brightness.dark, // Untuk Android (ikon gelap)
+      statusBarBrightness: Brightness.light, // Untuk iOS (teks gelap)
     ),
   );
 
@@ -109,7 +109,15 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueAccent),
         useMaterial3: true,
         textTheme: GoogleFonts.poppinsTextTheme(),
+        appBarTheme: const AppBarTheme(
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          ),
+        ),
       ),
+
       // Jika Sesi Valid -> Dashboard, Jika Tidak -> Login
       home: isSessionValid ? const DashboardScreen() : const LoginScreen(),
       debugShowCheckedModeBanner: false,

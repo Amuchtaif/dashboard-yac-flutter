@@ -122,7 +122,7 @@ class PayrollDetailScreen extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -501,6 +501,7 @@ class PayrollDetailScreen extends StatelessWidget {
             child: Column(
               children: [
                 _buildSimpleInfoRow('Status Pegawai', payrollData['sta_peg']),
+                _buildSimpleInfoRow('Masa Kerja', payrollData['masker']),
                 _buildSimpleInfoRow('Golongan', payrollData['gol_r']),
                 _buildSimpleInfoRow(
                   'Jumlah Kehadiran',
@@ -612,8 +613,9 @@ class PayrollDetailScreen extends StatelessWidget {
   }
 
   Widget _buildSimpleInfoRow(String label, dynamic value) {
-    if (value == null || value == "" || value == "null")
+    if (value == null || value == "" || value == "null") {
       return const SizedBox();
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
