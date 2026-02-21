@@ -42,6 +42,7 @@ class _TeacherDataScreenState extends State<TeacherDataScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFFFDFDFD),
         elevation: 0,
+        scrolledUnderElevation: 0,
         systemOverlayStyle: const SystemUiOverlayStyle(
           statusBarColor: Color(0xFFFDFDFD),
           statusBarIconBrightness: Brightness.dark,
@@ -94,7 +95,7 @@ class _TeacherDataScreenState extends State<TeacherDataScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 15,
               offset: const Offset(0, 8),
             ),
@@ -158,26 +159,26 @@ class _TeacherDataScreenState extends State<TeacherDataScreen> {
     final foto = teacher['foto'];
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () {},
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 _buildAvatar(foto, name),
@@ -189,48 +190,42 @@ class _TeacherDataScreenState extends State<TeacherDataScreen> {
                       Text(
                         name,
                         style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E293B),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         'NIK: $nik',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
-                          color: Colors.grey.shade400,
+                          color: Colors.grey.shade500,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 6,
+                          horizontal: 10,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(
-                            0xFFEFF6FF,
-                          ), // Light blue matching image
-                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           subject,
                           style: GoogleFonts.poppins(
                             fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF60A5FA),
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue.shade600,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right,
-                  color: Colors.blue.shade100,
-                  size: 28,
-                ),
+                Icon(Icons.chevron_right, color: Colors.blue.shade300),
               ],
             ),
           ),
@@ -241,8 +236,8 @@ class _TeacherDataScreenState extends State<TeacherDataScreen> {
 
   Widget _buildAvatar(String? foto, String name) {
     return Container(
-      width: 70,
-      height: 70,
+      width: 60,
+      height: 60,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: Colors.grey.shade100, width: 2),
@@ -269,8 +264,8 @@ class _TeacherDataScreenState extends State<TeacherDataScreen> {
           name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
-            fontSize: 24,
-            color: const Color(0xFF60A5FA),
+            fontSize: 20,
+            color: Colors.blue.shade300,
           ),
         ),
       ),

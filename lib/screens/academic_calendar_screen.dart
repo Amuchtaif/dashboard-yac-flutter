@@ -126,7 +126,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -213,12 +213,15 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
 
             final event = events.first as Map<String, dynamic>;
             Color markerColor = Colors.grey;
-            if (event['type'] == 'LIBUR')
+            if (event['type'] == 'LIBUR') {
               markerColor = const Color(0xFFC084FC); // Purple
-            if (event['type'] == 'UJIAN')
+            }
+            if (event['type'] == 'UJIAN') {
               markerColor = const Color(0xFF60A5FA); // Blue
-            if (event['type'] == 'KEGIATAN')
+            }
+            if (event['type'] == 'KEGIATAN') {
               markerColor = const Color(0xFF34D399); // Green
+            }
 
             return Positioned(
               bottom: 4,
@@ -335,7 +338,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -346,7 +349,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(15),
               border: Border(left: BorderSide(color: color, width: 4)),
             ),

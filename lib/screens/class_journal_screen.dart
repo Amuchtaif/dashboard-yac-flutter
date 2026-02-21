@@ -63,10 +63,11 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
       String teacherId = '0';
       if (prefs.containsKey('user_id')) {
         final userId = prefs.get('user_id');
-        if (userId is int)
+        if (userId is int) {
           teacherId = userId.toString();
-        else if (userId is String)
+        } else if (userId is String) {
           teacherId = userId;
+        }
       }
 
       final List<Map<String, String>> attendances = [];

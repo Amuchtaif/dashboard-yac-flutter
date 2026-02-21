@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 
@@ -21,7 +22,7 @@ class StudentService {
         }
       }
     } catch (e) {
-      print('Error fetching students: $e');
+      debugPrint('Error fetching students: $e');
     }
     return [];
   }
