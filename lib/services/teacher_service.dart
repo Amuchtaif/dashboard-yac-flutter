@@ -192,4 +192,57 @@ class TeacherService {
       return null;
     }
   }
+
+  Future<List<Map<String, dynamic>>> getSubjectList({
+    String search = '',
+    String category = '',
+  }) async {
+    try {
+      final queryParams = <String, String>{};
+      if (search.isNotEmpty) queryParams['search'] = search;
+      if (category.isNotEmpty && category != 'Semua') {
+        queryParams['category'] = category;
+      }
+
+      final uri = Uri.parse(
+        ApiConstants.getSubjects,
+      ).replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+
+      debugPrint('TeacherService: Fetching subjects from $uri');
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        if (result['success'] == true && result['data'] != null) {
+          return List<Map<String, dynamic>>.from(result['data']);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching subjects: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAcademicCalendar(int year) async {
+    try {
+      final uri = Uri.parse(
+        ApiConstants.getCalendar,
+      ).replace(queryParameters: {'year': year.toString()});
+
+      debugPrint('TeacherService: Fetching calendar from $uri');
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        if (result['success'] == true && result['data'] != null) {
+          return List<Map<String, dynamic>>.from(result['data']);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching calendar: $e');
+      return [];
+    }
+  }
 }

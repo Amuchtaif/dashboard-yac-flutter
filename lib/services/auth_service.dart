@@ -63,6 +63,7 @@ class AuthService {
               'divisionId',
               user.divisionId,
             ); // Added divisionId
+            await prefs.setString('profilePhoto', user.profilePhoto);
             await prefs.setBool('isLoggedIn', true);
             // Save Login Timestamp for 24h Session
             await prefs.setInt(

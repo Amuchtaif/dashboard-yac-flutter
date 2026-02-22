@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../services/teacher_service.dart';
+import 'package:intl/intl.dart';
 
 class AcademicCalendarScreen extends StatefulWidget {
   const AcademicCalendarScreen({super.key});
@@ -11,38 +13,67 @@ class AcademicCalendarScreen extends StatefulWidget {
 }
 
 class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
-  DateTime _focusedDay = DateTime(2024, 3, 11); // Set to March 2024 as in image
+  final TeacherService _teacherService = TeacherService();
+  DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
+  bool _isLoading = true;
 
-  // Mock events data
-  final Map<DateTime, List<Map<String, dynamic>>> _events = {
-    DateTime(2024, 3, 11): [
-      {
-        'title': 'Libur Awal Ramadhan',
-        'type': 'LIBUR',
-        'subtitle': 'Seluruh jenjang pendidikan',
-      },
-    ],
-    DateTime(2024, 3, 18): [
-      {
-        'title': 'Ujian Tengah Semester',
-        'type': 'UJIAN',
-        'subtitle': 'Mulai: 08:00 WIB',
-      },
-    ],
-    DateTime(2024, 3, 27): [
-      {
-        'title': 'Kegiatan Sekolah',
-        'type': 'KEGIATAN',
-        'subtitle': 'Seluruh siswa',
-      },
-    ],
-  };
+  // Real events data from API
+  final Map<DateTime, List<Map<String, dynamic>>> _events = {};
 
   @override
   void initState() {
     super.initState();
-    _selectedDay = DateTime(2024, 3, 4); // March 4 is selected in the image
+    _selectedDay = _focusedDay;
+    _fetchCalendarData(_focusedDay.year);
+  }
+
+  Future<void> _fetchCalendarData(int year) async {
+    setState(() => _isLoading = true);
+    try {
+      final results = await _teacherService.getAcademicCalendar(year);
+      _events.clear();
+
+      for (var item in results) {
+        if (item['start_date'] != null) {
+          final startDate = DateTime.parse(item['start_date']);
+          final endDate =
+              item['end_date'] != null
+                  ? DateTime.parse(item['end_date'])
+                  : startDate;
+
+          // Use category from API, default to KEGIATAN
+          String category = (item['category'] ?? 'KEGIATAN').toString();
+          if (item['is_holiday'] == true) category = 'LIBUR';
+
+          final eventData = {
+            'title': item['title'] ?? '-',
+            'type': category.toUpperCase(),
+            'subtitle': item['description'] ?? '',
+            'start_date': startDate,
+            'end_date': endDate,
+          };
+
+          // Add event to every day in range
+          for (int i = 0; i <= endDate.difference(startDate).inDays; i++) {
+            final date = startDate.add(Duration(days: i));
+            final normalizedDate = DateTime(date.year, date.month, date.day);
+
+            if (_events[normalizedDate] == null) {
+              _events[normalizedDate] = [];
+            }
+            _events[normalizedDate]!.add(eventData);
+          }
+        }
+      }
+
+      setState(() => _isLoading = false);
+    } catch (e) {
+      debugPrint('Error loading calendar: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
@@ -87,28 +118,24 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.tune, color: Color(0xFF1E293B)),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            _buildCalendarCard(),
-            const SizedBox(height: 24),
-            _buildLegend(),
-            const SizedBox(height: 32),
-            _buildUpcomingAgenda(),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
+                    _buildCalendarCard(),
+                    const SizedBox(height: 24),
+                    _buildLegend(),
+                    const SizedBox(height: 32),
+                    _buildUpcomingAgenda(),
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
     );
   }
 
@@ -137,6 +164,12 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
             _selectedDay = selectedDay;
             _focusedDay = focusedDay;
           });
+        },
+        onPageChanged: (focusedDay) {
+          if (focusedDay.year != _focusedDay.year) {
+            _fetchCalendarData(focusedDay.year);
+          }
+          _focusedDay = focusedDay;
         },
         eventLoader: _getEventsForDay,
         locale: 'id_ID',
@@ -272,6 +305,29 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   }
 
   Widget _buildUpcomingAgenda() {
+    // Collect unique events based on title and start date
+    final uniqueEvents = <String, Map<String, dynamic>>{};
+
+    _events.forEach((date, events) {
+      for (var event in events) {
+        final start = event['start_date'];
+        if (start == null) continue;
+
+        final key = "${event['title']}_$start";
+        if (!uniqueEvents.containsKey(key)) {
+          uniqueEvents[key] = event;
+        }
+      }
+    });
+
+    final allEvents = uniqueEvents.values.toList();
+    allEvents.sort((a, b) {
+      final dateA = a['start_date'] as DateTime?;
+      final dateB = b['start_date'] as DateTime?;
+      if (dateA == null || dateB == null) return 0;
+      return dateA.compareTo(dateB);
+    });
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -280,7 +336,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Agenda Mendatang',
+                'Agenda Akademik',
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -298,21 +354,55 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          _agendaCard(
-            '11',
-            'MAR',
-            'Libur Awal Ramadhan',
-            'Seluruh jenjang pendidikan',
-            const Color(0xFFC084FC),
-          ),
-          const SizedBox(height: 16),
-          _agendaCard(
-            '18',
-            'MAR',
-            'Ujian Tengah Semester',
-            'Mulai: 08:00 WIB',
-            const Color(0xFF60A5FA),
-          ),
+          if (allEvents.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Text(
+                  'Tidak ada agenda untuk tahun ini',
+                  style: GoogleFonts.poppins(
+                    color: Colors.grey.shade500,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            )
+          else
+            ...allEvents.map((e) {
+              final startDate = e['start_date'] as DateTime?;
+              final endDate = e['end_date'] as DateTime? ?? startDate;
+
+              if (startDate == null) return const SizedBox();
+
+              Color typeColor = const Color(0xFF34D399);
+              if (e['type'] == 'LIBUR') typeColor = const Color(0xFFC084FC);
+              if (e['type'] == 'UJIAN') typeColor = const Color(0xFF60A5FA);
+
+              String dateDisplay = DateFormat(
+                'd MMM',
+                'id_ID',
+              ).format(startDate);
+              if (endDate != null && !isSameDay(startDate, endDate)) {
+                if (startDate.month == endDate.month) {
+                  dateDisplay =
+                      '${startDate.day} - ${endDate.day} ${DateFormat('MMM', 'id_ID').format(startDate)}';
+                } else {
+                  dateDisplay =
+                      '${DateFormat('d MMM', 'id_ID').format(startDate)} - ${DateFormat('d MMM', 'id_ID').format(endDate)}';
+                }
+              }
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _agendaCard(
+                  startDate.day.toString(),
+                  DateFormat('MMM', 'id_ID').format(startDate).toUpperCase(),
+                  e['title'] ?? '-',
+                  '$dateDisplay • ${e['subtitle'] ?? ''}',
+                  typeColor,
+                ),
+              );
+            }),
         ],
       ),
     );

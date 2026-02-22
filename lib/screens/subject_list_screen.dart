@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/teacher_service.dart';
 
 class SubjectListScreen extends StatefulWidget {
   const SubjectListScreen({super.key});
@@ -10,57 +11,80 @@ class SubjectListScreen extends StatefulWidget {
 
 class _SubjectListScreenState extends State<SubjectListScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final TeacherService _teacherService = TeacherService();
   String _selectedCategory = 'Semua';
+  List<Map<String, dynamic>> _subjects = [];
+  List<String> _categories = ['Semua', 'Akademik', 'Diniah', 'Bahasa', 'Umum'];
+  bool _isLoading = true;
 
-  final List<Map<String, dynamic>> _allSubjects = [
-    {
-      'name': 'Matematika',
-      'code': 'MTK-101',
-      'category': 'Akademik',
-      'hours': '5 Jam/Minggu',
-      'icon': Icons.functions_rounded, // Sigma icon
-      'color': const Color(0xFF3B82F6),
-      'bgColor': const Color(0xFFEFF6FF),
-    },
-    {
-      'name': 'Fiqh',
-      'code': 'FQH-202',
-      'category': 'Religi',
-      'hours': '3 Jam/Minggu',
-      'icon': Icons.menu_book_rounded,
-      'color': const Color(0xFFA855F7),
-      'bgColor': const Color(0xFFFAF5FF),
-    },
-    {
-      'name': 'Bahasa Arab',
-      'code': 'ARB-303',
-      'category': 'Bahasa',
-      'hours': '4 Jam/Minggu',
-      'icon': Icons.translate_rounded,
-      'color': const Color(0xFF10B981),
-      'bgColor': const Color(0xFFECFDF5),
-    },
-    {
-      'name': 'Sejarah',
-      'code': 'SJR-404',
-      'category': 'Akademik',
-      'hours': '2 Jam/Minggu',
-      'icon': Icons.history_edu_rounded,
-      'color': const Color(0xFFF59E0B),
-      'bgColor': const Color(0xFFFFFBEB),
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchSubjects();
+  }
 
-  List<Map<String, dynamic>> get _filteredSubjects {
-    return _allSubjects.where((subject) {
-      final matchesCategory =
-          _selectedCategory == 'Semua' ||
-          subject['category'] == _selectedCategory;
-      final matchesSearch = subject['name'].toLowerCase().contains(
-        _searchController.text.toLowerCase(),
+  Future<void> _fetchSubjects() async {
+    setState(() => _isLoading = true);
+    try {
+      final results = await _teacherService.getSubjectList(
+        search: _searchController.text,
+        category: _selectedCategory,
       );
-      return matchesCategory && matchesSearch;
-    }).toList();
+      setState(() {
+        _subjects = results;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memuat mata pelajaran: $e')),
+        );
+      }
+    }
+  }
+
+  Color _getColorFromName(String colorName) {
+    switch (colorName.toLowerCase()) {
+      case 'blue':
+        return const Color(0xFF3B82F6);
+      case 'purple':
+        return const Color(0xFFA855F7);
+      case 'green':
+        return const Color(0xFF10B981);
+      case 'orange':
+      case 'amber':
+        return const Color(0xFFF59E0B);
+      case 'red':
+        return const Color(0xFFEF4444);
+      case 'indigo':
+        return const Color(0xFF6366F1);
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
+  IconData _getIconFromName(String iconName) {
+    switch (iconName.toLowerCase()) {
+      case 'calculate':
+      case 'functions':
+        return Icons.functions_rounded;
+      case 'mosque':
+      case 'menu_book':
+        return Icons.menu_book_rounded;
+      case 'translate':
+      case 'language':
+        return Icons.translate_rounded;
+      case 'history_edu':
+      case 'history':
+        return Icons.history_edu_rounded;
+      case 'science':
+        return Icons.science_rounded;
+      case 'public':
+        return Icons.public_rounded;
+      default:
+        return Icons.book_rounded;
+    }
   }
 
   @override
@@ -74,16 +98,26 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
             _buildSearchBar(),
             _buildCategoryFilters(),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                itemCount: _filteredSubjects.length,
-                itemBuilder: (context, index) {
-                  return _buildSubjectCard(_filteredSubjects[index]);
-                },
-              ),
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _subjects.isEmpty
+                      ? Center(
+                        child: Text(
+                          'Data tidak ditemukan',
+                          style: GoogleFonts.poppins(color: Colors.grey),
+                        ),
+                      )
+                      : ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        itemCount: _subjects.length,
+                        itemBuilder: (context, index) {
+                          return _buildSubjectCard(_subjects[index]);
+                        },
+                      ),
             ),
           ],
         ),
@@ -161,7 +195,7 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
         ),
         child: TextField(
           controller: _searchController,
-          onChanged: (value) => setState(() {}),
+          onSubmitted: (_) => _fetchSubjects(),
           decoration: InputDecoration(
             hintText: 'Cari mata pelajaran...',
             hintStyle: GoogleFonts.poppins(
@@ -178,21 +212,23 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
   }
 
   Widget _buildCategoryFilters() {
-    final categories = ['Semua', 'Akademik', 'Religi', 'Bahasa'];
     return Container(
       height: 60,
       margin: const EdgeInsets.symmetric(vertical: 20),
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 15),
         scrollDirection: Axis.horizontal,
-        itemCount: categories.length,
+        itemCount: _categories.length,
         itemBuilder: (context, index) {
-          final category = categories[index];
+          final category = _categories[index];
           final isSelected = _selectedCategory == category;
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 5),
             child: InkWell(
-              onTap: () => setState(() => _selectedCategory = category),
+              onTap: () {
+                setState(() => _selectedCategory = category);
+                _fetchSubjects();
+              },
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
@@ -238,6 +274,9 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
   }
 
   Widget _buildSubjectCard(Map<String, dynamic> subject) {
+    final color = _getColorFromName(subject['color'] ?? 'blue');
+    final icon = _getIconFromName(subject['icon'] ?? 'book');
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -258,10 +297,10 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: subject['bgColor'],
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(subject['icon'], color: subject['color'], size: 24),
+              child: Icon(icon, color: color, size: 24),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -271,16 +310,21 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        subject['name'],
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E293B),
+                      Expanded(
+                        child: Text(
+                          subject['name'] ?? '-',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF1E293B),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
-                        subject['code'],
+                        subject['code'] ?? '-',
                         style: GoogleFonts.poppins(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -298,24 +342,32 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: subject['color'].withOpacity(0.1),
+                          color: color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          subject['category'].toUpperCase(),
+                          (subject['category']?.toString().toLowerCase() ==
+                                      'religi'
+                                  ? 'Diniah'
+                                  : (subject['category'] ?? 'Umum'))
+                              .toUpperCase(),
                           style: GoogleFonts.poppins(
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
-                            color: subject['color'],
+                            color: color,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        ' •  ${subject['hours']}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: Colors.grey[500],
+                      Expanded(
+                        child: Text(
+                          ' •  ${subject['hours_per_week'] ?? '0 Jam/Minggu'}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: Colors.grey[500],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

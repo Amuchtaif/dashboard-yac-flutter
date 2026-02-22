@@ -18,6 +18,7 @@ import 'meeting_list_screen.dart'; // import meeting list screen
 import '../services/notification_service.dart';
 import '../services/permission_service.dart';
 import '../config/api_config.dart';
+import '../core/api_constants.dart';
 import 'inventory_category_screen.dart'; // Import Inventory Screen
 import 'payroll_history_screen.dart'; // Import Payroll Screen
 import 'tahfidz/absensi_tahfidz_screen.dart';
@@ -93,6 +94,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _unitName = '';
   String _divisionName = '';
   String _positionName = '';
+  String _profilePhoto = '';
   String _userId = "";
 
   // Data Dashboard
@@ -229,6 +231,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _unitName = prefs.getString('unitName') ?? '';
       _divisionName = prefs.getString('divisionName') ?? '';
       _positionName = prefs.getString('positionName') ?? '';
+      _profilePhoto = prefs.getString('profilePhoto') ?? '';
       int id =
           prefs.getInt('user_id') ??
           prefs.getInt('userId') ??
@@ -699,6 +702,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         timeOut: _timeOut,
         todaySchedule: _todaySchedule,
         isKoordinator: _isKoordinator,
+        profilePhoto: _profilePhoto,
       ),
       const NewsScreen(),
       const PerformanceScreen(),
@@ -809,6 +813,7 @@ class HomeTab extends StatelessWidget {
   final String unitName;
   final String deptName;
   final String positionName;
+  final String profilePhoto;
   final List<dynamic> recentActivities;
   final bool isLoading;
   final VoidCallback onAttendanceTap;
@@ -833,6 +838,7 @@ class HomeTab extends StatelessWidget {
     required this.timeOut,
     required this.todaySchedule,
     required this.isKoordinator,
+    required this.profilePhoto,
   });
   @override
   Widget build(BuildContext context) {
@@ -881,11 +887,19 @@ class HomeTab extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     return Row(
       children: [
-        const CircleAvatar(
-          radius: 24,
-          backgroundColor: Colors.blueAccent,
-          child: Icon(Icons.person, color: Colors.white),
-        ),
+        profilePhoto.isNotEmpty
+            ? CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.blueAccent,
+              backgroundImage: NetworkImage(
+                ApiConstants.getProfilePhotoUrl(profilePhoto),
+              ),
+            )
+            : const CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.blueAccent,
+              child: Icon(Icons.person, color: Colors.white),
+            ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(

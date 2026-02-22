@@ -23,14 +23,14 @@ class _NewsScreenState extends State<NewsScreen> {
     },
     {
       'title': 'Workshop Kurikulum Santri 2024',
-      'category': 'KABID KURIKULUM',
+      'category': 'KABID PENDIDIKAN',
       'likes': 62,
       'imageUrl': 'https://picsum.photos/id/1059/500/300',
       'isLiked': false,
     },
     {
       'title': 'Pembangunan Gedung Baru Tahap Dua',
-      'category': 'KABID SARPRAS',
+      'category': 'KABID UMUM',
       'likes': 85,
       'imageUrl': 'https://picsum.photos/id/1031/500/300',
       'isLiked': false,
@@ -44,7 +44,7 @@ class _NewsScreenState extends State<NewsScreen> {
     },
     {
       'title': 'Lomba Tahfidz Antar Kelas',
-      'category': 'KESISWAAN',
+      'category': 'KEPALA PONDOK',
       'likes': 45,
       'imageUrl': 'https://picsum.photos/id/1073/500/300',
       'isLiked': false,

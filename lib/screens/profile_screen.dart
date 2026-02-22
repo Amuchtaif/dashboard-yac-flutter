@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
+import '../core/api_constants.dart';
 import 'login_screen.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
@@ -22,6 +23,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _positionName = '';
   String _phoneNumber = '';
   String _address = '';
+  String _profilePhoto = '';
   int _positionLevel = 99;
   bool _pushNotifications = true;
 
@@ -41,6 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _positionName = prefs.getString('positionName') ?? '';
       _phoneNumber = prefs.getString('phoneNumber') ?? '';
       _address = prefs.getString('address') ?? '';
+      _profilePhoto = prefs.getString('profilePhoto') ?? '';
       _positionLevel = prefs.getInt('positionLevel') ?? 99;
     });
 
@@ -139,6 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 email: _email,
                                 phoneNumber: _phoneNumber,
                                 address: _address,
+                                profilePhoto: _profilePhoto,
                               ),
                         ),
                       );
@@ -176,11 +180,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Stack(
                       alignment: Alignment.center,
                       children: [
-                        const CircleAvatar(
-                          radius: 24,
-                          backgroundColor: Colors.blueAccent,
-                          child: Icon(Icons.person, color: Colors.white),
-                        ),
+                        _profilePhoto.isNotEmpty
+                            ? CircleAvatar(
+                              radius: 24,
+                              backgroundColor: Colors.blueAccent,
+                              backgroundImage: NetworkImage(
+                                ApiConstants.getProfilePhotoUrl(_profilePhoto),
+                              ),
+                            )
+                            : const CircleAvatar(
+                              radius: 24,
+                              backgroundColor: Colors.blueAccent,
+                              child: Icon(Icons.person, color: Colors.white),
+                            ),
                       ],
                     ),
                     const SizedBox(height: 16),

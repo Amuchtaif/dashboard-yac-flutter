@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_service.dart';
+import '../core/api_constants.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final String fullName;
@@ -11,12 +12,15 @@ class EditProfileScreen extends StatefulWidget {
   final String phoneNumber;
   final String address;
 
+  final String profilePhoto;
+
   const EditProfileScreen({
     super.key,
     required this.fullName,
     required this.email,
     required this.phoneNumber,
     required this.address,
+    required this.profilePhoto,
   });
 
   @override
@@ -77,6 +81,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         fullName: _nameController.text,
         phoneNumber: _phoneController.text,
         address: _addressController.text,
+        profilePhoto: _imageFile,
       );
 
       if (mounted) {
@@ -159,6 +164,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       width: 120,
                                       height: 120,
                                       fit: BoxFit.cover,
+                                    ),
+                                  )
+                                  : widget.profilePhoto.isNotEmpty
+                                  ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(60),
+                                    child: Image.network(
+                                      ApiConstants.getProfilePhotoUrl(
+                                        widget.profilePhoto,
+                                      ),
+                                      width: 120,
+                                      height: 120,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              const Icon(
+                                                Icons.person,
+                                                size: 60,
+                                                color: Colors.white,
+                                              ),
                                     ),
                                   )
                                   : const Icon(

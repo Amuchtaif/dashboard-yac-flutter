@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -11,21 +12,29 @@ class UserService {
     String? fullName,
     String? phoneNumber,
     String? address,
+    File? profilePhoto,
   }) async {
     try {
-      final Map<String, dynamic> payload = {'user_id': userId.toString()};
-      if (fullName != null) payload['full_name'] = fullName;
-      if (phoneNumber != null) payload['phone_number'] = phoneNumber;
-      if (address != null) payload['address'] = address;
-
-      final response = await http.post(
+      final request = http.MultipartRequest(
+        'POST',
         Uri.parse(ApiConstants.updateProfile),
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode(payload),
       );
+
+      request.headers.addAll({'ngrok-skip-browser-warning': 'true'});
+
+      request.fields['user_id'] = userId.toString();
+      if (fullName != null) request.fields['full_name'] = fullName;
+      if (phoneNumber != null) request.fields['phone_number'] = phoneNumber;
+      if (address != null) request.fields['address'] = address;
+
+      if (profilePhoto != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath('profile_photo', profilePhoto.path),
+        );
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -68,5 +77,6 @@ class UserService {
     await prefs.setString('address', user.address);
     await prefs.setInt('positionLevel', user.positionLevel);
     await prefs.setInt('divisionId', user.divisionId);
+    await prefs.setString('profilePhoto', user.profilePhoto);
   }
 }

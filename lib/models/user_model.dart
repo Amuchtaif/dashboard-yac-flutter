@@ -10,6 +10,8 @@ class User {
   final int positionLevel;
   final int divisionId; // Added divisionId
 
+  final String profilePhoto;
+
   User({
     required this.id,
     required this.fullName,
@@ -18,9 +20,10 @@ class User {
     required this.divisionName,
     required this.positionName,
     required this.phoneNumber,
-    required this.address, // Added
+    required this.address,
     required this.positionLevel,
-    required this.divisionId, // Added
+    required this.divisionId,
+    required this.profilePhoto,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -32,7 +35,7 @@ class User {
       divisionName: json['division_name'] ?? '',
       positionName: json['position_name'] ?? '',
       phoneNumber: json['phone_number'] ?? '',
-      address: json['address'] ?? '', // Added
+      address: json['address'] ?? '',
       positionLevel:
           json['position_level'] is int
               ? json['position_level']
@@ -41,6 +44,7 @@ class User {
           json['division_id'] is int
               ? json['division_id']
               : int.tryParse(json['division_id']?.toString() ?? '0') ?? 0,
+      profilePhoto: json['profile_photo'] ?? '',
     );
   }
 
@@ -53,9 +57,10 @@ class User {
       'division_name': divisionName,
       'position_name': positionName,
       'phone_number': phoneNumber,
-      'address': address, // Added
+      'address': address,
       'position_level': positionLevel,
       'division_id': divisionId,
+      'profile_photo': profilePhoto,
     };
   }
 }

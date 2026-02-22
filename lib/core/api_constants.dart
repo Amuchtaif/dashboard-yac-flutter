@@ -27,4 +27,15 @@ class ApiConstants {
   // Class Endpoints
   static const String getClasses = '${baseUrl}get_classes.php';
   static const String getClassDetail = '${baseUrl}get_class_detail.php';
+  static const String getSubjects = '${baseUrl}get_subjects.php';
+  static String getCalendar = '${baseUrl}get_calendar.php';
+
+  // Helper for Profile Photo
+  static String getProfilePhotoUrl(String? filename) {
+    if (filename == null || filename.isEmpty) return '';
+    // ApiConfig.baseUrl is like "https://.../dashboard-yac/api"
+    // We want "https://.../dashboard-yac/uploads/profile_photos/filename"
+    final rootUrl = ApiConfig.baseUrl.replaceAll('/api', '');
+    return "$rootUrl/uploads/profile_photos/$filename";
+  }
 }

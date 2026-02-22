@@ -13,9 +13,9 @@ class _CreateNewsScreenState extends State<CreateNewsScreen> {
   String? _selectedCategory;
   final List<String> _categories = [
     'MUDIR',
-    'KESISWAAN',
-    'KABID KURIKULUM',
-    'KABID SARPRAS',
+    'KEPALA PONDOK',
+    'KABID PENDIDIKAN',
+    'KABID UMUM',
     'HUMAS',
   ];
 
