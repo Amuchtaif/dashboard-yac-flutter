@@ -3,6 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
+import 'edit_profile_screen.dart';
+import 'change_password_screen.dart';
+import 'help_support_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -19,7 +22,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _positionName = '';
   String _phoneNumber = '';
   int _positionLevel = 99;
-  bool _pushNotifications = false;
+  bool _pushNotifications = true;
 
   @override
   void initState() {
@@ -115,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Profile',
+                    'Profil',
                     style: GoogleFonts.poppins(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -123,9 +126,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => EditProfileScreen(
+                                fullName: _fullName,
+                                email: _email,
+                                phoneNumber: _phoneNumber,
+                              ),
+                        ),
+                      );
+                    },
                     child: Text(
-                      'Edit',
+                      'Ubah',
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         color: Colors.blueAccent,
@@ -207,7 +222,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
 
               const SizedBox(height: 24),
-              _buildSectionTitle('CONTACT INFORMATION'),
+              _buildSectionTitle('INFORMASI KONTAK'),
               const SizedBox(height: 12),
               Container(
                 decoration: BoxDecoration(
@@ -219,21 +234,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildInfoTile(
                       icon: Icons.email,
                       iconColor: Colors.blueAccent,
-                      title: 'Email',
+                      title: 'Alamat Email',
                       subtitle: _email,
                     ),
                     const Divider(height: .5),
                     _buildInfoTile(
                       icon: Icons.phone,
                       iconColor: Colors.green,
-                      title: 'Phone',
+                      title: 'NomorTelepon',
                       subtitle: _phoneNumber.isEmpty ? '-' : _phoneNumber,
                     ),
                     const Divider(height: .5),
                     _buildInfoTile(
                       icon: Icons.business,
                       iconColor: Colors.purple,
-                      title: 'Division',
+                      title: 'Bidang',
                       subtitle: _divisionName,
                     ),
                   ],
@@ -241,51 +256,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
 
               const SizedBox(height: 24),
-              _buildSectionTitle('SECURITY'),
+              _buildSectionTitle('KEAMANAN'),
               const SizedBox(height: 12),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  children: [
-                    _buildActionTile(
-                      icon: Icons.lock,
-                      iconColor: Colors.teal,
-                      title: 'Change Password',
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ChangePasswordScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.lock_outline),
+                  label: const Text('Ubah Kata Sandi'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF3B82F6),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 20,
                     ),
-                  ],
+                    alignment: Alignment.centerLeft,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
 
               const SizedBox(height: 24),
-              _buildSectionTitle('APP SETTINGS'),
+              _buildSectionTitle('PENGATURAN APLIKASI'),
               const SizedBox(height: 12),
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Column(
-                  children: [
-                    _buildSwitchTile(
-                      icon: Icons.notifications,
-                      iconColor: Colors.orange,
-                      title: 'Push Notifications',
-                      value: _pushNotifications,
-                      onChanged: (val) {
-                        setState(() {
-                          _pushNotifications = val;
-                        });
-                      },
+                child: _buildSwitchTile(
+                  icon: Icons.notifications_none,
+                  iconColor: Colors.orange,
+                  title: 'Notifikasi',
+                  value: _pushNotifications,
+                  onChanged: (val) {
+                    setState(() {
+                      _pushNotifications = val;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const HelpSupportScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.help_outline),
+                  label: const Text('Bantuan & Dukungan'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF64748B),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 20,
                     ),
-                    _buildActionTile(
-                      icon: Icons.help_outline,
-                      iconColor: Colors.grey,
-                      title: 'Help & Support',
+                    alignment: Alignment.centerLeft,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                  ],
+                    textStyle: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
 
@@ -295,7 +351,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _handleLogout,
                   icon: const Icon(Icons.logout),
-                  label: const Text('Log Out'),
+                  label: const Text('Keluar'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -312,12 +368,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 32),
               Center(
-                child: Text(
-                  'Version 1.0.0 (Build 001)',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.grey[400],
-                  ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Versi 1.0.0 (Build 001)',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Created with ❤ by Abu Aufar',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 32),
@@ -352,7 +420,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       leading: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.1),
+          color: iconColor.withOpacity(0.1),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: iconColor, size: 20),
@@ -373,34 +441,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           showArrow
               ? const Icon(Icons.chevron_right, color: Colors.grey)
               : null,
-    );
-  }
-
-  Widget _buildActionTile({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      leading: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: iconColor, size: 20),
-      ),
-      title: Text(
-        title,
-        style: GoogleFonts.poppins(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: Colors.black87,
-        ),
-      ),
-      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-      onTap: () {},
     );
   }
 

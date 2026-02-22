@@ -119,119 +119,196 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
     }
   }
 
+  bool _isWithinTimeRange(String startStr, String endStr) {
+    try {
+      final now = DateTime.now();
+
+      // Use a consistent date for comparison
+      final today = DateFormat('yyyy-MM-dd').format(now);
+      final start = DateTime.parse('$today $startStr');
+      final end = DateTime.parse('$today $endStr');
+
+      return now.isAfter(start) && now.isBefore(end);
+    } catch (e) {
+      debugPrint('Error parsing time: $e');
+      return false;
+    }
+  }
+
   Widget _buildScheduleCard(BuildContext context, Map<String, dynamic> item) {
     final startTime = _formatTime(item['start_time'] ?? '');
     final endTime = _formatTime(item['end_time'] ?? '');
 
+    // Check if current time is within schedule range
+    final bool isActive = _isWithinTimeRange(
+      item['start_time'] ?? '00:00:00',
+      item['end_time'] ?? '23:59:59',
+    );
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isActive ? Colors.white : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
+          if (isActive)
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder:
-                    (context) => TeachingJournalScreen(
-                      scheduleId: item['id'].toString(),
-                      date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
-                      subjectName: item['subject_name'] ?? 'Mata Pelajaran',
-                      className: item['class_name'] ?? 'Kelas',
-                      teacherName: item['teacher_name'] ?? 'Guru',
-                    ),
-              ),
-            );
-          },
+          onTap:
+              isActive
+                  ? () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => TeachingJournalScreen(
+                              scheduleId: item['id'].toString(),
+                              date: DateFormat(
+                                'yyyy-MM-dd',
+                              ).format(DateTime.now()),
+                              subjectName:
+                                  item['subject_name'] ?? 'Mata Pelajaran',
+                              className: item['class_name'] ?? 'Kelas',
+                              teacherName: item['teacher_name'] ?? 'Guru',
+                            ),
+                      ),
+                    );
+                  }
+                  : () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Jadwal ini hanya dapat diakses pada jam $startTime - $endTime',
+                          style: GoogleFonts.poppins(),
+                        ),
+                        backgroundColor: const Color(0xFF475569),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    );
+                  },
           borderRadius: BorderRadius.circular(20),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                Container(
-                  width: 6,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF42A5F5),
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      bottomLeft: Radius.circular(20),
+          child: Opacity(
+            opacity: isActive ? 1.0 : 0.6,
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    decoration: BoxDecoration(
+                      color: isActive ? const Color(0xFF42A5F5) : Colors.grey,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        bottomLeft: Radius.circular(20),
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item['subject_name'] ?? 'Mata Pelajaran',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF1E293B),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'MATA PELAJARAN',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        color:
+                                            isActive
+                                                ? const Color(0xFF64748B)
+                                                : Colors.grey,
+                                        letterSpacing: 0.5,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      item['subject_name'] ?? 'Mata Pelajaran',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color:
+                                            isActive
+                                                ? const Color(0xFF0F172A)
+                                                : Colors.grey[600],
+                                        height: 1.2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE3F2FD),
-                                borderRadius: BorderRadius.circular(12),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color:
+                                      isActive
+                                          ? const Color(0xFFE3F2FD)
+                                          : Colors.grey[200],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.menu_book_rounded,
+                                  color:
+                                      isActive
+                                          ? const Color(0xFF1E88E5)
+                                          : Colors.grey,
+                                  size: 20,
+                                ),
                               ),
-                              child: const Icon(
-                                Icons.menu_book_rounded,
-                                color: Color(0xFF1E88E5),
-                                size: 20,
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 8,
+                            children: [
+                              _buildDetailItem(
+                                Icons.access_time_filled,
+                                '$startTime - $endTime',
+                                isActive
+                                    ? const Color(0xFFE3F2FD)
+                                    : Colors.grey[200]!,
+                                isActive
+                                    ? const Color(0xFF1565C0)
+                                    : Colors.grey[600]!,
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 8,
-                          children: [
-                            _buildDetailItem(
-                              Icons.access_time_filled,
-                              '$startTime - $endTime',
-                              const Color(0xFFE3F2FD),
-                              const Color(0xFF1565C0),
-                            ),
-                            _buildDetailItem(
-                              Icons.people_alt,
-                              item['class_name'] ?? 'Kelas',
-                              const Color(0xFFE8F5E9),
-                              const Color(0xFF2E7D32),
-                            ),
-                          ],
-                        ),
-                      ],
+                              _buildDetailItem(
+                                Icons.people_alt,
+                                item['class_name'] ?? 'Kelas',
+                                isActive
+                                    ? const Color(0xFFE8F5E9)
+                                    : Colors.grey[200]!,
+                                isActive
+                                    ? const Color(0xFF2E7D32)
+                                    : Colors.grey[600]!,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

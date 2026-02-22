@@ -160,12 +160,6 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFFF1F5F9),
-        statusBarIconBrightness: Brightness.dark,
-      ),
-    );
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(

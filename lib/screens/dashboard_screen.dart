@@ -31,6 +31,8 @@ import '../utils/access_control.dart';
 import 'student_data_screen.dart';
 import 'academic_calendar_screen.dart';
 import 'teacher_data_screen.dart';
+import 'performance_screen.dart';
+import 'news_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -696,8 +698,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         todaySchedule: _todaySchedule,
         isKoordinator: _isKoordinator,
       ),
-      const Center(child: Text("Halaman Berita")),
-      const Center(child: Text("Halaman Kinerja")),
+      const NewsScreen(),
+      const PerformanceScreen(),
       const ProfileScreen(), // Pastikan import sudah benar
     ];
 
@@ -853,10 +855,13 @@ class HomeTab extends StatelessWidget {
             _buildSectionTitle('Menu Umum'),
             const SizedBox(height: 12),
             _buildGeneralMenuGrid(context),
-            const SizedBox(height: 24),
-            _buildSectionTitle('Menu Pendidikan'),
-            const SizedBox(height: 12),
-            _buildEducationMenuGrid(context),
+            // Show Education Menu Only If User Has Permission
+            if (AccessControl.can('can_access_education')) ...[
+              _buildSectionTitle('Menu Pendidikan'),
+              const SizedBox(height: 12),
+              _buildEducationMenuGrid(context),
+              const SizedBox(height: 24),
+            ],
             const SizedBox(height: 24),
             // Show Tahfidz Menu Only If User Has Permission
             if (AccessControl.can('can_access_tahfidz')) ...[

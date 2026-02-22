@@ -152,6 +152,11 @@ class PermissionService {
       _activePermissions.add('can_access_tahfidz');
     }
 
+    // Guru, Kepala, Koordinator → akses Pendidikan
+    if (positionLevel <= 4) {
+      _activePermissions.add('can_access_education');
+    }
+
     if (positionName.toLowerCase().contains('koordinator')) {
       _activePermissions.add('is_koordinator');
     }
