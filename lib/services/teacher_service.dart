@@ -144,4 +144,52 @@ class TeacherService {
       return [];
     }
   }
+
+  Future<List<Map<String, dynamic>>> getClassList({String search = ''}) async {
+    try {
+      final queryParams = <String, String>{};
+      if (search.isNotEmpty) {
+        queryParams['search'] = search;
+      }
+      final uri = Uri.parse(
+        ApiConstants.getClasses,
+      ).replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+
+      debugPrint('TeacherService: Fetching classes from $uri');
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        if (result['success'] == true && result['data'] != null) {
+          return List<Map<String, dynamic>>.from(result['data']);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching classes: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> getClassDetail(String classId) async {
+    try {
+      final uri = Uri.parse(
+        ApiConstants.getClassDetail,
+      ).replace(queryParameters: {'class_id': classId});
+
+      debugPrint('TeacherService: Fetching class detail from $uri');
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        if (result['success'] == true && result['data'] != null) {
+          return result['data'];
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching class detail: $e');
+      return null;
+    }
+  }
 }

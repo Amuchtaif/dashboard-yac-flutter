@@ -6,6 +6,7 @@ class User {
   final String divisionName;
   final String positionName;
   final String phoneNumber;
+  final String address; // Added address
   final int positionLevel;
   final int divisionId; // Added divisionId
 
@@ -17,6 +18,7 @@ class User {
     required this.divisionName,
     required this.positionName,
     required this.phoneNumber,
+    required this.address, // Added
     required this.positionLevel,
     required this.divisionId, // Added
   });
@@ -30,6 +32,7 @@ class User {
       divisionName: json['division_name'] ?? '',
       positionName: json['position_name'] ?? '',
       phoneNumber: json['phone_number'] ?? '',
+      address: json['address'] ?? '', // Added
       positionLevel:
           json['position_level'] is int
               ? json['position_level']
@@ -50,6 +53,7 @@ class User {
       'division_name': divisionName,
       'position_name': positionName,
       'phone_number': phoneNumber,
+      'address': address, // Added
       'position_level': positionLevel,
       'division_id': divisionId,
     };

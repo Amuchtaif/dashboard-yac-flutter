@@ -2,17 +2,21 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/user_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final String fullName;
   final String email;
   final String phoneNumber;
+  final String address;
 
   const EditProfileScreen({
     super.key,
     required this.fullName,
     required this.email,
     required this.phoneNumber,
+    required this.address,
   });
 
   @override
@@ -25,6 +29,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
   File? _imageFile;
+  bool _isLoading = false;
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -43,7 +48,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameController = TextEditingController(text: widget.fullName);
     _emailController = TextEditingController(text: widget.email);
     _phoneController = TextEditingController(text: widget.phoneNumber);
-    _addressController = TextEditingController();
+    _addressController = TextEditingController(text: widget.address);
   }
 
   @override
@@ -53,6 +58,53 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _phoneController.dispose();
     _addressController.dispose();
     super.dispose();
+  }
+
+  Future<void> _saveProfile() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id') ?? 0;
+
+      if (userId == 0) {
+        throw Exception('User ID tidak ditemukan');
+      }
+
+      final userService = UserService();
+      final result = await userService.updateProfile(
+        userId: userId,
+        fullName: _nameController.text,
+        phoneNumber: _phoneController.text,
+        address: _addressController.text,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']),
+            backgroundColor: result['success'] ? Colors.green : Colors.red,
+          ),
+        );
+
+        if (result['success']) {
+          Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Terjadi kesalahan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -143,6 +195,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     label: 'NAMA LENGKAP',
                     controller: _nameController,
                     hintText: 'Ahmad Sulaiman',
+                    icon: Icons.person_outline,
                   ),
                   const SizedBox(height: 20),
                   _buildInputField(
@@ -150,6 +203,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     controller: _emailController,
                     hintText: 'ahmad.sulaiman@email.com',
                     keyboardType: TextInputType.emailAddress,
+                    icon: Icons.email_outlined,
                     enabled: false,
                   ),
                   const SizedBox(height: 20),
@@ -158,12 +212,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     controller: _phoneController,
                     hintText: '+62 812 3456 7890',
                     keyboardType: TextInputType.phone,
+                    icon: Icons.phone_outlined,
                   ),
                   const SizedBox(height: 20),
                   _buildInputField(
                     label: 'ALAMAT',
                     controller: _addressController,
                     hintText: 'Masukkan alamat lengkap',
+                    icon: Icons.place_outlined,
                   ),
                   const SizedBox(height: 40),
                 ],
@@ -177,10 +233,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Implement save logic
-                  Navigator.pop(context);
-                },
+                onPressed: _isLoading ? null : _saveProfile,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF3B82F6),
                   foregroundColor: Colors.white,
@@ -188,14 +241,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     borderRadius: BorderRadius.circular(24),
                   ),
                   elevation: 0,
+                  disabledBackgroundColor: const Color(
+                    0xFF3B82F6,
+                  ).withValues(alpha: 0.6),
                 ),
-                child: Text(
-                  'Simpan Perubahan',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child:
+                    _isLoading
+                        ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                        : Text(
+                          'Simpan Perubahan',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
               ),
             ),
           ),

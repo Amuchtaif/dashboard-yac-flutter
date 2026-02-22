@@ -21,6 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _divisionName = '';
   String _positionName = '';
   String _phoneNumber = '';
+  String _address = '';
   int _positionLevel = 99;
   bool _pushNotifications = true;
 
@@ -39,6 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _divisionName = prefs.getString('divisionName') ?? '';
       _positionName = prefs.getString('positionName') ?? '';
       _phoneNumber = prefs.getString('phoneNumber') ?? '';
+      _address = prefs.getString('address') ?? '';
       _positionLevel = prefs.getInt('positionLevel') ?? 99;
     });
 
@@ -49,6 +51,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     debugPrint('   Position Level: $_positionLevel');
     debugPrint('   Unit Name: $_unitName');
     debugPrint('   Division Name: $_divisionName');
+    debugPrint('   Address: $_address');
   }
 
   /// Returns the position to display in the badge
@@ -126,8 +129,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () {
-                      Navigator.push(
+                    onPressed: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder:
@@ -135,9 +138,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 fullName: _fullName,
                                 email: _email,
                                 phoneNumber: _phoneNumber,
+                                address: _address,
                               ),
                         ),
                       );
+                      _loadUserData();
                     },
                     child: Text(
                       'Ubah',
@@ -251,6 +256,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: 'Bidang',
                       subtitle: _divisionName,
                     ),
+                    const Divider(height: .5),
+                    _buildInfoTile(
+                      icon: Icons.location_on,
+                      iconColor: Colors.orange,
+                      title: 'Alamat',
+                      subtitle: _address.isEmpty ? '-' : _address,
+                    ),
                   ],
                 ),
               ),
@@ -258,91 +270,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 24),
               _buildSectionTitle('KEAMANAN'),
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ChangePasswordScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.lock_outline),
-                  label: const Text('Ubah Kata Sandi'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF3B82F6),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 20,
+              _buildActionTile(
+                icon: Icons.lock_outline,
+                iconColor: const Color(0xFF3B82F6),
+                title: 'Ubah Kata Sandi',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ChangePasswordScreen(),
                     ),
-                    alignment: Alignment.centerLeft,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    textStyle: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+                  );
+                },
               ),
 
               const SizedBox(height: 24),
               _buildSectionTitle('PENGATURAN APLIKASI'),
               const SizedBox(height: 12),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: _buildSwitchTile(
-                  icon: Icons.notifications_none,
-                  iconColor: Colors.orange,
-                  title: 'Notifikasi',
-                  value: _pushNotifications,
-                  onChanged: (val) {
-                    setState(() {
-                      _pushNotifications = val;
-                    });
-                  },
-                ),
+              _buildSwitchTile(
+                icon: Icons.notifications_none,
+                iconColor: Colors.orange,
+                title: 'Notifikasi',
+                value: _pushNotifications,
+                onChanged: (val) {
+                  setState(() {
+                    _pushNotifications = val;
+                  });
+                },
               ),
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const HelpSupportScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.help_outline),
-                  label: const Text('Bantuan & Dukungan'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF64748B),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 20,
+              _buildActionTile(
+                icon: Icons.help_outline,
+                iconColor: const Color(0xFF64748B),
+                title: 'Bantuan & Dukungan',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const HelpSupportScreen(),
                     ),
-                    alignment: Alignment.centerLeft,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    textStyle: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+                  );
+                },
               ),
 
               const SizedBox(height: 32),
@@ -420,7 +388,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       leading: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: iconColor.withOpacity(0.1),
+          color: iconColor.withValues(alpha: 0.1),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: iconColor, size: 20),
@@ -451,28 +419,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      leading: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: iconColor, size: 20),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      title: Text(
-        title,
-        style: GoogleFonts.poppins(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: Colors.black87,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onChanged(!value),
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: iconColor, size: 22),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                Switch(
+                  value: value,
+                  onChanged: onChanged,
+                  activeColor: Colors.blueAccent,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
-        activeColor: Colors.blueAccent,
+    );
+  }
+
+  Widget _buildActionTile({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: iconColor, size: 22),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: Colors.grey.withValues(alpha: 0.4),
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

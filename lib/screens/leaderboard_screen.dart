@@ -133,7 +133,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -325,7 +325,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     : null,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -414,7 +414,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         border: Border.all(color: const Color(0xFFBFDBFE), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF3B82F6).withOpacity(0.08),
+            color: const Color(0xFF3B82F6).withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),

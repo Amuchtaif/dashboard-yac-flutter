@@ -21,4 +21,10 @@ class ApiConstants {
   static const String performanceData = '${baseUrl}get_performance_data.php';
   static const String performanceLeaderboard =
       '${baseUrl}get_performance_leaderboard.php';
+  // Profile Endpoints
+  static const String updateProfile = '${baseUrl}update_profile.php';
+
+  // Class Endpoints
+  static const String getClasses = '${baseUrl}get_classes.php';
+  static const String getClassDetail = '${baseUrl}get_class_detail.php';
 }

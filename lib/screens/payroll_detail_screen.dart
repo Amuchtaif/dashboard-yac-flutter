@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class PayrollDetailScreen extends StatelessWidget {
   final Map<String, dynamic> payrollData;
@@ -78,7 +82,7 @@ class PayrollDetailScreen extends StatelessWidget {
             const SizedBox(height: 24),
             _buildDebtBalanceSection(currencyFormat),
             const SizedBox(height: 32),
-            _buildDownloadButton(),
+            _buildDownloadButton(context),
             const SizedBox(height: 40),
           ],
         ),
@@ -641,12 +645,12 @@ class PayrollDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDownloadButton() {
+  Widget _buildDownloadButton(BuildContext context) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 24),
       child: ElevatedButton.icon(
-        onPressed: () {},
+        onPressed: () => _generatePdf(context),
         icon: const Icon(
           Icons.file_download_outlined,
           color: Colors.white,
@@ -668,6 +672,627 @@ class PayrollDetailScreen extends StatelessWidget {
           ),
           elevation: 0,
         ),
+      ),
+    );
+  }
+
+  Future<void> _generatePdf(BuildContext context) async {
+    try {
+      final pdf = pw.Document();
+
+      // Load logo
+      final ByteData logoData = await rootBundle.load('assets/images/logo.png');
+      final Uint8List logoBytes = logoData.buffer.asUint8List();
+      final pw.MemoryImage logoImage = pw.MemoryImage(logoBytes);
+
+      // Load signature (Agung Junaedi)
+      pw.MemoryImage? sigImage;
+      try {
+        final ByteData sigData = await rootBundle.load(
+          'assets/images/signature_agung.png',
+        );
+        sigImage = pw.MemoryImage(sigData.buffer.asUint8List());
+      } catch (e) {
+        debugPrint('Signature image not found: $e');
+      }
+
+      final currencyFormat = NumberFormat.currency(
+        locale: 'id_ID',
+        symbol: '',
+        decimalDigits: 0,
+      );
+
+      String formatCurrency(dynamic value) {
+        if (value == null || value == 0 || value == '0') return '0';
+        return currencyFormat.format(double.tryParse(value.toString()) ?? 0);
+      }
+
+      final monthNames = [
+        '',
+        'Januari',
+        'Februari',
+        'Maret',
+        'April',
+        'Mei',
+        'Juni',
+        'Juli',
+        'Agustus',
+        'September',
+        'Oktober',
+        'November',
+        'Desember',
+      ];
+
+      final monthIndex =
+          int.tryParse(payrollData['periode_bulan']?.toString() ?? '0') ?? 0;
+      final periodMonth =
+          monthIndex > 0 && monthIndex <= 12 ? monthNames[monthIndex] : '-';
+      final periodYear = payrollData['periode_tahun'] ?? '-';
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(25),
+          build: (pw.Context context) {
+            return pw.Container(
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.black, width: 1),
+              ),
+              child: pw.Column(
+                children: [
+                  // HEADER
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(
+                        bottom: pw.BorderSide(color: PdfColors.black, width: 1),
+                      ),
+                    ),
+                    child: pw.Row(
+                      children: [
+                        pw.Image(logoImage, width: 60, height: 60),
+                        pw.SizedBox(width: 20),
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              'YAYASAN ASSUNNAH CIREBON',
+                              style: pw.TextStyle(
+                                fontSize: 13,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                            pw.Text(
+                              'BUKTI PERINCIAN GAJI GURU DAN KARYAWAN',
+                              style: pw.TextStyle(
+                                fontSize: 11,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                            pw.Text(
+                              'BULAN - - $periodMonth $periodYear',
+                              style: pw.TextStyle(
+                                fontSize: 10,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // EMPLOYEE INFO
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(
+                        bottom: pw.BorderSide(color: PdfColors.black, width: 1),
+                      ),
+                    ),
+                    child: pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Expanded(
+                          child: pw.Column(
+                            children: [
+                              _pdfFieldRow('Nama', payrollData['nama'] ?? '-'),
+                              _pdfFieldRow(
+                                'No. Induk',
+                                payrollData['nik'] ?? '-',
+                              ),
+                              _pdfFieldRow(
+                                'Tgl Lahir',
+                                payrollData['tgl_lahir'] ?? '-',
+                              ),
+                              _pdfFieldRow(
+                                'Jabatan',
+                                payrollData['jabatan'] ?? '-',
+                              ),
+                              _pdfFieldRow(
+                                'Martial',
+                                payrollData['marital_status'] ?? '-',
+                              ),
+                            ],
+                          ),
+                        ),
+                        pw.Expanded(
+                          child: pw.Column(
+                            children: [
+                              _pdfFieldRow(
+                                'Golongan/Esl',
+                                payrollData['gol_r'] ?? '-',
+                              ),
+                              _pdfFieldRow(
+                                'Masker',
+                                payrollData['masker'] ?? '-',
+                              ),
+                              _pdfFieldRow(
+                                'Stat. Pegawai',
+                                payrollData['sta_peg'] ?? '-',
+                              ),
+                              _pdfFieldRow(
+                                'Pendidikan',
+                                payrollData['pendidikan'] ?? '-',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // A. GAJI POKOK
+                  _pdfHeaderRow(
+                    'A. Gaji Pokok',
+                    formatCurrency(payrollData['gapok']),
+                  ),
+
+                  // B. TUNJANGAN
+                  _pdfHeaderRow('B. Tunjangan', ''),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    child: pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Expanded(
+                          child: pw.Column(
+                            children: [
+                              _pdfItemValueRow(
+                                'Jabatan',
+                                formatCurrency(payrollData['tunjab']),
+                              ),
+                              _pdfItemValueRow(
+                                'Keluarga',
+                                formatCurrency(payrollData['tunkel']),
+                              ),
+                              _pdfItemValueRow(
+                                'Anak',
+                                formatCurrency(payrollData['tunnak']),
+                              ),
+                              _pdfItemValueRow(
+                                'KJM',
+                                formatCurrency(payrollData['kjm']),
+                              ),
+                              _pdfItemValueRow(
+                                'KJK',
+                                formatCurrency(payrollData['kjk']),
+                              ),
+                              _pdfItemValueRow(
+                                'Tunj. PPh21',
+                                formatCurrency(payrollData['tunj_pph21']),
+                              ),
+                            ],
+                          ),
+                        ),
+                        pw.Expanded(
+                          child: pw.Column(
+                            children: [
+                              _pdfItemValueRow(
+                                'Khusus',
+                                formatCurrency(payrollData['tunkus']),
+                              ),
+                              _pdfItemValueRow(
+                                'Kehadiran (${payrollData['jml_hari'] ?? 0})',
+                                formatCurrency(payrollData['ikm']),
+                              ),
+                              _pdfItemValueRow(
+                                'Lembur',
+                                formatCurrency(payrollData['lembur']),
+                              ),
+                              _pdfItemValueRow('BPJS TK bg PT', '0'),
+                              _pdfItemValueRow('BPJS Kesehatan', '0'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _pdfSubtotalRow(
+                    'Jumlah Total Tunjangan',
+                    formatCurrency(
+                      (double.tryParse(payrollData['gaji_bruto'].toString()) ??
+                              0) -
+                          (double.tryParse(payrollData['gapok'].toString()) ??
+                              0),
+                    ),
+                  ),
+
+                  // GAJI BRUTO
+                  _pdfBoldValueRow(
+                    'Gaji Bruto ( A+B )',
+                    formatCurrency(payrollData['gaji_bruto']),
+                  ),
+
+                  // C. POTONGAN
+                  _pdfHeaderRow('C. Potongan', ''),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    child: pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Expanded(
+                          child: pw.Column(
+                            children: [
+                              _pdfItemValueRow(
+                                'Hutang YAC',
+                                formatCurrency(payrollData['hutang_yac']),
+                              ),
+                              _pdfItemValueRow(
+                                'Pend. Anak',
+                                formatCurrency(payrollData['pend_anak']),
+                              ),
+                              _pdfItemValueRow(
+                                'Paket',
+                                formatCurrency(payrollData['paket']),
+                              ),
+                              _pdfItemValueRow(
+                                'Pajak (PPh 21)',
+                                formatCurrency(payrollData['pph21']),
+                              ),
+                              _pdfItemValueRow(
+                                'Infak',
+                                formatCurrency(payrollData['infak']),
+                              ),
+                              _pdfItemValueRow(
+                                'Don. Radio & AP',
+                                formatCurrency(payrollData['donasi_radio_ap']),
+                              ),
+                              _pdfItemValueRow(
+                                'BPJS TK',
+                                formatCurrency(payrollData['bpjs_tk']),
+                              ),
+                            ],
+                          ),
+                        ),
+                        pw.Expanded(
+                          child: pw.Column(
+                            children: [
+                              _pdfItemValueRow(
+                                'BPJS Kesehatan',
+                                formatCurrency(payrollData['bpjs_kes']),
+                              ),
+                              _pdfItemValueRow(
+                                'Qordul Hasan',
+                                formatCurrency(payrollData['hutang_kop']),
+                              ),
+                              _pdfItemValueRow(
+                                'Simp. Wajib',
+                                formatCurrency(payrollData['simp_wajib']),
+                              ),
+                              _pdfItemValueRow(
+                                'Simp. Sukarela',
+                                formatCurrency(payrollData['simp_sukarela']),
+                              ),
+                              _pdfItemValueRow(
+                                'Simp. Pokok',
+                                formatCurrency(payrollData['simp_pokok']),
+                              ),
+                              _pdfItemValueRow('Murabahah', '0'),
+                              _pdfItemValueRow(
+                                'Belanja',
+                                formatCurrency(payrollData['belanja']),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _pdfSubtotalRow(
+                    'Jumlah Total Potongan',
+                    formatCurrency(payrollData['jumlah_potongan']),
+                  ),
+
+                  // GAJI NETTO
+                  _pdfBoldValueRow(
+                    'Gaji Netto (A+B-C)',
+                    formatCurrency(payrollData['gaji_netto']),
+                  ),
+
+                  // KONFIRMASI SALDO HUTANG
+                  _pdfHeaderRowCenter('Konfirmasi Saldo Hutang'),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    child: pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Expanded(
+                          child: pw.Column(
+                            children: [
+                              _pdfItemValueRow(
+                                'Yayasan',
+                                formatCurrency(
+                                  payrollData['saldo_hutang_yayasan'],
+                                ),
+                              ),
+                              _pdfItemValueRow(
+                                'Assunnah Mart',
+                                formatCurrency(
+                                  payrollData['hut_assunnah_mart'],
+                                ),
+                              ),
+                              _pdfItemValueRow(
+                                'Murabahah',
+                                formatCurrency(payrollData['saldo_murabahah']),
+                              ),
+                            ],
+                          ),
+                        ),
+                        pw.Expanded(
+                          child: pw.Column(
+                            children: [
+                              _pdfItemValueRow(
+                                'Pendidikan Anak',
+                                formatCurrency(
+                                  payrollData['saldo_pendidikan_anak'],
+                                ),
+                              ),
+                              _pdfItemValueRow(
+                                'Qordul Hasan',
+                                formatCurrency(
+                                  payrollData['saldo_qordul_hasan'],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // NB
+                  pw.Container(
+                    width: double.infinity,
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(
+                        top: pw.BorderSide(color: PdfColors.black, width: 1),
+                      ),
+                    ),
+                    child: pw.Text(
+                      'NB:',
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ),
+
+                  // FOOTER
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.all(5),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.end,
+                      children: [
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
+                          children: [
+                            pw.Text(
+                              'Cirebon, ${DateFormat('dd MMMM yyyy', 'id_ID').format(DateTime.now())}',
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
+                            pw.Text(
+                              'Payroll,',
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
+                            if (sigImage != null)
+                              pw.Container(
+                                height: 35,
+                                width: 100,
+
+                                child: pw.Image(
+                                  sigImage,
+                                  fit: pw.BoxFit.contain,
+                                ),
+                              )
+                            else
+                              pw.SizedBox(height: 15),
+                            pw.Text(
+                              'Agung Junaedi',
+                              style: pw.TextStyle(
+                                fontSize: 10,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+        name:
+            'Slip_Gaji_${payrollData['nama']}_${periodMonth}_${periodYear}.pdf',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal membuat PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  pw.Widget _pdfFieldRow(String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 1),
+      child: pw.Row(
+        children: [
+          pw.SizedBox(
+            width: 80,
+            child: pw.Text(label, style: const pw.TextStyle(fontSize: 8)),
+          ),
+          pw.Text(':', style: const pw.TextStyle(fontSize: 8)),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            child: pw.Text(
+              value,
+              style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _pdfHeaderRow(String label, String value) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: const pw.BoxDecoration(
+        color: PdfColors.grey200,
+        border: pw.Border.symmetric(
+          horizontal: pw.BorderSide(color: PdfColors.black, width: 1),
+        ),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            label,
+            style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+          ),
+          if (value.isNotEmpty)
+            pw.Text(
+              value,
+              style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+            ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _pdfHeaderRowCenter(String label) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: const pw.BoxDecoration(
+        color: PdfColors.grey200,
+        border: pw.Border.symmetric(
+          horizontal: pw.BorderSide(color: PdfColors.black, width: 1),
+        ),
+      ),
+      child: pw.Center(
+        child: pw.Text(
+          label,
+          style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _pdfItemValueRow(String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 1),
+      child: pw.Row(
+        children: [
+          pw.SizedBox(
+            width: 90,
+            child: pw.Text(label, style: const pw.TextStyle(fontSize: 8)),
+          ),
+          pw.Text(':', style: const pw.TextStyle(fontSize: 8)),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            child: pw.Text(value, style: const pw.TextStyle(fontSize: 8)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _pdfSubtotalRow(String label, String value) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(top: pw.BorderSide(color: PdfColors.black, width: 1)),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            label,
+            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.Text(
+            value,
+            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _pdfBoldValueRow(String label, String value) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border.symmetric(
+          horizontal: pw.BorderSide(color: PdfColors.black, width: 1),
+        ),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Expanded(
+            child: pw.Center(
+              child: pw.Text(
+                label,
+                style: pw.TextStyle(
+                  fontSize: 9,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          pw.Text(
+            value,
+            style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+          ),
+        ],
       ),
     );
   }

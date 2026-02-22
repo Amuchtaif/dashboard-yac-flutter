@@ -25,9 +25,11 @@ import 'tahfidz/absensi_pengampu_screen.dart';
 import 'tahfidz/setoran_tahfidz_screen.dart';
 import 'tahfidz/penilaian_tahfidz_screen.dart';
 import 'teaching_schedule_screen.dart';
+import 'class_list_screen.dart';
 import '../services/attendance_service.dart';
 import '../models/location_model.dart';
 import '../utils/access_control.dart';
+import 'subject_list_screen.dart';
 import 'student_data_screen.dart';
 import 'academic_calendar_screen.dart';
 import 'teacher_data_screen.dart';
@@ -857,19 +859,19 @@ class HomeTab extends StatelessWidget {
             _buildGeneralMenuGrid(context),
             // Show Education Menu Only If User Has Permission
             if (AccessControl.can('can_access_education')) ...[
+              const SizedBox(height: 24),
               _buildSectionTitle('Menu Pendidikan'),
               const SizedBox(height: 12),
               _buildEducationMenuGrid(context),
-              const SizedBox(height: 24),
             ],
-            const SizedBox(height: 24),
             // Show Tahfidz Menu Only If User Has Permission
             if (AccessControl.can('can_access_tahfidz')) ...[
+              const SizedBox(height: 24),
               _buildSectionTitle('Menu Tahfidz'),
               const SizedBox(height: 12),
               _buildTahfidzMenuGrid(context),
-              const SizedBox(height: 24),
             ],
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -1746,7 +1748,7 @@ class HomeTab extends StatelessWidget {
         'color': Colors.green,
       },
       {
-        'title': 'Kelas',
+        'title': 'Data Kelas',
         'icon': Icons.meeting_room_outlined,
         'color': Colors.orange,
       },
@@ -1764,14 +1766,10 @@ class HomeTab extends StatelessWidget {
         'flex': 2,
       },
       {
-        'title': 'Absensi Siswa',
-        'icon': Icons.how_to_reg_outlined,
-        'color': Colors.cyan,
-      },
-      {
         'title': 'Kalender Akademik',
         'icon': Icons.event_note_outlined,
         'color': Colors.indigo,
+        'flex': 2,
       },
     ];
 
@@ -2052,6 +2050,16 @@ class HomeTab extends StatelessWidget {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const TeachingScheduleScreen()),
+      );
+    } else if (title == 'Data Kelas') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ClassListScreen()),
+      );
+    } else if (title == 'Mata Pelajaran') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const SubjectListScreen()),
       );
     } else if (title == 'Data Siswa') {
       Navigator.push(
