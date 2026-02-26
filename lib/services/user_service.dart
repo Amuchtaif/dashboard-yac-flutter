@@ -78,5 +78,6 @@ class UserService {
     await prefs.setInt('positionLevel', user.positionLevel);
     await prefs.setInt('divisionId', user.divisionId);
     await prefs.setString('profilePhoto', user.profilePhoto);
+    await prefs.setBool('canManageNews', user.canManageNews);
   }
 }

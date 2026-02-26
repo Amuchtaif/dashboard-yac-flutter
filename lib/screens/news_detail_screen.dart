@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/news_model.dart';
+
 class NewsDetailScreen extends StatelessWidget {
-  final Map<String, dynamic> news;
+  final News news;
 
   const NewsDetailScreen({super.key, required this.news});
 
@@ -22,7 +24,7 @@ class NewsDetailScreen extends StatelessWidget {
                   _buildCategoryBadge(),
                   const SizedBox(height: 12),
                   Text(
-                    news['title'],
+                    news.title,
                     style: GoogleFonts.poppins(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -64,7 +66,7 @@ class NewsDetailScreen extends StatelessWidget {
         ),
       ),
       flexibleSpace: FlexibleSpaceBar(
-        background: Image.network(news['imageUrl'], fit: BoxFit.cover),
+        background: Image.network(news.coverPhoto, fit: BoxFit.cover),
       ),
     );
   }
@@ -77,7 +79,7 @@ class NewsDetailScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        news['category'],
+        news.category,
         style: GoogleFonts.poppins(
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -100,7 +102,7 @@ class NewsDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Admin Yayasan',
+              news.authorName,
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -108,7 +110,7 @@ class NewsDetailScreen extends StatelessWidget {
               ),
             ),
             Text(
-              'Dipublikasikan 2 jam yang lalu',
+              news.createdAt,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 color: const Color(0xFF64748B),
@@ -123,11 +125,7 @@ class NewsDetailScreen extends StatelessWidget {
   Widget _buildStatsRow() {
     return Row(
       children: [
-        _buildStatItem(
-          Icons.favorite,
-          '${news['likes']} Suka',
-          Colors.redAccent,
-        ),
+        _buildStatItem(Icons.favorite, '${news.likes} Suka', Colors.redAccent),
         const SizedBox(width: 20),
         _buildStatItem(Icons.remove_red_eye, '1.2k Kali Dilihat', Colors.grey),
         const SizedBox(width: 20),
@@ -155,7 +153,7 @@ class NewsDetailScreen extends StatelessWidget {
 
   Widget _buildContent() {
     return Text(
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\nSed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.',
+      news.content,
       style: GoogleFonts.poppins(
         fontSize: 16,
         color: const Color(0xFF334155),

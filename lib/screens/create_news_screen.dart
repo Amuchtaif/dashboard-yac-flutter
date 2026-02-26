@@ -1,5 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/news_service.dart';
 
 class CreateNewsScreen extends StatefulWidget {
   const CreateNewsScreen({super.key});
@@ -10,7 +14,13 @@ class CreateNewsScreen extends StatefulWidget {
 
 class _CreateNewsScreenState extends State<CreateNewsScreen> {
   final _formKey = GlobalKey<FormState>();
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _contentController = TextEditingController();
   String? _selectedCategory;
+  File? _imageFile;
+  bool _isSubmitting = false;
+  final NewsService _newsService = NewsService();
+  final ImagePicker _picker = ImagePicker();
   final List<String> _categories = [
     'MUDIR',
     'KEPALA PONDOK',
@@ -18,6 +28,86 @@ class _CreateNewsScreenState extends State<CreateNewsScreen> {
     'KABID UMUM',
     'HUMAS',
   ];
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _contentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final XFile? pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+    );
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<void> _submitNews() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_imageFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pilih foto sampul terlebih dahulu')),
+      );
+      return;
+    }
+    if (_selectedCategory == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pilih kategori terlebih dahulu')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id') ?? 0;
+
+      final result = await _newsService.submitNews(
+        userId: userId,
+        title: _titleController.text,
+        category: _selectedCategory!,
+        content: _contentController.text,
+        coverPhoto: _imageFile!,
+      );
+
+      if (result['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Berita berhasil dipublikasikan')),
+          );
+          Navigator.pop(context, true);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Gagal membuat berita'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Terjadi kesalahan: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,13 +139,33 @@ class _CreateNewsScreenState extends State<CreateNewsScreen> {
               _buildImagePicker(),
               const SizedBox(height: 24),
               _buildLabel('Judul Berita'),
-              _buildTextField(hint: 'Masukkan judul berita...', maxLines: 2),
+              _buildTextField(
+                controller: _titleController,
+                hint: 'Masukkan judul berita...',
+                maxLines: 2,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Judul tidak boleh kosong';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: 20),
               _buildLabel('Kategori'),
               _buildCategoryDropdown(),
               const SizedBox(height: 20),
               _buildLabel('Konten Berita'),
-              _buildTextField(hint: 'Tulis isi berita di sini...', maxLines: 8),
+              _buildTextField(
+                controller: _contentController,
+                hint: 'Tulis isi berita di sini...',
+                maxLines: 8,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Konten tidak boleh kosong';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: 40),
               _buildSubmitButton(),
               const SizedBox(height: 20),
@@ -82,9 +192,7 @@ class _CreateNewsScreenState extends State<CreateNewsScreen> {
 
   Widget _buildImagePicker() {
     return GestureDetector(
-      onTap: () {
-        // Mock image picking
-      },
+      onTap: _pickImage,
       child: Container(
         width: double.infinity,
         height: 200,
@@ -92,31 +200,54 @@ class _CreateNewsScreenState extends State<CreateNewsScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+          image:
+              _imageFile != null
+                  ? DecorationImage(
+                    image: FileImage(_imageFile!),
+                    fit: BoxFit.cover,
+                  )
+                  : null,
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.add_a_photo_outlined,
-              size: 40,
-              color: Color(0xFF94A3B8),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Tambah Foto Sampul',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: const Color(0xFF94A3B8),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+        child:
+            _imageFile == null
+                ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.add_a_photo_outlined,
+                      size: 40,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Tambah Foto Sampul',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: const Color(0xFF94A3B8),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                )
+                : Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.edit, color: Colors.white, size: 30),
+                  ),
+                ),
       ),
     );
   }
 
-  Widget _buildTextField({required String hint, int maxLines = 1}) {
+  Widget _buildTextField({
+    required String hint,
+    int maxLines = 1,
+    TextEditingController? controller,
+    String? Function(String?)? validator,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -124,7 +255,9 @@ class _CreateNewsScreenState extends State<CreateNewsScreen> {
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: TextFormField(
+        controller: controller,
         maxLines: maxLines,
+        validator: validator,
         style: GoogleFonts.poppins(fontSize: 14),
         decoration: InputDecoration(
           hintText: hint,
@@ -176,12 +309,7 @@ class _CreateNewsScreenState extends State<CreateNewsScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Berita berhasil dikirim!')),
-          );
-          Navigator.pop(context);
-        },
+        onPressed: _isSubmitting ? null : _submitNews,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF3B82F6),
           foregroundColor: Colors.white,
@@ -191,10 +319,23 @@ class _CreateNewsScreenState extends State<CreateNewsScreen> {
           ),
           elevation: 0,
         ),
-        child: Text(
-          'Publikasikan Sekarang',
-          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        child:
+            _isSubmitting
+                ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+                : Text(
+                  'Publikasikan Sekarang',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
       ),
     );
   }

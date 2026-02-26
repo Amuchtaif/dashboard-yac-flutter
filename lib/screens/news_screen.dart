@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/news_model.dart';
+import '../services/news_service.dart';
 import 'news_detail_screen.dart';
 import 'create_news_screen.dart';
 
@@ -11,45 +14,57 @@ class NewsScreen extends StatefulWidget {
 }
 
 class _NewsScreenState extends State<NewsScreen> {
-  final TextEditingController _searchController = TextEditingController();
+  final NewsService _newsService = NewsService();
+  List<News> _allNews = [];
+  List<News> _filteredNews = [];
+  bool _isLoading = true;
+  bool _canManageNews = false;
 
-  final List<Map<String, dynamic>> _newsList = [
-    {
-      'title': 'Kegiatan Ramadhan di Pesantren Modern',
-      'category': 'MUDIR',
-      'likes': 124,
-      'imageUrl': 'https://picsum.photos/id/1018/500/300',
-      'isLiked': true,
-    },
-    {
-      'title': 'Workshop Kurikulum Santri 2024',
-      'category': 'KABID PENDIDIKAN',
-      'likes': 62,
-      'imageUrl': 'https://picsum.photos/id/1059/500/300',
-      'isLiked': false,
-    },
-    {
-      'title': 'Pembangunan Gedung Baru Tahap Dua',
-      'category': 'KABID UMUM',
-      'likes': 85,
-      'imageUrl': 'https://picsum.photos/id/1031/500/300',
-      'isLiked': false,
-    },
-    {
-      'title': 'Buka Puasa Bersama Alumni',
-      'category': 'MUDIR',
-      'likes': 210,
-      'imageUrl': 'https://picsum.photos/id/1060/500/300',
-      'isLiked': true,
-    },
-    {
-      'title': 'Lomba Tahfidz Antar Kelas',
-      'category': 'KEPALA PONDOK',
-      'likes': 45,
-      'imageUrl': 'https://picsum.photos/id/1073/500/300',
-      'isLiked': false,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _canManageNews = prefs.getBool('canManageNews') ?? false;
+    });
+    await _fetchNews();
+  }
+
+  Future<void> _fetchNews() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final news = await _newsService.getNews();
+      setState(() {
+        _allNews = news;
+        _filteredNews = news;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onSearch(String query) {
+    setState(() {
+      _filteredNews =
+          _allNews
+              .where(
+                (news) =>
+                    news.title.toLowerCase().contains(query.toLowerCase()) ||
+                    news.category.toLowerCase().contains(query.toLowerCase()),
+              )
+              .toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,15 +73,18 @@ class _NewsScreenState extends State<NewsScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            CustomScrollView(
-              slivers: [
-                _buildAppBar(),
-                _buildSearchBar(),
-                _buildNewsGrid(),
-                const SliverToBoxAdapter(child: SizedBox(height: 100)),
-              ],
+            RefreshIndicator(
+              onRefresh: _fetchNews,
+              child: CustomScrollView(
+                slivers: [
+                  _buildAppBar(),
+                  _buildSearchBar(),
+                  _isLoading ? _buildLoadingState() : _buildNewsGrid(),
+                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                ],
+              ),
             ),
-            _buildFloatingButton(),
+            if (_canManageNews) _buildFloatingButton(),
           ],
         ),
       ),
@@ -129,7 +147,7 @@ class _NewsScreenState extends State<NewsScreen> {
             ],
           ),
           child: TextField(
-            controller: _searchController,
+            onChanged: _onSearch,
             decoration: InputDecoration(
               hintText: 'Cari berita...',
               hintStyle: GoogleFonts.poppins(
@@ -146,7 +164,35 @@ class _NewsScreenState extends State<NewsScreen> {
     );
   }
 
+  Widget _buildLoadingState() {
+    return const SliverFillRemaining(
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+
   Widget _buildNewsGrid() {
+    if (_filteredNews.isEmpty) {
+      return SliverFillRemaining(
+        child: Center(
+          child: Text(
+            'Berita tidak ditemukan',
+            style: GoogleFonts.poppins(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    final leftItems = <News>[];
+    final rightItems = <News>[];
+
+    for (int i = 0; i < _filteredNews.length; i++) {
+      if (i % 2 == 0) {
+        leftItems.add(_filteredNews[i]);
+      } else {
+        rightItems.add(_filteredNews[i]);
+      }
+    }
+
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       sliver: SliverToBoxAdapter(
@@ -155,23 +201,29 @@ class _NewsScreenState extends State<NewsScreen> {
           children: [
             Expanded(
               child: Column(
-                children: [
-                  _buildNewsCard(_newsList[0]),
-                  const SizedBox(height: 16),
-                  _buildNewsCard(_newsList[2]),
-                  const SizedBox(height: 16),
-                  _buildNewsCard(_newsList[4]),
-                ],
+                children:
+                    leftItems
+                        .map(
+                          (news) => Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: _buildNewsCard(news),
+                          ),
+                        )
+                        .toList(),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
-                children: [
-                  _buildNewsCard(_newsList[1]),
-                  const SizedBox(height: 16),
-                  _buildNewsCard(_newsList[3]),
-                ],
+                children:
+                    rightItems
+                        .map(
+                          (news) => Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: _buildNewsCard(news),
+                          ),
+                        )
+                        .toList(),
               ),
             ),
           ],
@@ -180,7 +232,7 @@ class _NewsScreenState extends State<NewsScreen> {
     );
   }
 
-  Widget _buildNewsCard(Map<String, dynamic> news) {
+  Widget _buildNewsCard(News news) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -208,7 +260,7 @@ class _NewsScreenState extends State<NewsScreen> {
                 top: Radius.circular(16),
               ),
               child: Image.network(
-                news['imageUrl'],
+                news.coverPhoto,
                 fit: BoxFit.cover,
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
@@ -242,7 +294,7 @@ class _NewsScreenState extends State<NewsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    news['category'],
+                    news.category,
                     style: GoogleFonts.poppins(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -251,7 +303,7 @@ class _NewsScreenState extends State<NewsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    news['title'],
+                    news.title,
                     style: GoogleFonts.poppins(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -261,19 +313,8 @@ class _NewsScreenState extends State<NewsScreen> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Icon(
-                        news['isLiked']
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        size: 16,
-                        color:
-                            news['isLiked']
-                                ? Colors.redAccent
-                                : const Color(0xFF94A3B8),
-                      ),
-                      const SizedBox(width: 4),
                       Text(
-                        '${news['likes']} Suka',
+                        '${news.likes} Suka',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           color: const Color(0xFF64748B),
@@ -306,11 +347,14 @@ class _NewsScreenState extends State<NewsScreen> {
           ],
         ),
         child: ElevatedButton.icon(
-          onPressed: () {
-            Navigator.push(
+          onPressed: () async {
+            final result = await Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const CreateNewsScreen()),
             );
+            if (result == true) {
+              _fetchNews();
+            }
           },
           icon: const Icon(Icons.add, color: Colors.white),
           label: Text(

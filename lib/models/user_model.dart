@@ -9,6 +9,7 @@ class User {
   final String address; // Added address
   final int positionLevel;
   final int divisionId; // Added divisionId
+  final bool canManageNews; // Added canManageNews
 
   final String profilePhoto;
 
@@ -24,6 +25,7 @@ class User {
     required this.positionLevel,
     required this.divisionId,
     required this.profilePhoto,
+    this.canManageNews = false,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -45,6 +47,10 @@ class User {
               ? json['division_id']
               : int.tryParse(json['division_id']?.toString() ?? '0') ?? 0,
       profilePhoto: json['profile_photo'] ?? '',
+      canManageNews:
+          json['can_manage_news'] == 1 ||
+          json['can_manage_news'] == '1' ||
+          json['can_manage_news'] == true,
     );
   }
 
@@ -61,6 +67,7 @@ class User {
       'position_level': positionLevel,
       'division_id': divisionId,
       'profile_photo': profilePhoto,
+      'can_manage_news': canManageNews ? 1 : 0,
     };
   }
 }

@@ -30,6 +30,10 @@ class ApiConstants {
   static const String getSubjects = '${baseUrl}get_subjects.php';
   static String getCalendar = '${baseUrl}get_calendar.php';
 
+  // News Endpoints
+  static const String getNews = '${baseUrl}get_news.php';
+  static const String submitNews = '${baseUrl}submit_news.php';
+
   // Helper for Profile Photo
   static String getProfilePhotoUrl(String? filename) {
     if (filename == null || filename.isEmpty) return '';
