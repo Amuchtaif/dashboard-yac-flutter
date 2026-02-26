@@ -206,7 +206,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (screen == 'approval') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const MainPermitScreen()),
+        MaterialPageRoute(
+          builder: (context) => const MainPermitScreen(initialIndex: 1),
+        ),
       );
     }
     // Case 2: Permit Status Update (Staff) - "halaman perizinan"

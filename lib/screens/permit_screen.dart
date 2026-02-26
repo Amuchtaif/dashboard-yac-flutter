@@ -53,6 +53,20 @@ class _PermitScreenState extends State<PermitScreen> {
     );
 
     if (picked != null) {
+      // Hitung selisih hari
+      final int days = picked.end.difference(picked.start).inDays;
+
+      if (days > 30) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Maksimal durasi izin adalah 30 hari (1 bulan)'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
       setState(() {
         _selectedDateRange = picked;
       });

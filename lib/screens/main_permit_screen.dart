@@ -9,7 +9,8 @@ import '../config/api_config.dart';
 import '../services/permission_service.dart';
 
 class MainPermitScreen extends StatefulWidget {
-  const MainPermitScreen({super.key});
+  final int? initialIndex;
+  const MainPermitScreen({super.key, this.initialIndex});
 
   @override
   State<MainPermitScreen> createState() => _MainPermitScreenState();
@@ -105,6 +106,7 @@ class _MainPermitScreenState extends State<MainPermitScreen> {
     // --- MANAGER VIEW (Tabs) ---
     return DefaultTabController(
       length: 2,
+      initialIndex: widget.initialIndex ?? 0,
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F5F5),
         appBar: AppBar(
