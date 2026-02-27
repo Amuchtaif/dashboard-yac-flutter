@@ -122,4 +122,49 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('isLoggedIn') ?? false;
   }
+
+  Future<AuthResult> changePassword(
+    String oldPassword,
+    String newPassword,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null) {
+        return AuthResult(
+          success: false,
+          message: 'Sesi tidak valid. Silakan login kembali.',
+        );
+      }
+
+      final response = await http.post(
+        Uri.parse(ApiConstants.changePassword),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({
+          'user_id': userId,
+          'old_password': oldPassword,
+          'new_password': newPassword,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return AuthResult(
+          success: responseData['success'] == true,
+          message: responseData['message'] ?? 'Gagal mengubah kata sandi',
+        );
+      } else {
+        return AuthResult(
+          success: false,
+          message: 'Server Error: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      return AuthResult(success: false, message: 'Connection Error: $e');
+    }
+  }
 }

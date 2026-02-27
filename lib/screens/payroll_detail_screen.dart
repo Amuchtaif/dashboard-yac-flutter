@@ -1144,8 +1144,7 @@ class PayrollDetailScreen extends StatelessWidget {
 
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => pdf.save(),
-        name:
-            'Slip_Gaji_${payrollData['nama']}_${periodMonth}_${periodYear}.pdf',
+        name: 'Slip_Gaji_${payrollData['nama']}_${periodMonth}_$periodYear.pdf',
       );
     } catch (e) {
       if (context.mounted) {

@@ -14,7 +14,13 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
   final TeacherService _teacherService = TeacherService();
   String _selectedCategory = 'Semua';
   List<Map<String, dynamic>> _subjects = [];
-  List<String> _categories = ['Semua', 'Akademik', 'Diniah', 'Bahasa', 'Umum'];
+  final List<String> _categories = [
+    'Semua',
+    'Akademik',
+    'Diniah',
+    'Bahasa',
+    'Umum',
+  ];
   bool _isLoading = true;
 
   @override
@@ -137,7 +143,7 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -162,7 +168,7 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -187,7 +193,7 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -241,14 +247,16 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
                       isSelected
                           ? [
                             BoxShadow(
-                              color: const Color(0xFF3B82F6).withOpacity(0.3),
+                              color: const Color(
+                                0xFF3B82F6,
+                              ).withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),
                           ]
                           : [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
+                              color: Colors.black.withValues(alpha: 0.02),
                               blurRadius: 5,
                               offset: const Offset(0, 2),
                             ),
@@ -284,7 +292,7 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
