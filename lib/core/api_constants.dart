@@ -34,6 +34,8 @@ class ApiConstants {
   // News Endpoints
   static const String getNews = '${baseUrl}get_news.php';
   static const String submitNews = '${baseUrl}submit_news.php';
+  static const String toggleLikeNews = '${baseUrl}toggle_like.php';
+  static const String viewNews = '${baseUrl}view_news.php';
 
   // Helper for Profile Photo
   static String getProfilePhotoUrl(String? filename) {

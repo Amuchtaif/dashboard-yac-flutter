@@ -22,11 +22,13 @@ class _CreateNewsScreenState extends State<CreateNewsScreen> {
   final NewsService _newsService = NewsService();
   final ImagePicker _picker = ImagePicker();
   final List<String> _categories = [
-    'MUDIR',
-    'KEPALA PONDOK',
-    'KABID PENDIDIKAN',
-    'KABID UMUM',
-    'HUMAS',
+    'Pengumuman',
+    'Info Akademik',
+    'Kegiatan Santri',
+    'Tahfidz & Qur\'an',
+    'Prestasi',
+    'Berita Yayasan',
+    'Artikel & Opini',
   ];
 
   @override

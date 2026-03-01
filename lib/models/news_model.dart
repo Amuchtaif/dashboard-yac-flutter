@@ -6,6 +6,8 @@ class News {
   final String coverPhoto;
   final String authorName;
   final int likes;
+  final int views;
+  final bool isLiked;
   final String createdAt;
 
   News({
@@ -16,23 +18,30 @@ class News {
     required this.coverPhoto,
     required this.authorName,
     required this.likes,
+    required this.views,
+    required this.isLiked,
     required this.createdAt,
   });
 
   factory News.fromJson(Map<String, dynamic> json) {
     return News(
-      id: json['id'] is int ? json['id'] : int.parse(json['id'].toString()),
-      title: json['title'] ?? '',
-      category: json['category'] ?? '',
-      content: json['content'] ?? '',
-      coverPhoto: json['image_url'] ?? '',
-      authorName: json['author_name'] ?? '',
-      likes:
-          json['likes_count'] is int
-              ? json['likes_count']
-              : int.tryParse(json['likes_count']?.toString() ?? '0') ?? 0,
-      createdAt: json['created_at'] ?? '',
+      id: _asInt(json['id']),
+      title: json['title']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
+      content: json['content']?.toString() ?? '',
+      coverPhoto: json['image_url']?.toString() ?? '',
+      authorName: json['author_name']?.toString() ?? '',
+      likes: _asInt(json['likes_count']),
+      views: _asInt(json['views_count']),
+      isLiked: json['is_liked'] == true || json['is_liked'] == 1,
+      createdAt: json['created_at']?.toString() ?? '',
     );
+  }
+
+  static int _asInt(dynamic val) {
+    if (val == null) return 0;
+    if (val is int) return val;
+    return int.tryParse(val.toString()) ?? 0;
   }
 
   Map<String, dynamic> toJson() {
@@ -44,6 +53,8 @@ class News {
       'image_url': coverPhoto,
       'author_name': authorName,
       'likes_count': likes,
+      'views_count': views,
+      'is_liked': isLiked,
       'created_at': createdAt,
     };
   }

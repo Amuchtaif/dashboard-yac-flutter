@@ -5,22 +5,32 @@ import '../core/api_constants.dart';
 import '../models/news_model.dart';
 
 class NewsService {
-  Future<List<News>> getNews() async {
+  Future<List<News>> getNews({int? userId}) async {
     try {
+      final String url =
+          userId != null
+              ? "${ApiConstants.getNews}?user_id=$userId"
+              : ApiConstants.getNews;
+
       final response = await http.get(
-        Uri.parse(ApiConstants.getNews),
+        Uri.parse(url),
         headers: {'ngrok-skip-browser-warning': 'true'},
       );
+
+      print("FETCH NEWS STATUS: ${response.statusCode}");
+      print("FETCH NEWS BODY: ${response.body}");
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         if (data['success'] == true) {
           final List<dynamic> newsData = data['data'];
+          print("FOUND ${newsData.length} NEWS ITEMS");
           return newsData.map((item) => News.fromJson(item)).toList();
         }
       }
       return [];
     } catch (e) {
+      print("ERROR FETCH NEWS: $e");
       return [];
     }
   }
@@ -76,6 +86,44 @@ class NewsService {
       }
     } catch (e) {
       return {'success': false, 'message': 'Terjadi kesalahan koneksi: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> toggleLike({
+    required int newsId,
+    required int userId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.toggleLikeNews),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({'news_id': newsId, 'user_id': userId}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'success': false, 'message': 'Gagal menyukai berita'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<void> incrementView(int newsId) async {
+    try {
+      await http.post(
+        Uri.parse(ApiConstants.viewNews),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({'news_id': newsId}),
+      );
+    } catch (e) {
+      // Slient fail for view count
     }
   }
 }

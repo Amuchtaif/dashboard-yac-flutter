@@ -40,7 +40,9 @@ class _NewsScreenState extends State<NewsScreen> {
     });
 
     try {
-      final news = await _newsService.getNews();
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id') ?? prefs.getInt('userId');
+      final news = await _newsService.getNews(userId: userId);
       setState(() {
         _allNews = news;
         _filteredNews = news;
@@ -234,11 +236,12 @@ class _NewsScreenState extends State<NewsScreen> {
 
   Widget _buildNewsCard(News news) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => NewsDetailScreen(news: news)),
         );
+        _fetchNews(); // Refresh list when coming back to get latest counts
       },
       child: Container(
         decoration: BoxDecoration(
@@ -313,8 +316,28 @@ class _NewsScreenState extends State<NewsScreen> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
+                      Icon(
+                        Icons.favorite,
+                        size: 12,
+                        color: Colors.redAccent.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(width: 4),
                       Text(
-                        '${news.likes} Suka',
+                        '${news.likes}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(
+                        Icons.remove_red_eye,
+                        size: 12,
+                        color: Colors.grey.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${news.views}',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
                           color: const Color(0xFF64748B),

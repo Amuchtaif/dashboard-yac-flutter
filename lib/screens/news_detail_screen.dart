@@ -1,12 +1,92 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/news_model.dart';
+import '../services/news_service.dart';
+import 'package:share_plus/share_plus.dart';
 
-class NewsDetailScreen extends StatelessWidget {
+class NewsDetailScreen extends StatefulWidget {
   final News news;
 
   const NewsDetailScreen({super.key, required this.news});
+
+  @override
+  State<NewsDetailScreen> createState() => _NewsDetailScreenState();
+}
+
+class _NewsDetailScreenState extends State<NewsDetailScreen> {
+  late int _likesCount;
+  late int _viewsCount;
+  bool _isLiked = false;
+  bool _isLiking = false;
+  final NewsService _newsService = NewsService();
+
+  @override
+  void initState() {
+    super.initState();
+    _likesCount = widget.news.likes;
+    _viewsCount = widget.news.views + 1; // Increment locally immediately
+    _isLiked = widget.news.isLiked;
+    _newsService.incrementView(widget.news.id);
+  }
+
+  void _shareNews() {
+    final String text =
+        "${widget.news.title}\n\n${widget.news.content}\n\nBaca selengkapnya di aplikasi YAC.";
+    Share.share(text, subject: widget.news.title);
+  }
+
+  Future<void> _toggleLike() async {
+    if (_isLiking) return;
+
+    setState(() => _isLiking = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id') ?? prefs.getInt('userId') ?? 0;
+
+      if (userId == 0) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Silakan login terlebih dahulu')),
+          );
+        }
+        return;
+      }
+
+      final result = await _newsService.toggleLike(
+        newsId: widget.news.id,
+        userId: userId,
+      );
+
+      if (result['success'] == true || result['status'] == 'success') {
+        setState(() {
+          _isLiked = !_isLiked;
+          if (_isLiked) {
+            _likesCount++;
+          } else {
+            _likesCount--;
+          }
+        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Gagal memproses suka'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Terjadi kesalahan: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLiking = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +104,7 @@ class NewsDetailScreen extends StatelessWidget {
                   _buildCategoryBadge(),
                   const SizedBox(height: 12),
                   Text(
-                    news.title,
+                    widget.news.title,
                     style: GoogleFonts.poppins(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -66,7 +146,7 @@ class NewsDetailScreen extends StatelessWidget {
         ),
       ),
       flexibleSpace: FlexibleSpaceBar(
-        background: Image.network(news.coverPhoto, fit: BoxFit.cover),
+        background: Image.network(widget.news.coverPhoto, fit: BoxFit.cover),
       ),
     );
   }
@@ -79,7 +159,7 @@ class NewsDetailScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        news.category,
+        widget.news.category,
         style: GoogleFonts.poppins(
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -102,7 +182,7 @@ class NewsDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              news.authorName,
+              widget.news.authorName,
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -110,7 +190,7 @@ class NewsDetailScreen extends StatelessWidget {
               ),
             ),
             Text(
-              news.createdAt,
+              widget.news.createdAt,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 color: const Color(0xFF64748B),
@@ -125,11 +205,22 @@ class NewsDetailScreen extends StatelessWidget {
   Widget _buildStatsRow() {
     return Row(
       children: [
-        _buildStatItem(Icons.favorite, '${news.likes} Suka', Colors.redAccent),
+        _buildStatItem(
+          _isLiked ? Icons.favorite : Icons.favorite_border,
+          '$_likesCount Suka',
+          _isLiked ? Colors.redAccent : Colors.grey,
+        ),
         const SizedBox(width: 20),
-        _buildStatItem(Icons.remove_red_eye, '1.2k Kali Dilihat', Colors.grey),
+        _buildStatItem(
+          Icons.remove_red_eye,
+          '$_viewsCount Kali Dilihat',
+          Colors.grey,
+        ),
         const SizedBox(width: 20),
-        _buildStatItem(Icons.share, 'Bagikan', Colors.blue),
+        InkWell(
+          onTap: _shareNews,
+          child: _buildStatItem(Icons.share, 'Bagikan', Colors.blue),
+        ),
       ],
     );
   }
@@ -153,7 +244,7 @@ class NewsDetailScreen extends StatelessWidget {
 
   Widget _buildContent() {
     return Text(
-      news.content,
+      widget.news.content,
       style: GoogleFonts.poppins(
         fontSize: 16,
         color: const Color(0xFF334155),
@@ -180,11 +271,12 @@ class NewsDetailScreen extends StatelessWidget {
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.favorite_border),
-                label: const Text('Sukai Berita'),
+                onPressed: _isLiking ? null : _toggleLike,
+                icon: Icon(_isLiked ? Icons.favorite : Icons.favorite_border),
+                label: Text(_isLiked ? 'Batal Suka' : 'Sukai Berita'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3B82F6),
+                  backgroundColor:
+                      _isLiked ? Colors.redAccent : const Color(0xFF3B82F6),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -205,7 +297,7 @@ class NewsDetailScreen extends StatelessWidget {
                   Icons.share_outlined,
                   color: Color(0xFF64748B),
                 ),
-                onPressed: () {},
+                onPressed: _shareNews,
               ),
             ),
           ],
