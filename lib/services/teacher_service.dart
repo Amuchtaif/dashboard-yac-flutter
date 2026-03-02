@@ -245,4 +245,36 @@ class TeacherService {
       return [];
     }
   }
+
+  Future<List<Map<String, dynamic>>> getAttendanceRecap({
+    String? unit,
+    String? classId,
+  }) async {
+    try {
+      final queryParams = <String, String>{};
+      if (unit != null) {
+        queryParams['unit'] = unit;
+      }
+      if (classId != null) {
+        queryParams['class_id'] = classId;
+      }
+      final uri = Uri.parse(
+        ApiConstants.getAttendanceRecap,
+      ).replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+
+      debugPrint('TeacherService: Fetching attendance recap from $uri');
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        if (result['success'] == true && result['data'] != null) {
+          return List<Map<String, dynamic>>.from(result['data']);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching attendance recap: $e');
+      return [];
+    }
+  }
 }

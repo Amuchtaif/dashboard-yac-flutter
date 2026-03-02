@@ -8,12 +8,13 @@ class Meeting {
   final String startTime;
   final String endTime;
   final List<int> participantIds;
-  final int divisionId;
+  final int departmentId;
   final int creatorId;
   final String status; // upcoming, finished, draft
   final String? qrToken; // Token untuk QR Code absensi
   final String? creatorName; // Nama pembuat rapat
-  final String? divisionName; // Nama divisi
+  final String? departmentName; // Nama departemen
+  final String? divisionName; // Alias for compatibility
 
   Meeting({
     this.id,
@@ -25,13 +26,17 @@ class Meeting {
     required this.startTime,
     required this.endTime,
     required this.participantIds,
-    required this.divisionId,
+    required this.departmentId,
     required this.creatorId,
     this.status = 'upcoming',
     this.qrToken,
     this.creatorName,
+    this.departmentName,
     this.divisionName,
-  });
+  }) : divisionId = departmentId;
+
+  // Added divisionId as a getter for compatibility if needed elsewhere
+  final int divisionId;
 
   factory Meeting.fromJson(Map<String, dynamic> json) {
     return Meeting(
@@ -44,10 +49,15 @@ class Meeting {
       startTime: json['start_time'] ?? json['time'] ?? '',
       endTime: json['end_time'] ?? '',
       participantIds: [],
-      divisionId:
-          json['division_id'] is int
-              ? json['division_id']
-              : (int.tryParse(json['division_id']?.toString() ?? '0') ?? 0),
+      departmentId:
+          json['department_id'] is int
+              ? json['department_id']
+              : (int.tryParse(
+                    json['department_id']?.toString() ??
+                        json['division_id']?.toString() ??
+                        '0',
+                  ) ??
+                  0),
       creatorId:
           json['created_by'] is int
               ? json['created_by']
@@ -55,6 +65,7 @@ class Meeting {
       status: json['status'] ?? 'upcoming',
       qrToken: json['qr_token'],
       creatorName: json['creator_name'],
+      departmentName: json['department_name'] ?? json['division_name'],
       divisionName: json['division_name'],
     );
   }
@@ -70,7 +81,8 @@ class Meeting {
       'start_time': startTime,
       'end_time': endTime,
       'participants': participantIds,
-      'division_id': divisionId,
+      'department_id': departmentId,
+      'division_id': departmentId,
       'created_by': creatorId,
       'status': status,
       'qr_token': qrToken,

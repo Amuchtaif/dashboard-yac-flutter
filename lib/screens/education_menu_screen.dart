@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'teaching_schedule_screen.dart';
+import 'attendance_recap_screen.dart';
 
 class EducationMenuScreen extends StatelessWidget {
   const EducationMenuScreen({super.key});
@@ -40,6 +41,11 @@ class EducationMenuScreen extends StatelessWidget {
       'title': 'Kalender Akademik',
       'icon': Icons.event_note_outlined,
       'color': Color(0xFF3F51B5),
+    },
+    {
+      'title': 'Rekap Presensi',
+      'icon': Icons.assignment_ind_outlined,
+      'color': Color(0xFFFF5252),
     },
   ];
 
@@ -107,6 +113,13 @@ class EducationMenuScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => const TeachingScheduleScreen(),
+                ),
+              );
+            } else if (item['title'] == 'Rekap Presensi') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AttendanceRecapScreen(),
                 ),
               );
             } else {

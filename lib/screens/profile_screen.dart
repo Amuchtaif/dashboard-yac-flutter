@@ -180,19 +180,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Stack(
                       alignment: Alignment.center,
                       children: [
-                        _profilePhoto.isNotEmpty
-                            ? CircleAvatar(
-                              radius: 24,
-                              backgroundColor: Colors.blueAccent,
-                              backgroundImage: NetworkImage(
-                                ApiConstants.getProfilePhotoUrl(_profilePhoto),
-                              ),
-                            )
-                            : const CircleAvatar(
-                              radius: 24,
-                              backgroundColor: Colors.blueAccent,
-                              child: Icon(Icons.person, color: Colors.white),
-                            ),
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: const BoxDecoration(
+                            color: Colors.blueAccent,
+                            shape: BoxShape.circle,
+                          ),
+                          child: ClipOval(
+                            child:
+                                _profilePhoto.isNotEmpty
+                                    ? Image.network(
+                                      ApiConstants.getProfilePhotoUrl(
+                                        _profilePhoto,
+                                      ),
+                                      width: 48,
+                                      height: 48,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              const Icon(
+                                                Icons.person,
+                                                color: Colors.white,
+                                              ),
+                                    )
+                                    : const Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                    ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),

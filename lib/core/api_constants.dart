@@ -30,6 +30,9 @@ class ApiConstants {
   static const String getClassDetail = '${baseUrl}get_class_detail.php';
   static const String getSubjects = '${baseUrl}get_subjects.php';
   static String getCalendar = '${baseUrl}get_calendar.php';
+  static const String getAttendanceRecap = '${baseUrl}get_attendance_recap.php';
+  static const String getMeetingAttendees =
+      '${baseUrl}get_meeting_attendees.php';
 
   // News Endpoints
   static const String getNews = '${baseUrl}get_news.php';

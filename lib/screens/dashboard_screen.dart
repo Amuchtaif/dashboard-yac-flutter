@@ -36,6 +36,8 @@ import 'academic_calendar_screen.dart';
 import 'teacher_data_screen.dart';
 import 'performance_screen.dart';
 import 'news_screen.dart';
+import 'attendance_recap_screen.dart';
+import 'shift_swap_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -776,7 +778,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildNavItem(IconData icon, String label, int index) {
     bool isSelected = _currentIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () {
+        setState(() => _currentIndex = index);
+        // Refresh user data (especially profile photo) when switching tabs
+        _loadUserData();
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -889,19 +895,24 @@ class HomeTab extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     return Row(
       children: [
-        profilePhoto.isNotEmpty
-            ? CircleAvatar(
-              radius: 24,
-              backgroundColor: Colors.blueAccent,
-              backgroundImage: NetworkImage(
-                ApiConstants.getProfilePhotoUrl(profilePhoto),
-              ),
-            )
-            : const CircleAvatar(
-              radius: 24,
-              backgroundColor: Colors.blueAccent,
-              child: Icon(Icons.person, color: Colors.white),
-            ),
+        CircleAvatar(
+          radius: 24,
+          backgroundColor: Colors.blueAccent,
+          child: ClipOval(
+            child:
+                profilePhoto.isNotEmpty
+                    ? Image.network(
+                      ApiConstants.getProfilePhotoUrl(profilePhoto),
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      errorBuilder:
+                          (context, error, stackTrace) =>
+                              const Icon(Icons.person, color: Colors.white),
+                    )
+                    : const Icon(Icons.person, color: Colors.white),
+          ),
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -1626,6 +1637,11 @@ class HomeTab extends StatelessWidget {
         'color': Colors.teal,
       },
       {'title': 'Penggajian', 'icon': Icons.payments, 'color': Colors.pink},
+      {
+        'title': 'Tukar Shift',
+        'icon': Icons.swap_horiz,
+        'color': Colors.indigo,
+      },
     ];
 
     return GridView.count(
@@ -1680,6 +1696,13 @@ class HomeTab extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const PayrollHistoryScreen(),
+                        ),
+                      );
+                    } else if (menu['title'] == 'Tukar Shift') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ShiftSwapScreen(),
                         ),
                       );
                     }
@@ -1779,13 +1802,16 @@ class HomeTab extends StatelessWidget {
         'title': 'Jadwal Mengajar',
         'icon': Icons.calendar_today_outlined,
         'color': Colors.pink,
-        'flex': 2,
+      },
+      {
+        'title': 'Rekap Presensi',
+        'icon': Icons.assignment_ind_outlined,
+        'color': Colors.redAccent,
       },
       {
         'title': 'Kalender Akademik',
         'icon': Icons.event_note_outlined,
         'color': Colors.indigo,
-        'flex': 2,
       },
     ];
 
@@ -2031,12 +2057,13 @@ class HomeTab extends StatelessWidget {
   }
 
   void _handleMenuNavigation(BuildContext context, String title) {
-    if (title == 'Absensi Tahfidz') {
+    String navTitle = title.trim();
+    if (navTitle == 'Absensi Tahfidz') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const AbsensiTahfidzScreen()),
       );
-    } else if (title == 'Absensi Pengampu') {
+    } else if (navTitle == 'Absensi Pengampu') {
       if (isKoordinator) {
         Navigator.push(
           context,
@@ -2052,42 +2079,47 @@ class HomeTab extends StatelessWidget {
           ),
         );
       }
-    } else if (title == 'Setoran') {
+    } else if (navTitle == 'Setoran') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const SetoranTahfidzScreen()),
       );
-    } else if (title == 'Penilaian') {
+    } else if (navTitle == 'Penilaian') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const PenilaianTahfidzScreen()),
       );
-    } else if (title == 'Jadwal Mengajar') {
+    } else if (navTitle == 'Jadwal Mengajar') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const TeachingScheduleScreen()),
       );
-    } else if (title == 'Data Kelas') {
+    } else if (navTitle == 'Rekap Presensi') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AttendanceRecapScreen()),
+      );
+    } else if (navTitle == 'Data Kelas') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const ClassListScreen()),
       );
-    } else if (title == 'Mata Pelajaran') {
+    } else if (navTitle == 'Mata Pelajaran') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const SubjectListScreen()),
       );
-    } else if (title == 'Data Siswa') {
+    } else if (navTitle == 'Data Siswa') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const StudentDataScreen()),
       );
-    } else if (title == 'Kalender Akademik') {
+    } else if (navTitle == 'Kalender Akademik') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const AcademicCalendarScreen()),
       );
-    } else if (title == 'Data Guru') {
+    } else if (navTitle == 'Data Guru') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const TeacherDataScreen()),

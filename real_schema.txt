@@ -1,0 +1,48 @@
+--- Table: employees ---
+id (int(11))
+nik (varchar(100))
+full_name (varchar(255))
+phone_number (varchar(20))
+address (varchar(255))
+profile_photo (varchar(255))
+division_id (int(11))
+unit_id (int(11))
+email (varchar(255))
+password (varchar(255))
+schedule_id (int(11))
+position_id (int(11))
+reports_to (int(11))
+status (enum('active','inactive'))
+fcm_token (text)
+created_at (timestamp)
+
+--- Table: departments ---
+id (int(11))
+name (varchar(255))
+schedule_id (int(11))
+
+--- Table: divisions ---
+id (int(11))
+name (varchar(255))
+manager_id (int(11))
+schedule_id (int(11))
+
+--- Table: units ---
+id (int(11))
+division_id (int(11))
+name (varchar(255))
+schedule_id (int(11))
+
+--- Table: positions ---
+id (int(11))
+name (varchar(100))
+level (int(11))
+can_create_meeting (tinyint(1))
+can_approve_permits (tinyint(1))
+can_access_tahfidz (tinyint(1))
+can_access_education (tinyint(1))
+can_manage_employees (tinyint(1))
+can_manage_academic (tinyint(1))
+can_manage_tahfidz (tinyint(1))
+can_manage_news (tinyint(1))
+

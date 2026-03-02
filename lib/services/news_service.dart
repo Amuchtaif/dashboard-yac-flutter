@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../core/api_constants.dart';
 import '../models/news_model.dart';
@@ -17,20 +18,20 @@ class NewsService {
         headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
-      print("FETCH NEWS STATUS: ${response.statusCode}");
-      print("FETCH NEWS BODY: ${response.body}");
+      debugPrint("FETCH NEWS STATUS: ${response.statusCode}");
+      debugPrint("FETCH NEWS BODY: ${response.body}");
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         if (data['success'] == true) {
           final List<dynamic> newsData = data['data'];
-          print("FOUND ${newsData.length} NEWS ITEMS");
+          debugPrint("FOUND ${newsData.length} NEWS ITEMS");
           return newsData.map((item) => News.fromJson(item)).toList();
         }
       }
       return [];
     } catch (e) {
-      print("ERROR FETCH NEWS: $e");
+      debugPrint("ERROR FETCH NEWS: $e");
       return [];
     }
   }

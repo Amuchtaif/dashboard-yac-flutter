@@ -37,15 +37,15 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
   // Data
   List<Staff> _allStaff = [];
   List<Staff> _selectedStaff = [];
-  List<dynamic> _divisions = []; // List of {id, name}
+  List<dynamic> _departments = []; // List of {id, name}
 
-  Map<String, dynamic>? _selectedDivision;
+  Map<String, dynamic>? _selectedDepartment;
 
   // Loading & Meta
   bool _isLoadingData = true;
   bool _isSubmitting = false;
   int? _loginUserId;
-  int? _loginDivisionId;
+  int? _loginDepartmentId;
 
   DateTime? _selectedDate;
   TimeOfDay? _selectedStartTime; // Waktu mulai rapat
@@ -87,13 +87,15 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _loginUserId = prefs.getInt('userId');
-      _loginDivisionId = prefs.getInt('divisionId');
+      _loginDepartmentId = prefs.getInt(
+        'divisionId',
+      ); // Using existing key for compatibility
     });
 
-    // Fetch Staff & Divisions
+    // Fetch Staff & Departments
     await Future.wait([
       _fetchStaff(), // Load ALL staff for global search
-      _fetchDivisions(),
+      _fetchDepartments(),
     ]);
     setState(() => _isLoadingData = false);
   }
@@ -126,8 +128,8 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
     }
   }
 
-  Future<void> _fetchDivisions() async {
-    final url = Uri.parse("${ApiConfig.baseUrl}/get_divisions.php");
+  Future<void> _fetchDepartments() async {
+    final url = Uri.parse("${ApiConfig.baseUrl}/get_departments.php");
     try {
       final response = await http.get(
         url,
@@ -140,26 +142,26 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
           if (mounted) {
             setState(() {
               // Ensure data is List of Maps
-              _divisions = List<Map<String, dynamic>>.from(
+              _departments = List<Map<String, dynamic>>.from(
                 data['data'].map((x) => Map<String, dynamic>.from(x)),
               );
             });
           }
         }
       } else {
-        debugPrint("Fetch Divisions Failed: ${response.statusCode}");
+        debugPrint("Fetch Departments Failed: ${response.statusCode}");
       }
     } catch (e) {
-      debugPrint("Error fetching divisions: $e");
+      debugPrint("Error fetching departments: $e");
     }
   }
 
-  // If "Per Divisi" is selected, we might want to fetch all staff for that division
+  // If "Per Departemen" is selected, we fetch all staff for that department
   // and resolve them to IDs when submitting.
-  Future<List<int>> _resolveDivisionParticipants(int divisionId) async {
-    // Fetch staff for target division
+  Future<List<int>> _resolveDepartmentParticipants(int departmentId) async {
+    // Fetch staff for target department
     final url = Uri.parse(
-      "${ApiConfig.baseUrl}/get_staff_by_division.php?division_id=$divisionId",
+      "${ApiConfig.baseUrl}/get_staff_by_department.php?department_id=$departmentId",
     );
     try {
       final response = await http.get(
@@ -174,7 +176,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
         }
       }
     } catch (e) {
-      debugPrint("Error resolving division staff: $e");
+      debugPrint("Error resolving department staff: $e");
     }
     return [];
   }
@@ -203,17 +205,17 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
       }
       finalParticipantIds = _selectedStaff.map((e) => e.id).toList();
     } else {
-      // Mode Divisi
-      if (_selectedDivision == null) {
-        _showSnack("Pilih divisi target.", isError: true);
+      // Mode Departemen
+      if (_selectedDepartment == null) {
+        _showSnack("Pilih departemen target.", isError: true);
         return;
       }
       setState(() => _isSubmitting = true);
-      finalParticipantIds = await _resolveDivisionParticipants(
-        int.parse(_selectedDivision!['id'].toString()),
+      finalParticipantIds = await _resolveDepartmentParticipants(
+        int.parse(_selectedDepartment!['id'].toString()),
       );
       if (finalParticipantIds.isEmpty) {
-        _showSnack("Divisi ini tidak memiliki karyawan.", isError: true);
+        _showSnack("Departemen ini tidak memiliki karyawan.", isError: true);
         setState(() => _isSubmitting = false);
         return;
       }
@@ -224,10 +226,10 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
     // Default to 1 if user/division not found (Dev check)
     final int creator =
         (_loginUserId == null || _loginUserId == 0) ? 1 : _loginUserId!;
-    final int division =
-        (_loginDivisionId == null || _loginDivisionId == 0)
+    final int department =
+        (_loginDepartmentId == null || _loginDepartmentId == 0)
             ? 1
-            : _loginDivisionId!;
+            : _loginDepartmentId!;
 
     // Build start time DateTime
     final startDateTime = DateTime(
@@ -259,7 +261,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
       startTime: DateFormat('HH:mm:ss').format(startDateTime),
       endTime: DateFormat('HH:mm:ss').format(endDateTime),
       participantIds: finalParticipantIds,
-      divisionId: division,
+      departmentId: department,
       creatorId: creator,
     );
 
@@ -621,7 +623,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                               'Karyawan',
                             ), // Perorangan
                             const SizedBox(width: 8),
-                            _buildModeChip("Per Divisi", 'Divisi'),
+                            _buildModeChip("Per Departemen", 'Divisi'),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -702,7 +704,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                             ),
                           ],
                         ] else ...[
-                          // Per Divisi Dropdown
+                          // Per Departemen Dropdown
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             decoration: BoxDecoration(
@@ -714,31 +716,31 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                               child: DropdownButton<Map<String, dynamic>>(
                                 isExpanded: true,
                                 hint: Text(
-                                  "Pilih Divisi (Massal)",
+                                  "Pilih Departemen (Massal)",
                                   style: GoogleFonts.poppins(
                                     color: Colors.grey,
                                   ),
                                 ),
-                                value: _selectedDivision,
+                                value: _selectedDepartment,
                                 items:
-                                    _divisions.map((div) {
+                                    _departments.map((dept) {
                                       return DropdownMenuItem<
                                         Map<String, dynamic>
                                       >(
-                                        value: div,
+                                        value: dept,
                                         child: Text(
-                                          div['name'],
+                                          dept['name'],
                                           style: GoogleFonts.poppins(),
                                         ),
                                       );
                                     }).toList(),
                                 onChanged: (val) {
-                                  setState(() => _selectedDivision = val);
+                                  setState(() => _selectedDepartment = val);
                                 },
                               ),
                             ),
                           ),
-                          if (_selectedDivision != null) ...[
+                          if (_selectedDepartment != null) ...[
                             const SizedBox(height: 12),
                             Container(
                               padding: const EdgeInsets.all(12),
@@ -759,7 +761,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      "Semua anggota divisi ${_selectedDivision!['name']} akan diundang.",
+                                      "Semua anggota departemen ${_selectedDepartment!['name']} akan diundang.",
                                       style: GoogleFonts.poppins(
                                         fontSize: 12,
                                         color: Colors.blue[800],

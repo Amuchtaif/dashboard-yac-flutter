@@ -1,0 +1,11 @@
+--- Data in: departments ---
+
+--- Data in: divisions ---
+{"id":"1","name":"Mudir Yayasan","manager_id":"199","schedule_id":"1"}
+{"id":"2","name":"Pendidikan","manager_id":"179","schedule_id":"1"}
+{"id":"3","name":"Ekonomi","manager_id":"101","schedule_id":"1"}
+{"id":"4","name":"Dakwah dan Sosial","manager_id":"100","schedule_id":"1"}
+{"id":"5","name":"Bendahara","manager_id":"69","schedule_id":"1"}
+{"id":"6","name":"Personalia & Sekertariat","manager_id":"57","schedule_id":"1"}
+{"id":"7","name":"Umum","manager_id":"26","schedule_id":"1"}
+

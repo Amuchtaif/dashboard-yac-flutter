@@ -128,11 +128,18 @@ class _MeetingListScreenState extends State<MeetingListScreen> {
               : (m.status.toLowerCase() == 'finished');
 
       // Tab 0: Mendatang (Not Finished)
-      // Tab 1: Selesai (Finished)
+      // Tab 1: Selesai (Finished) per bulan ini
       if (_selectedTabIndex == 0) {
         return !isFinished;
       } else {
-        return isFinished;
+        // Hanya tampilkan rapat yang sudah selesai di bulan ini
+        if (!isFinished) return false;
+        try {
+          final meetingDate = DateTime.parse(m.date);
+          return meetingDate.month == now.month && meetingDate.year == now.year;
+        } catch (e) {
+          return false;
+        }
       }
     }).toList();
   }
@@ -193,7 +200,7 @@ class _MeetingListScreenState extends State<MeetingListScreen> {
                 children: [
                   _buildTabButton("Mendatang", 0),
                   const SizedBox(width: 12),
-                  _buildTabButton("Selesai", 1),
+                  _buildTabButton("Selesai (Bulan Ini)", 1),
                 ],
               ),
             ),
@@ -207,7 +214,7 @@ class _MeetingListScreenState extends State<MeetingListScreen> {
                       : _filteredMeetings.isEmpty
                       ? Center(
                         child: Text(
-                          "Tidak ada rapat ${_selectedTabIndex == 0 ? 'mendatang' : 'selesai'}",
+                          "Tidak ada rapat ${_selectedTabIndex == 0 ? 'mendatang' : 'selesai di bulan ini'}",
                           style: GoogleFonts.poppins(color: Colors.grey),
                         ),
                       )
