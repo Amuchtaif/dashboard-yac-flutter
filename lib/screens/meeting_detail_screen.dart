@@ -463,7 +463,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
             ),
 
             // Bottom Buttons
-            if (!_hasAttended && !_isFinished)
+            if (!_hasAttended)
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
@@ -474,7 +474,13 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                         height: 56,
                         child: ElevatedButton(
                           onPressed:
-                              _isMeetingStarted
+                              _isFinished
+                                  ? () {
+                                    _showErrorSnackbar(
+                                      'Rapat sudah berakhir. Anda tidak dapat melakukan scan kehadiran.',
+                                    );
+                                  }
+                                  : _isMeetingStarted
                                   ? () {
                                     _handleScanAbsensi();
                                   }
@@ -485,7 +491,9 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                                   },
                           style: ElevatedButton.styleFrom(
                             backgroundColor:
-                                _isMeetingStarted
+                                _isFinished
+                                    ? Colors.grey[400]
+                                    : _isMeetingStarted
                                     ? const Color(0xFF3B82F6)
                                     : Colors.grey,
                             elevation: 0,
@@ -496,9 +504,10 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.qr_code_scanner,
-                                color: Colors.white,
+                                color:
+                                    _isFinished ? Colors.white70 : Colors.white,
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
@@ -507,7 +516,10 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.white,
+                                  color:
+                                      _isFinished
+                                          ? Colors.white70
+                                          : Colors.white,
                                 ),
                               ),
                             ],

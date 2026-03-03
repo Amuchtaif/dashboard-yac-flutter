@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -44,6 +45,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
   // Loading & Meta
   bool _isLoadingData = true;
   bool _isSubmitting = false;
+  bool _showAllChips = false; // Toggle tampil semua chip atau 5 saja
   int? _loginUserId;
   int? _loginDepartmentId;
 
@@ -101,9 +103,9 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
   }
 
   Future<void> _fetchStaff() async {
-    // API Baru: get_employees.php (Main API)
-    // Mengambil semua data untuk client-side search yang cepat
-    final url = Uri.parse("${ApiConfig.baseUrl}/get_employees.php");
+    // API: get_employees.php - load awal 50 data saja untuk tampilan
+    // Pencarian dilakukan via API langsung di dialog
+    final url = Uri.parse("${ApiConfig.baseUrl}/get_employees.php?limit=50");
     try {
       final response = await http.get(
         url,
@@ -116,7 +118,12 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
           final List<dynamic> list = data['data'];
           if (mounted) {
             setState(() {
-              _allStaff = list.map((e) => Staff.fromJson(e)).toList();
+              _allStaff =
+                  list.map((e) => Staff.fromJson(e)).where((s) {
+                    final n = s.name.toLowerCase();
+                    // Exclude akun administrator
+                    return n != 'administrator' && n != 'admin';
+                  }).toList();
             });
           }
         }
@@ -141,10 +148,41 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
         if (data['success'] == true) {
           if (mounted) {
             setState(() {
-              // Ensure data is List of Maps
-              _departments = List<Map<String, dynamic>>.from(
-                data['data'].map((x) => Map<String, dynamic>.from(x)),
-              );
+              // Ensure data is List of Maps and replace Mudir Yayasan with Pengurus Yayasan
+              _departments =
+                  data['data'].map<Map<String, dynamic>>((x) {
+                    var dept = Map<String, dynamic>.from(x);
+                    if (dept['name'] == 'Mudir Yayasan') {
+                      dept['name'] = 'Pengurus Yayasan';
+                    }
+                    return dept;
+                  }).toList();
+
+              // Sort based on requested order
+              const order = [
+                'Pengurus Yayasan',
+                'Bendahara',
+                'Personalia & Sekertariat',
+                'Pendidikan',
+                'Dakwah dan Sosial',
+                'Ekonomi',
+                'Umum',
+              ];
+
+              _departments.sort((a, b) {
+                int indexA = order.indexOf(a['name']);
+                int indexB = order.indexOf(b['name']);
+
+                if (indexA != -1 && indexB != -1) {
+                  return indexA.compareTo(indexB);
+                } else if (indexA != -1) {
+                  return -1;
+                } else if (indexB != -1) {
+                  return 1;
+                } else {
+                  return a['name'].toString().compareTo(b['name'].toString());
+                }
+              });
             });
           }
         }
@@ -388,8 +426,9 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFFF3F4F6),
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black, size: 20),
@@ -400,7 +439,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
           _isLoadingData
               ? const Center(child: CircularProgressIndicator())
               : SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -619,11 +658,11 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                         Row(
                           children: [
                             _buildModeChip(
-                              "Semua Karyawan",
+                              "Per Karyawan",
                               'Karyawan',
                             ), // Perorangan
                             const SizedBox(width: 8),
-                            _buildModeChip("Per Departemen", 'Divisi'),
+                            _buildModeChip("Per Bidang", 'Divisi'),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -651,7 +690,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                                     child:
                                         _selectedStaff.isEmpty
                                             ? Text(
-                                              "Semua Karyawan, Bidang, Unit",
+                                              "Pilih Karyawan",
                                               style: GoogleFonts.poppins(
                                                 color: Colors.grey,
                                               ),
@@ -674,33 +713,64 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                           ),
                           if (_selectedStaff.isNotEmpty) ...[
                             const SizedBox(height: 12),
+                            // Tampilkan max 5 chip, sisanya sebagai "+N lainnya"
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
-                              children:
-                                  _selectedStaff
-                                      .map(
-                                        (s) => Chip(
-                                          label: Text(
-                                            s.name,
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 11,
-                                            ),
+                              children: [
+                                ..._selectedStaff
+                                    .take(
+                                      _showAllChips ? _selectedStaff.length : 5,
+                                    )
+                                    .map(
+                                      (s) => Chip(
+                                        label: Text(
+                                          s.name,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11,
                                           ),
-                                          backgroundColor: Colors.blue
-                                              .withValues(alpha: 0.1),
-                                          deleteIcon: const Icon(
-                                            Icons.close,
-                                            size: 14,
-                                          ),
-                                          onDeleted: () {
-                                            setState(
-                                              () => _selectedStaff.remove(s),
-                                            );
-                                          },
                                         ),
-                                      )
-                                      .toList(),
+                                        backgroundColor: Colors.blue.withValues(
+                                          alpha: 0.1,
+                                        ),
+                                        deleteIcon: const Icon(
+                                          Icons.close,
+                                          size: 14,
+                                        ),
+                                        onDeleted: () {
+                                          setState(
+                                            () => _selectedStaff.remove(s),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                if (_selectedStaff.length > 5)
+                                  ActionChip(
+                                    label: Text(
+                                      _showAllChips
+                                          ? "Sembunyikan"
+                                          : "+${_selectedStaff.length - 5} lainnya",
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.blueAccent,
+                                      ),
+                                    ),
+                                    backgroundColor: Colors.blue.withValues(
+                                      alpha: 0.05,
+                                    ),
+                                    side: BorderSide(
+                                      color: Colors.blueAccent.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      setState(
+                                        () => _showAllChips = !_showAllChips,
+                                      );
+                                    },
+                                  ),
+                              ],
                             ),
                           ],
                         ] else ...[
@@ -716,7 +786,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                               child: DropdownButton<Map<String, dynamic>>(
                                 isExpanded: true,
                                 hint: Text(
-                                  "Pilih Departemen (Massal)",
+                                  "Pilih Bidang (Massal)",
                                   style: GoogleFonts.poppins(
                                     color: Colors.grey,
                                   ),
@@ -761,7 +831,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      "Semua anggota departemen ${_selectedDepartment!['name']} akan diundang.",
+                                      "Semua anggota bidang ${_selectedDepartment!['name']} akan diundang.",
                                       style: GoogleFonts.poppins(
                                         fontSize: 12,
                                         color: Colors.blue[800],
@@ -774,40 +844,91 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
                           ],
                         ],
 
-                        const SizedBox(height: 40),
-
-                        // Submit Button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: ElevatedButton(
-                            onPressed: _isSubmitting ? null : _submitMeeting,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blueAccent,
-                              shadowColor: Colors.blueAccent.withValues(
-                                alpha: 0.4,
-                              ),
-                              elevation: 8,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child:
-                                _isSubmitting
-                                    ? const CircularProgressIndicator(
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+      // Fixed Bottom Button
+      bottomNavigationBar:
+          _isLoadingData
+              ? null
+              : Container(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _isSubmitting ? null : _submitMeeting,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        shadowColor: Colors.blueAccent.withValues(alpha: 0.4),
+                        elevation: 8,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child:
+                          _isSubmitting
+                              ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                              : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle_outline,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    "Buat Rapat",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
                                       color: Colors.white,
-                                    )
-                                    : Text(
-                                      "Buat Rapat",
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
+                                    ),
+                                  ),
+                                  if (_selectedStaff.isNotEmpty ||
+                                      _selectedDepartment != null) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.2,
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        _participantMode == 'Karyawan'
+                                            ? "${_selectedStaff.length} peserta"
+                                            : _selectedDepartment?['name'] ??
+                                                '',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
-                          ),
-                        ),
-                      ],
+                                  ],
+                                ],
+                              ),
                     ),
                   ),
                 ),
@@ -940,57 +1061,184 @@ class _StaffMultiSelectDialogState extends State<StaffMultiSelectDialog> {
   int _matchingCount = 0;
   final List<Staff> _tempSelected = [];
   final _searchController = TextEditingController();
+  bool _isSearching = false;
+  List<Staff> _displayStaff = [];
+  Timer? _debounceTimer;
+  bool _isLoadingAll = false;
+  bool _allStaffLoaded = false;
+  List<Staff> _allStaffComplete = []; // Semua karyawan dari pagination
 
   @override
   void initState() {
     super.initState();
     _tempSelected.addAll(widget.initialSelected);
-    _filter("");
+    _displayStaff = List.from(widget.allStaff);
+    _buildGroupedList(_displayStaff);
   }
 
-  void _filter(String query) {
-    setState(() {
-      List<Staff> filtered;
-      if (query.isEmpty) {
-        filtered = List.from(widget.allStaff);
-      } else {
-        final q = query.toLowerCase();
-        filtered =
-            widget.allStaff.where((s) {
-              return s.name.toLowerCase().contains(q) ||
-                  s.division.toLowerCase().contains(q) ||
-                  s.unit.toLowerCase().contains(q);
-            }).toList();
-      }
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
 
-      // Sort: Division -> Unit -> Name
-      filtered.sort((a, b) {
-        int cmpDiv = a.division.compareTo(b.division);
-        if (cmpDiv != 0) return cmpDiv;
-        int cmpUnit = a.unit.compareTo(b.unit);
-        if (cmpUnit != 0) return cmpUnit;
-        return a.name.compareTo(b.name);
-      });
+  /// Fetch SEMUA karyawan aktif dari server (menggunakan parameter all=true)
+  Future<void> _fetchAllStaff() async {
+    if (_allStaffLoaded) return; // Sudah pernah fetch, skip
 
-      // Grouping
-      _groupedItems.clear();
-      String lastGroupKey = "";
+    setState(() => _isLoadingAll = true);
 
-      for (var staff in filtered) {
-        // Create a composite key for grouping
-        // e.g. "Divisi A - Unit B" or just "Divisi A" if no unit, or "No Division"
-        String div = staff.division.isEmpty ? "Tanpa Divisi" : staff.division;
-        String unit = staff.unit.isEmpty ? "" : " - ${staff.unit}";
-        String groupKey = "$div$unit";
+    try {
+      final url = Uri.parse("${ApiConfig.baseUrl}/get_employees.php?all=true");
+      final response = await http.get(
+        url,
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
 
-        if (groupKey != lastGroupKey) {
-          _groupedItems.add(groupKey); // Add Header
-          lastGroupKey = groupKey;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          final List<dynamic> list = data['data'] ?? [];
+          _allStaffComplete =
+              list.map((e) => Staff.fromJson(e)).where((s) {
+                final n = s.name.toLowerCase();
+                return n != 'administrator' && n != 'admin';
+              }).toList();
+          _allStaffLoaded = true;
+
+          if (mounted) {
+            setState(() {
+              _isLoadingAll = false;
+              _displayStaff = List.from(_allStaffComplete);
+              _buildGroupedList(_displayStaff);
+            });
+          }
+          return;
         }
-        _groupedItems.add(staff); // Add Item
       }
-      _matchingCount = filtered.length;
+
+      debugPrint("Fetch all employees failed");
+      if (mounted) setState(() => _isLoadingAll = false);
+    } catch (e) {
+      debugPrint("Error fetching all employees: $e");
+      if (mounted) setState(() => _isLoadingAll = false);
+    }
+  }
+
+  void _buildGroupedList(List<Staff> filtered) {
+    // Sort: Division -> Unit -> Name
+    filtered.sort((a, b) {
+      int cmpDiv = a.division.compareTo(b.division);
+      if (cmpDiv != 0) return cmpDiv;
+      int cmpUnit = a.unit.compareTo(b.unit);
+      if (cmpUnit != 0) return cmpUnit;
+      return a.name.compareTo(b.name);
     });
+
+    // Grouping
+    _groupedItems.clear();
+    String lastGroupKey = "";
+
+    for (var staff in filtered) {
+      String div = staff.division.isEmpty ? "Tanpa Divisi" : staff.division;
+      String unit = staff.unit.isEmpty ? "" : " - ${staff.unit}";
+      String groupKey = "$div$unit";
+
+      if (groupKey != lastGroupKey) {
+        _groupedItems.add(groupKey); // Add Header
+        lastGroupKey = groupKey;
+      }
+      _groupedItems.add(staff); // Add Item
+    }
+    _matchingCount = filtered.length;
+  }
+
+  void _onSearchChanged(String query) {
+    _debounceTimer?.cancel();
+
+    if (query.trim().isEmpty) {
+      // Kembali ke data awal
+      setState(() {
+        _isSearching = false;
+        _displayStaff = List.from(widget.allStaff);
+        _buildGroupedList(_displayStaff);
+      });
+      return;
+    }
+
+    // Debounce 400ms agar tidak spam API
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
+      _searchFromApi(query.trim());
+    });
+  }
+
+  Future<void> _searchFromApi(String query) async {
+    setState(() => _isSearching = true);
+
+    try {
+      final url = Uri.parse(
+        "${ApiConfig.baseUrl}/get_employees.php?search=${Uri.encodeComponent(query)}&all=true",
+      );
+
+      final response = await http.get(
+        url,
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          final List<dynamic> list = data['data'];
+          final searchResults =
+              list.map((e) => Staff.fromJson(e)).where((s) {
+                final n = s.name.toLowerCase();
+                return n != 'administrator' && n != 'admin';
+              }).toList();
+
+          if (mounted) {
+            setState(() {
+              _displayStaff = searchResults;
+              _buildGroupedList(_displayStaff);
+              _isSearching = false;
+            });
+          }
+          return;
+        }
+      }
+      // Fallback ke client search jika API gagal
+      _fallbackClientSearch(query);
+    } catch (e) {
+      debugPrint("Error searching employees: $e");
+      _fallbackClientSearch(query);
+    }
+  }
+
+  void _fallbackClientSearch(String query) {
+    final q = query.toLowerCase().trim();
+    final words = q.split(RegExp(r'\s+'));
+
+    final filtered =
+        widget.allStaff.where((s) {
+          final sName = s.name.toLowerCase();
+          final sDiv = s.division.toLowerCase();
+          final sUnit = s.unit.toLowerCase();
+
+          return words.every(
+            (word) =>
+                sName.contains(word) ||
+                sDiv.contains(word) ||
+                sUnit.contains(word),
+          );
+        }).toList();
+
+    if (mounted) {
+      setState(() {
+        _displayStaff = filtered;
+        _buildGroupedList(_displayStaff);
+        _isSearching = false;
+      });
+    }
   }
 
   void _toggleSelection(Staff staff) {
@@ -1079,11 +1327,30 @@ class _StaffMultiSelectDialogState extends State<StaffMultiSelectDialog> {
               ),
               child: TextField(
                 controller: _searchController,
-                onChanged: _filter,
+                onChanged: _onSearchChanged,
                 decoration: InputDecoration(
                   hintText: "Cari nama, divisi, atau unit...",
                   hintStyle: GoogleFonts.poppins(color: Colors.grey[400]),
                   prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                  suffixIcon:
+                      _isSearching
+                          ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                          : _searchController.text.isNotEmpty
+                          ? IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            onPressed: () {
+                              _searchController.clear();
+                              _onSearchChanged('');
+                            },
+                          )
+                          : null,
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -1094,126 +1361,257 @@ class _StaffMultiSelectDialogState extends State<StaffMultiSelectDialog> {
             ),
             const SizedBox(height: 16),
 
-            // List
-            Expanded(
-              child: ListView.builder(
-                itemCount: _groupedItems.length,
-                itemBuilder: (ctx, i) {
-                  final item = _groupedItems[i];
-
-                  if (item is String) {
-                    // Header
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 16, bottom: 8),
-                      child: Text(
-                        item,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue[800],
+            // Select All Section
+            InkWell(
+              onTap:
+                  _isLoadingAll
+                      ? null
+                      : () async {
+                        if (_allStaffLoaded) {
+                          // Sudah punya semua data, toggle select/deselect
+                          setState(() {
+                            final allSelected = _allStaffComplete.every(
+                              (s) => _tempSelected.any((t) => t.id == s.id),
+                            );
+                            if (allSelected) {
+                              _tempSelected.clear();
+                            } else {
+                              _tempSelected.clear();
+                              _tempSelected.addAll(_allStaffComplete);
+                            }
+                          });
+                        } else {
+                          // Fetch semua data dulu, lalu select semua
+                          await _fetchAllStaff();
+                          if (mounted && _allStaffLoaded) {
+                            setState(() {
+                              _tempSelected.clear();
+                              _tempSelected.addAll(_allStaffComplete);
+                            });
+                          }
+                        }
+                      },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    if (_isLoadingAll)
+                      const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color:
+                              (_allStaffLoaded &&
+                                      _allStaffComplete.every(
+                                        (s) => _tempSelected.any(
+                                          (t) => t.id == s.id,
+                                        ),
+                                      ))
+                                  ? Colors.blueAccent
+                                  : Colors.white,
+                          border: Border.all(
+                            color:
+                                (_allStaffLoaded &&
+                                        _allStaffComplete.every(
+                                          (s) => _tempSelected.any(
+                                            (t) => t.id == s.id,
+                                          ),
+                                        ))
+                                    ? Colors.blueAccent
+                                    : Colors.grey.shade300,
+                            width: 2,
+                          ),
                         ),
+                        child:
+                            (_allStaffLoaded &&
+                                    _allStaffComplete.every(
+                                      (s) => _tempSelected.any(
+                                        (t) => t.id == s.id,
+                                      ),
+                                    ))
+                                ? const Icon(
+                                  Icons.check,
+                                  size: 16,
+                                  color: Colors.white,
+                                )
+                                : null,
                       ),
-                    );
-                  } else if (item is Staff) {
-                    // Staff Item
-                    final staff = item;
-                    final isSelected = _tempSelected.any(
-                      (s) => s.id == staff.id,
-                    );
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: InkWell(
-                        onTap: () => _toggleSelection(staff),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Row(
-                          children: [
-                            // Avatar
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: Colors.grey[200],
-                              child: Text(
-                                staff.name.isNotEmpty
-                                    ? staff.name[0].toUpperCase()
-                                    : "?",
-                                style: GoogleFonts.poppins(
-                                  color: Colors.black54,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Pilih Semua Karyawan",
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          if (_isLoadingAll)
+                            Text(
+                              "Mengambil semua data karyawan...",
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: Colors.grey,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            // Info
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  RichText(
-                                    text: TextSpan(
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 14,
-                                        color: Colors.black87,
-                                      ),
-                                      children: [
-                                        TextSpan(
-                                          text: staff.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 24),
+            Expanded(
+              child:
+                  _isSearching
+                      ? const Center(child: CircularProgressIndicator())
+                      : _displayStaff.isEmpty
+                      ? Center(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.search_off,
+                                size: 40,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                "Tidak ditemukan",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      : ListView.builder(
+                        itemCount: _groupedItems.length,
+                        itemBuilder: (ctx, i) {
+                          final item = _groupedItems[i];
+
+                          if (item is String) {
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                top: 16,
+                                bottom: 8,
+                              ),
+                              child: Text(
+                                item,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue[800],
+                                ),
+                              ),
+                            );
+                          } else if (item is Staff) {
+                            final staff = item;
+                            final isSelected = _tempSelected.any(
+                              (s) => s.id == staff.id,
+                            );
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: InkWell(
+                                onTap: () => _toggleSelection(staff),
+                                borderRadius: BorderRadius.circular(12),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor: Colors.grey[200],
+                                      child: Text(
+                                        staff.name.isNotEmpty
+                                            ? staff.name[0].toUpperCase()
+                                            : "?",
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.black54,
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                        if (staff.unit.isNotEmpty)
-                                          TextSpan(
-                                            text: " (Unit ${staff.unit})",
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          RichText(
+                                            text: TextSpan(
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 14,
+                                                color: Colors.black87,
+                                              ),
+                                              children: [
+                                                TextSpan(
+                                                  text: staff.name,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                if (staff.unit.isNotEmpty)
+                                                  TextSpan(
+                                                    text:
+                                                        " (Unit ${staff.unit})",
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.grey,
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
                                           ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  // Division is redundant if in header, but keeping small if needed,
-                                  // or just hiding it since it's in the header.
-                                  // User requested: "Info Tambahan: Di sebelah nama karyawan, sekarang tampil nama Unit mereka"
-                                  // Since header has "Division - Unit", maybe we don't need row subtitle as much.
-                                  // But let's keep it minimal.
-                                ],
-                              ),
-                            ),
-                            // Checkbox custom
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color:
-                                    isSelected
-                                        ? Colors.blueAccent
-                                        : Colors.white,
-                                border: Border.all(
-                                  color:
-                                      isSelected
-                                          ? Colors.blueAccent
-                                          : Colors.grey.shade300,
-                                  width: 2,
+                                    Container(
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color:
+                                            isSelected
+                                                ? Colors.blueAccent
+                                                : Colors.white,
+                                        border: Border.all(
+                                          color:
+                                              isSelected
+                                                  ? Colors.blueAccent
+                                                  : Colors.grey.shade300,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child:
+                                          isSelected
+                                              ? const Icon(
+                                                Icons.check,
+                                                size: 16,
+                                                color: Colors.white,
+                                              )
+                                              : null,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              child:
-                                  isSelected
-                                      ? const Icon(
-                                        Icons.check,
-                                        size: 16,
-                                        color: Colors.white,
-                                      )
-                                      : null,
-                            ),
-                          ],
-                        ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
                       ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
             ),
             const SizedBox(height: 24),
 

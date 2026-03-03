@@ -12,7 +12,9 @@ class ClassJournalScreen extends StatefulWidget {
   final String className;
   final String teacherName;
   final Map<String, String> attendanceStatus; // student_id -> status
+  final Map<String, String> uiToDbMapping; // UI -> DB mapping
   final int totalStudents;
+  final Map<String, dynamic>? existingJournal;
 
   const ClassJournalScreen({
     super.key,
@@ -22,7 +24,9 @@ class ClassJournalScreen extends StatefulWidget {
     required this.className,
     required this.teacherName,
     required this.attendanceStatus,
+    required this.uiToDbMapping,
     required this.totalStudents,
+    this.existingJournal,
   });
 
   @override
@@ -37,11 +41,17 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
 
   bool isSubmitting = false;
   String _teacherName = '';
+  bool isReadOnly = false;
 
   @override
   void initState() {
     super.initState();
     _loadTeacherName();
+    if (widget.existingJournal != null) {
+      isReadOnly = true;
+      _topicController.text = widget.existingJournal!['topic'] ?? '';
+      _summaryController.text = widget.existingJournal!['notes'] ?? '';
+    }
   }
 
   Future<void> _loadTeacherName() async {
@@ -72,7 +82,8 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
 
       final List<Map<String, String>> attendances = [];
       widget.attendanceStatus.forEach((studentId, status) {
-        attendances.add({'student_id': studentId, 'status': status});
+        final dbStatus = widget.uiToDbMapping[status] ?? 'present';
+        attendances.add({'student_id': studentId, 'status': dbStatus});
       });
 
       final Map<String, dynamic> payload = {
@@ -224,47 +235,50 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
               const SizedBox(height: 24),
               _buildFormSection(),
               const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: isSubmitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(
-                      0xFF1E88E5,
-                    ), // Blue like mockup
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              if (!isReadOnly)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: isSubmitting ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(
+                        0xFF1E88E5,
+                      ), // Blue like mockup
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 4,
+                      shadowColor: const Color(
+                        0xFF1E88E5,
+                      ).withValues(alpha: 0.4),
                     ),
-                    elevation: 4,
-                    shadowColor: const Color(0xFF1E88E5).withValues(alpha: 0.4),
+                    icon:
+                        isSubmitting
+                            ? const SizedBox.shrink()
+                            : const Icon(
+                              Icons.save_outlined,
+                              color: Colors.white,
+                            ),
+                    label:
+                        isSubmitting
+                            ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            )
+                            : Text(
+                              'Simpan Jurnal',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
                   ),
-                  icon:
-                      isSubmitting
-                          ? const SizedBox.shrink()
-                          : const Icon(
-                            Icons.save_outlined,
-                            color: Colors.white,
-                          ),
-                  label:
-                      isSubmitting
-                          ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                            ),
-                          )
-                          : Text(
-                            'Simpan Jurnal',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
                 ),
-              ),
             ],
           ),
         ),
@@ -500,6 +514,7 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
             ),
             contentPadding: const EdgeInsets.all(16),
           ),
+          readOnly: isReadOnly,
           validator:
               (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
         ),
@@ -530,6 +545,7 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
             ),
             contentPadding: const EdgeInsets.all(16),
           ),
+          readOnly: isReadOnly,
           validator:
               (value) => value == null || value.isEmpty ? 'Wajib diisi' : null,
         ),

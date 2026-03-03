@@ -38,6 +38,25 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
   bool isSubmitting = false;
   List<Map<String, dynamic>> students = [];
   Map<String, String> attendanceStatus = {}; // student_id -> status
+  Map<String, dynamic>? journalData;
+  bool isJournalFilled = false;
+
+  // Mapping from DB values to UI values
+  final Map<String, String> _dbToUi = {
+    'present': 'Hadir',
+    'sick': 'Sakit',
+    'permit': 'Izin',
+    'absent': 'Alpha',
+    'late': 'Alpha', // fallback
+  };
+
+  // Mapping from UI values to DB values
+  final Map<String, String> _uiToDb = {
+    'Hadir': 'present',
+    'Sakit': 'sick',
+    'Izin': 'permit',
+    'Alpha': 'absent',
+  };
 
   // Attendance Options
   final List<String> statusOptions = ['Hadir', 'Sakit', 'Izin', 'Alpha'];
@@ -65,10 +84,15 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
             students = List<Map<String, dynamic>>.from(data['students']);
             // Initialize attendance status
             for (var student in students) {
-              final status = student['status']?.toString() ?? '';
+              final dbStatus = student['status']?.toString() ?? '';
               attendanceStatus[student['student_id'].toString()] =
-                  status.isNotEmpty ? status : 'Hadir';
+                  _dbToUi[dbStatus] ?? 'Hadir';
             }
+          }
+
+          if (data['journal'] != null) {
+            journalData = data['journal'];
+            isJournalFilled = true;
           }
 
           isLoading = false;
@@ -96,7 +120,9 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
               className: widget.className,
               teacherName: widget.teacherName,
               attendanceStatus: attendanceStatus,
+              uiToDbMapping: _uiToDb,
               totalStudents: students.length,
+              existingJournal: journalData,
             ),
       ),
     );
@@ -118,6 +144,7 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
         centerTitle: true,
         backgroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: Container(
           margin: const EdgeInsets.only(left: 16),
           decoration: BoxDecoration(
@@ -150,34 +177,51 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
                       _buildSummaryCards(),
                       const SizedBox(height: 24),
                       _buildStudentList(),
-                      const SizedBox(height: 24),
-
-                      const SizedBox(height: 32),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _navigateToJournal,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF42A5F5),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            'Lanjut Isi Jurnal',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
+                      const SizedBox(height: 80), // Spacer FAB
                     ],
                   ),
                 ),
               ),
+      floatingActionButton:
+          isLoading
+              ? null
+              : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _navigateToJournal,
+                    icon: Icon(
+                      isJournalFilled
+                          ? Icons.description_outlined
+                          : Icons.arrow_forward,
+                      color: Colors.white,
+                    ),
+                    label: Text(
+                      isJournalFilled
+                          ? 'Lihat Detail Jurnal'
+                          : 'Lanjut Isi Jurnal',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF42A5F5),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 4,
+                      shadowColor: const Color(
+                        0xFF42A5F5,
+                      ).withValues(alpha: 0.3),
+                    ),
+                  ),
+                ),
+              ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -347,11 +391,14 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                attendanceStatus[studentId] = status;
-                              });
-                            },
+                            onTap:
+                                isJournalFilled
+                                    ? null
+                                    : () {
+                                      setState(() {
+                                        attendanceStatus[studentId] = status;
+                                      });
+                                    },
                             borderRadius: BorderRadius.circular(20),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),

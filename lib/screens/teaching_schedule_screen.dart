@@ -145,6 +145,8 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
       item['end_time'] ?? '23:59:59',
     );
 
+    final bool isAttended = (item['is_attended'] ?? 0).toString() != '0';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -163,7 +165,7 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap:
-              isActive
+              (isActive || isAttended)
                   ? () {
                     Navigator.push(
                       context,
@@ -245,12 +247,51 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
                                         color:
-                                            isActive
+                                            (isActive || isAttended)
                                                 ? const Color(0xFF0F172A)
                                                 : Colors.grey[600],
                                         height: 1.2,
                                       ),
                                     ),
+                                    if (isAttended) ...[
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFE8F5E9),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(
+                                              0xFF2E7D32,
+                                            ).withValues(alpha: 0.3),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              Icons.check_circle,
+                                              color: Color(0xFF2E7D32),
+                                              size: 14,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Anda telah mengajar',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: const Color(0xFF2E7D32),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
