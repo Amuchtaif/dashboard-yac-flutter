@@ -82,6 +82,36 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
     return _events[normalizedDay] ?? [];
   }
 
+  void _showEventTooltip(DateTime day) {
+    final events = _getEventsForDay(day);
+    if (events.isEmpty) return;
+
+    final String message = events.map((e) => e['title']).join(", ");
+
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.poppins(fontSize: 13, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1E293B),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -99,14 +129,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
         ),
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.school, color: Colors.blue, size: 20),
-            ),
+            Container(padding: const EdgeInsets.all(8)),
             const SizedBox(width: 12),
             Text(
               'Kalender Akademik',
@@ -164,6 +187,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
             _selectedDay = selectedDay;
             _focusedDay = focusedDay;
           });
+          _showEventTooltip(selectedDay);
         },
         onPageChanged: (focusedDay) {
           if (focusedDay.year != _focusedDay.year) {
@@ -320,13 +344,38 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
       }
     });
 
-    final allEvents = uniqueEvents.values.toList();
+    final allEvents =
+        uniqueEvents.values.where((event) {
+          final start = event['start_date'] as DateTime?;
+          final end = event['end_date'] as DateTime? ?? start;
+          if (start == null) return false;
+
+          // Filter: Show if it overlaps with focused month
+          bool startsInMonth =
+              start.month == _focusedDay.month &&
+              start.year == _focusedDay.year;
+          bool endsInMonth =
+              end != null &&
+              end.month == _focusedDay.month &&
+              end.year == _focusedDay.year;
+          bool spansAcross =
+              start.isBefore(
+                DateTime(_focusedDay.year, _focusedDay.month, 1),
+              ) &&
+              end != null &&
+              end.isAfter(DateTime(_focusedDay.year, _focusedDay.month + 1, 0));
+
+          return startsInMonth || endsInMonth || spansAcross;
+        }).toList();
+
     allEvents.sort((a, b) {
       final dateA = a['start_date'] as DateTime?;
       final dateB = b['start_date'] as DateTime?;
       if (dateA == null || dateB == null) return 0;
       return dateA.compareTo(dateB);
     });
+
+    final String monthName = DateFormat('MMMM', 'id_ID').format(_focusedDay);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -336,7 +385,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Agenda Akademik',
+                'Agenda $monthName',
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -344,7 +393,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                 ),
               ),
               Text(
-                'Lihat Semua',
+                _isLoading ? '' : 'Bulan Ini',
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -359,7 +408,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 child: Text(
-                  'Tidak ada agenda untuk tahun ini',
+                  'Tidak ada agenda untuk bulan $monthName',
                   style: GoogleFonts.poppins(
                     color: Colors.grey.shade500,
                     fontSize: 14,

@@ -48,9 +48,13 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
     super.initState();
     _loadTeacherName();
     if (widget.existingJournal != null) {
-      isReadOnly = true;
-      _topicController.text = widget.existingJournal!['topic'] ?? '';
-      _summaryController.text = widget.existingJournal!['notes'] ?? '';
+      final topic = widget.existingJournal!['topic'] ?? '';
+      final notes = widget.existingJournal!['notes'] ?? '';
+      if (topic.isNotEmpty && notes.isNotEmpty) {
+        isReadOnly = true;
+      }
+      _topicController.text = topic;
+      _summaryController.text = notes;
     }
   }
 
@@ -58,7 +62,10 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
-        _teacherName = prefs.getString('fullName') ?? widget.teacherName;
+        _teacherName =
+            prefs.getString('fullName') ??
+            prefs.getString('name') ??
+            widget.teacherName;
       });
     }
   }

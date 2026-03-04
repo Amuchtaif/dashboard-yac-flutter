@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-
 import 'package:google_fonts/google_fonts.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/teacher_service.dart';
 
 import 'class_journal_screen.dart';
@@ -40,6 +39,7 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
   Map<String, String> attendanceStatus = {}; // student_id -> status
   Map<String, dynamic>? journalData;
   bool isJournalFilled = false;
+  String? teacherId;
 
   // Mapping from DB values to UI values
   final Map<String, String> _dbToUi = {
@@ -64,7 +64,22 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
   @override
   void initState() {
     super.initState();
+    _loadTeacherId();
     _fetchData();
+  }
+
+  Future<void> _loadTeacherId() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        final userId = prefs.get('userId');
+        if (userId is int) {
+          teacherId = userId.toString();
+        } else if (userId is String) {
+          teacherId = userId;
+        }
+      });
+    }
   }
 
   Future<void> _fetchData() async {
@@ -80,7 +95,7 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
           // If the API returns raw students list or detailed structure, adjust here.
           // Based on user request: "Mengambil daftar siswa... Juga mengembalikan data jurnal jika sudah ada."
 
-          if (data['students'] != null) {
+          if (data['students'] != null && data['students'] is List) {
             students = List<Map<String, dynamic>>.from(data['students']);
             // Initialize attendance status
             for (var student in students) {
@@ -90,13 +105,24 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
             }
           }
 
-          if (data['journal'] != null) {
+          if (data['journal'] != null &&
+              data['journal'] is Map<String, dynamic>) {
             journalData = data['journal'];
-            isJournalFilled = true;
+            // Considered filled if both topic and notes are not empty
+            final topic = journalData!['topic']?.toString() ?? '';
+            final notes = journalData!['notes']?.toString() ?? '';
+            if (topic.isNotEmpty && notes.isNotEmpty) {
+              isJournalFilled = true;
+            }
           }
 
           isLoading = false;
         });
+
+        // Auto redirect if already filled
+        if (isJournalFilled) {
+          _navigateToJournal(replace: true);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -108,24 +134,53 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
     }
   }
 
-  void _navigateToJournal() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => ClassJournalScreen(
-              scheduleId: widget.scheduleId,
-              date: widget.date,
-              subjectName: widget.subjectName,
-              className: widget.className,
-              teacherName: widget.teacherName,
-              attendanceStatus: attendanceStatus,
-              uiToDbMapping: _uiToDb,
-              totalStudents: students.length,
-              existingJournal: journalData,
-            ),
-      ),
+  Future<void> _saveAttendanceDraft() async {
+    if (teacherId == null) return;
+
+    final List<Map<String, String>> attendances = [];
+    attendanceStatus.forEach((studentId, status) {
+      final dbStatus = _uiToDb[status] ?? 'present';
+      attendances.add({'student_id': studentId, 'status': dbStatus});
+    });
+
+    final Map<String, dynamic> payload = {
+      'schedule_id': widget.scheduleId,
+      'teacher_id': teacherId,
+      'date': widget.date,
+      'topic': journalData?['topic'] ?? '',
+      'notes': journalData?['notes'] ?? '',
+      'attendances': attendances,
+    };
+
+    // We don't wait for the result or show loading for "auto-save" to keep it smooth
+    _teacherService.submitAttendance(payload).then((result) {
+      if (result['success'] != true) {
+        debugPrint('Failed to auto-save attendance: ${result['message']}');
+      }
+    });
+  }
+
+  void _navigateToJournal({bool replace = false}) {
+    final route = MaterialPageRoute(
+      builder:
+          (context) => ClassJournalScreen(
+            scheduleId: widget.scheduleId,
+            date: widget.date,
+            subjectName: widget.subjectName,
+            className: widget.className,
+            teacherName: widget.teacherName,
+            attendanceStatus: attendanceStatus,
+            uiToDbMapping: _uiToDb,
+            totalStudents: students.length,
+            existingJournal: journalData,
+          ),
     );
+
+    if (replace) {
+      Navigator.pushReplacement(context, route);
+    } else {
+      Navigator.push(context, route);
+    }
   }
 
   @override
@@ -369,7 +424,7 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
                           ),
                         ),
                         Text(
-                          'ID: $studentId • ${widget.className}',
+                          'NIS: ${student['nomor_induk'] ?? student['nis'] ?? studentId} • ${widget.className}',
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             color: Colors.grey[500],
@@ -398,6 +453,7 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
                                       setState(() {
                                         attendanceStatus[studentId] = status;
                                       });
+                                      _saveAttendanceDraft();
                                     },
                             borderRadius: BorderRadius.circular(20),
                             child: AnimatedContainer(

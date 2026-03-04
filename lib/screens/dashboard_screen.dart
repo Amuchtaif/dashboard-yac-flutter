@@ -38,6 +38,9 @@ import 'performance_screen.dart';
 import 'news_screen.dart';
 import 'attendance_recap_screen.dart';
 import 'shift_swap_screen.dart';
+import '../services/news_service.dart';
+import '../models/news_model.dart';
+import 'news_detail_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -110,6 +113,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   final String baseUrl = ApiConfig.baseUrl;
   List<LocationModel> _locations = [];
+  List<News> _newsList = [];
+  bool _isLoadingNews = false;
 
   @override
   void initState() {
@@ -243,6 +248,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _userId = id.toString();
     });
 
+    // Fetch news regardless of userId for general feed
+    _fetchNewsData();
+
     if (_userId != "0") {
       // 1. Refresh Permissions agar menu sesuai hak akses terbaru
       await PermissionService().fetchPermissions(int.parse(_userId));
@@ -250,6 +258,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       // 2. Fetch Data Dashboard
       _fetchDashboardData();
+    }
+  }
+
+  Future<void> _fetchNewsData() async {
+    if (!mounted) return;
+    setState(() => _isLoadingNews = true);
+    try {
+      final news = await NewsService().getNews();
+      if (mounted) {
+        setState(() {
+          _newsList = news;
+          _isLoadingNews = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching news: $e");
+      if (mounted) setState(() => _isLoadingNews = false);
     }
   }
 
@@ -707,6 +732,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         todaySchedule: _todaySchedule,
         isKoordinator: _isKoordinator,
         profilePhoto: _profilePhoto,
+        newsList: _newsList,
+        isLoadingNews: _isLoadingNews,
       ),
       const NewsScreen(),
       const PerformanceScreen(),
@@ -847,7 +874,12 @@ class HomeTab extends StatelessWidget {
     required this.todaySchedule,
     required this.isKoordinator,
     required this.profilePhoto,
+    required this.newsList,
+    required this.isLoadingNews,
   });
+
+  final List<News> newsList;
+  final bool isLoadingNews;
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -867,6 +899,8 @@ class HomeTab extends StatelessWidget {
             _buildSectionTitle('Menu Islami'),
             const SizedBox(height: 12),
             _buildServicesGrid(context),
+            const SizedBox(height: 24),
+            _buildNewsBanner(context),
             const SizedBox(height: 24),
             _buildSectionTitle('Menu Umum'),
             const SizedBox(height: 12),
@@ -1513,6 +1547,124 @@ class HomeTab extends StatelessWidget {
                 ),
               );
             }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildNewsBanner(BuildContext context) {
+    if (isLoadingNews) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Berita Terbaru', action: 'Lihat Semua'),
+        const SizedBox(height: 12),
+        if (newsList.isEmpty)
+          Container(
+            height: 120,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Center(
+              child: Text(
+                "Tidak ada berita saat ini",
+                style: GoogleFonts.poppins(color: Colors.grey),
+              ),
+            ),
+          )
+        else
+          SizedBox(
+            height: 180,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: newsList.length,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              itemBuilder: (context, index) {
+                final news = newsList[index];
+                return _buildNewsCard(context, news);
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildNewsCard(BuildContext context, News news) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => NewsDetailScreen(news: news)),
+        );
+      },
+      child: Container(
+        width: 280,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          image: DecorationImage(
+            image: NetworkImage(news.coverPhoto),
+            fit: BoxFit.cover,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
+            ),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  news.category,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                news.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

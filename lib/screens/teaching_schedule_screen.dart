@@ -140,12 +140,16 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
     final endTime = _formatTime(item['end_time'] ?? '');
 
     // Check if current time is within schedule range
+    // Check if current time is within schedule range
     final bool isActive = _isWithinTimeRange(
       item['start_time'] ?? '00:00:00',
       item['end_time'] ?? '23:59:59',
     );
 
-    final bool isAttended = (item['is_attended'] ?? 0).toString() != '0';
+    final bool isJournalFilled =
+        (item['is_journal_filled'] ?? 0).toString() != '0';
+    final bool hasAttendance = (item['has_attendance'] ?? 0).toString() != '0';
+    final bool canAccess = isActive || isJournalFilled || hasAttendance;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -165,7 +169,7 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap:
-              (isActive || isAttended)
+              canAccess
                   ? () {
                     Navigator.push(
                       context,
@@ -182,7 +186,9 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
                               teacherName: item['teacher_name'] ?? 'Guru',
                             ),
                       ),
-                    );
+                    ).then((value) {
+                      _fetchSchedule();
+                    });
                   }
                   : () {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -247,49 +253,27 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
                                         color:
-                                            (isActive || isAttended)
+                                            canAccess
                                                 ? const Color(0xFF0F172A)
                                                 : Colors.grey[600],
                                         height: 1.2,
                                       ),
                                     ),
-                                    if (isAttended) ...[
+                                    if (isJournalFilled) ...[
                                       const SizedBox(height: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFE8F5E9),
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                          border: Border.all(
-                                            color: const Color(
-                                              0xFF2E7D32,
-                                            ).withValues(alpha: 0.3),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(
-                                              Icons.check_circle,
-                                              color: Color(0xFF2E7D32),
-                                              size: 14,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Anda telah mengajar',
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                                color: const Color(0xFF2E7D32),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                      _buildBadge(
+                                        icon: Icons.check_circle,
+                                        label: 'Anda telah mengajar',
+                                        bgColor: const Color(0xFFE8F5E9),
+                                        textColor: const Color(0xFF2E7D32),
+                                      ),
+                                    ] else if (hasAttendance) ...[
+                                      const SizedBox(height: 8),
+                                      _buildBadge(
+                                        icon: Icons.info_outline,
+                                        label: 'Anda belum isi jurnal',
+                                        bgColor: const Color(0xFFFFF3E0),
+                                        textColor: const Color(0xFFE65100),
                                       ),
                                     ],
                                   ],
@@ -375,6 +359,37 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBadge({
+    required IconData icon,
+    required String label,
+    required Color bgColor,
+    required Color textColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: textColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: textColor, size: 14),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: textColor,
             ),
           ),
         ],
