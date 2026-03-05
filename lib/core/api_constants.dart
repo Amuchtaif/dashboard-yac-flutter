@@ -40,6 +40,20 @@ class ApiConstants {
   static const String toggleLikeNews = '${baseUrl}toggle_like.php';
   static const String viewNews = '${baseUrl}view_news.php';
 
+  // Assignment Endpoints
+  static const String getAssignments = '${baseUrl}assignment/get_list.php';
+  static const String getAssignmentDetail =
+      '${baseUrl}assignment/get_detail.php';
+  static const String createAssignment = '${baseUrl}assignment/create.php';
+  static const String updateAssignmentStatus =
+      '${baseUrl}assignment/update_status.php';
+  static const String updateAssignmentProgress =
+      '${baseUrl}assignment/update_progress.php';
+  static const String submitAssignmentReport =
+      '${baseUrl}assignment/submit_report.php';
+  static const String getSubordinates =
+      '${baseUrl}assignment/get_subordinates.php';
+
   // Helper for Profile Photo
   static String getProfilePhotoUrl(String? filename) {
     if (filename == null || filename.isEmpty) return '';

@@ -20,7 +20,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   Timer? _timer;
-  final List<String> _localNotificationIds = [];
+  final Set<String> _processedIds = {};
 
   final StreamController<String?> _selectNotificationController =
       StreamController<String?>.broadcast();
@@ -57,6 +57,12 @@ class NotificationService {
           AndroidFlutterLocalNotificationsPlugin
         >()
         ?.requestNotificationsPermission();
+
+    // Load persistent processed IDs
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> savedIds =
+        prefs.getStringList('shown_notification_ids') ?? [];
+    _processedIds.addAll(savedIds);
   }
 
   // 3. Polling Logic
@@ -143,53 +149,86 @@ class NotificationService {
     return [];
   }
 
-  void _processNotifications(List<dynamic> notifications) {
+  void _processNotifications(List<dynamic> notifications) async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String> savedIds =
+        prefs.getStringList('shown_notification_ids') ?? [];
+    _processedIds.addAll(savedIds);
+
     // Broadcast count for badge
-    debugPrint(
-      'NotificationService: Broadcasting unread count: ${notifications.length}',
-    );
     _unreadCountController.add(notifications.length);
 
     for (var note in notifications) {
       String id = note['id'].toString();
       String title = note['title'] ?? 'Notification';
       String body = note['body'] ?? '';
-      // Assuming 'screen' might be in the notification object from API,
-      // otherwise, we might need to rely on what FCM sends or hardcode based on type.
-      // But here we are processing polled notifications.
-      // The API response might not have 'data' field structured like FCM.
-      // We will try to pass the whole note object or specific fields as payload if possible.
-      // For now, let's just pass a basic payload if available or null.
-      // Usually polling doesn't popup local notifications if they are old,
-      // but logic below checks checking _localNotificationIds.
-
-      // Let's create a payload map from the note object
       String? payload = jsonEncode(note);
 
-      // Check if ID is new
-      if (!_localNotificationIds.contains(id)) {
-        _localNotificationIds.add(id);
+      // Unique identifying hash for title+body as fallback
+      String contentHash = 'hash_${title.hashCode}_${body.hashCode}';
 
-        // 5. Trigger Local Notification
+      // Deduplicate: Don't show again if already processed
+      if (!_processedIds.contains(id) && !_processedIds.contains(contentHash)) {
         debugPrint(
-          'NotificationService: Triggering local notification for ID: $id',
+          'NotificationService: Polling found NEW notification ID: $id',
         );
         showLocalNotification(
-          id: id.hashCode, // Use unique int ID
+          id: id,
           title: title,
           body: body,
           payload: payload,
+        );
+
+        // Save to persistent storage
+        _processedIds.add(id);
+        _processedIds.add(contentHash);
+        await prefs.setStringList(
+          'shown_notification_ids',
+          _processedIds.toList(),
         );
       }
     }
   }
 
+  Future<void> clearNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('userId')?.toString();
+      if (userId == null) return;
+
+      final url =
+          '${ApiConfig.baseUrl}/delete_notifications.php?user_id=$userId';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint('NotificationService: All notifications cleared');
+        _fetchNotifications(); // Refresh count
+      }
+    } catch (e) {
+      debugPrint('Error clearing notifications: $e');
+    }
+  }
+
   Future<void> showLocalNotification({
-    required int id,
+    required String id,
     required String title,
     required String body,
     String? payload,
   }) async {
+    // Shared deduplication check
+    if (_processedIds.contains(id)) {
+      debugPrint('NotificationService: Skipping already processed ID: $id');
+      return;
+    }
+    _processedIds.add(id);
+
+    // Also save to prefs for persistence
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('shown_notification_ids', _processedIds.toList());
+
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
           'high_importance_channel', // Match main.dart & Manifest
@@ -209,7 +248,7 @@ class NotificationService {
     );
 
     await flutterLocalNotificationsPlugin.show(
-      id,
+      id.hashCode,
       title,
       body,
       platformChannelSpecifics,

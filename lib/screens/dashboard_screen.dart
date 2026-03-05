@@ -34,6 +34,8 @@ import 'subject_list_screen.dart';
 import 'student_data_screen.dart';
 import 'academic_calendar_screen.dart';
 import 'teacher_data_screen.dart';
+import 'assignment_screen.dart';
+import 'task_detail_screen.dart';
 import 'performance_screen.dart';
 import 'news_screen.dart';
 import 'attendance_recap_screen.dart';
@@ -122,10 +124,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadUserData();
     _updateMyToken();
 
-    // 1. Setup Interacted Message (Click handler)
+    // 1. Init Notification Service FIRST (must be before any showLocalNotification calls)
+    _initNotifications();
+  }
+
+  Future<void> _initNotifications() async {
+    // Initialize local notification plugin FIRST
+    await NotificationService().init();
+    debugPrint("✅ NotificationService initialized");
+
+    // 2. Setup Interacted Message (Click handler for terminated/background)
     setupInteractedMessage();
 
-    // 2. Foreground Message Handler
+    // 3. Foreground Message Handler
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint("🔥 FOREGROUND NOTIF RECEIVED!");
       debugPrint("Title: ${message.notification?.title}");
@@ -143,24 +154,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (!mounted) return;
 
         // Tampilkan Notifikasi Sistem (Floating / Heads Up)
+        debugPrint("🔔 Showing local notification for FCM message...");
         NotificationService().showLocalNotification(
-          id: message.hashCode,
+          id: message.messageId ?? message.hashCode.toString(),
           title: message.notification!.title ?? 'Notifikasi Baru',
           body: message.notification!.body ?? '',
           payload: jsonEncode(payloadData),
         );
       } else {
         // Fallback jika notifikasi null tapi ada data (kadang terjadi)
+        debugPrint("🔔 FCM notification is null, using data fields...");
         NotificationService().showLocalNotification(
-          id: message.hashCode,
+          id: message.messageId ?? message.hashCode.toString(),
           title: message.data['title'] ?? 'Notifikasi Baru',
           body: message.data['body'] ?? 'Anda memiliki notifikasi baru',
-          payload: jsonEncode(payloadData), // Use the same prepared payload
+          payload: jsonEncode(payloadData),
         );
       }
     });
 
-    // 3. Listen to Local Notification Taps
+    // 4. Listen to Local Notification Taps
     NotificationService().selectNotificationStream.listen((String? payload) {
       if (payload != null) {
         debugPrint("🔔 Local Notification Tapped! Payload: $payload");
@@ -173,8 +186,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     });
 
-    // Init Notification Service (Fire and forget)
-    NotificationService().init();
+    // 5. Start Polling (fetch from API every 30s)
+    NotificationService().startPolling();
+
     _fetchLocations();
   }
 
@@ -218,8 +232,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
     }
-    // Case 2: Permit Status Update (Staff) - "halaman perizinan"
-    // Also check for "Status anda diperbarui" in title/body as fallback
+    // Case 2: Assignment - tugas baru atau update tugas
+    else if (screen == 'assignment') {
+      final String? taskId = data['task_id']?.toString();
+      if (taskId != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TaskDetailScreen(taskId: int.parse(taskId)),
+          ),
+        );
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AssignmentScreen()),
+        );
+      }
+    }
+    // Case 3: Assignment List
+    else if (screen == 'assignment_list') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AssignmentScreen()),
+      );
+    }
+    // Case 4: Permit Status Update (Staff) - "halaman perizinan"
     else if (screen == 'permit' ||
         (title != null && title.toLowerCase().contains('status')) ||
         (body != null && body.toLowerCase().contains('status'))) {
@@ -1002,17 +1039,29 @@ class HomeTab extends StatelessWidget {
                 ),
                 if (count > 0)
                   Positioned(
-                    right: 12,
-                    top: 12,
+                    right: 8,
+                    top: 8,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
                         color: Colors.red,
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       constraints: const BoxConstraints(
-                        minWidth: 8,
-                        minHeight: 8,
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        count > 99 ? '99+' : count.toString(),
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ),
@@ -1025,207 +1074,278 @@ class HomeTab extends StatelessWidget {
   }
 
   void _showNotificationSheet(BuildContext context) {
+    final future = NotificationService().getNotifications();
+    final parentContext = context;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
-          ),
-          decoration: const BoxDecoration(
-            color: Color(0xFFF3F4F6),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 12, bottom: 8),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
+        return FutureBuilder<List<dynamic>>(
+          future: future,
+          builder: (context, snapshot) {
+            final isLoading =
+                snapshot.connectionState == ConnectionState.waiting;
+            final notifs = snapshot.data ?? [];
+            final isEmpty = !isLoading && notifs.isEmpty;
+
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Notifications",
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF1F2937),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {},
-                      child: Text(
-                        "CLEAR ALL",
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF2563EB),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              Flexible(
-                child: FutureBuilder<List<dynamic>>(
-                  future: NotificationService().getNotifications(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(20),
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.all(40),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            "No notifications",
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.poppins(color: Colors.grey),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "Notifikasi",
+                          style: GoogleFonts.poppins(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF1F2937),
                           ),
                         ),
-                      );
-                    }
+                        if (!isLoading && notifs.isNotEmpty)
+                          TextButton(
+                            onPressed: () {},
+                            child: Text(
+                              "Hapus Semua",
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF2563EB),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (isLoading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.notifications_none_rounded,
+                            size: 48,
+                            color: Colors.grey[300],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            "Tidak ada notifikasi",
+                            style: GoogleFonts.poppins(
+                              color: Colors.grey[500],
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                        itemCount: notifs.length,
+                        itemBuilder: (context, index) {
+                          final n = notifs[index];
+                          final String title = n['title'] ?? 'Title';
+                          final String body = n['body'] ?? 'Body';
+                          final String date = n['created_at'] ?? '';
+                          final String status = n['status'] ?? '';
+                          final String type = n['type'] ?? '';
 
-                    final notifs = snapshot.data!;
-                    return ListView.builder(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      itemCount: notifs.length,
-                      itemBuilder: (context, index) {
-                        final n = notifs[index];
-                        final String title = n['title'] ?? 'Title';
-                        final String body = n['body'] ?? 'Body';
-                        final String date = n['created_at'] ?? '';
-                        final String status = n['status'] ?? '';
-                        final String type = n['type'] ?? '';
+                          Color iconBg = Colors.grey[200]!;
+                          Color iconColor = Colors.grey;
+                          IconData icon = Icons.notifications;
 
-                        // Logic Icon
-                        Color iconBg = Colors.grey[200]!;
-                        Color iconColor = Colors.grey;
-                        IconData icon = Icons.notifications;
-
-                        if (type == 'incoming' || status == 'Pending') {
-                          iconBg = const Color(0xFFFEF3C7);
-                          iconColor = const Color(0xFFD97706);
-                          icon = Icons.access_time_filled;
-                        } else if (status == 'Approved') {
-                          iconBg = const Color(0xFFDCFCE7);
-                          iconColor = const Color(0xFF166534);
-                          icon = Icons.check_circle;
-                        } else if (status == 'Rejected') {
-                          iconBg = const Color(0xFFFEE2E2);
-                          iconColor = const Color(0xFFDC2626);
-                          icon = Icons.cancel;
-                        }
-
-                        // Parse time if possible (simple split by space)
-                        String timeStr = date;
-                        if (date.contains(' ')) {
-                          timeStr = date.split(' ')[1]; // Get HH:mm:ss
-                          if (timeStr.length > 5) {
-                            timeStr = timeStr.substring(0, 5); // HH:mm
+                          if (type == 'incoming' || status == 'Pending') {
+                            iconBg = const Color(0xFFFEF3C7);
+                            iconColor = const Color(0xFFD97706);
+                            icon = Icons.access_time_filled;
+                          } else if (status == 'Approved') {
+                            iconBg = const Color(0xFFDCFCE7);
+                            iconColor = const Color(0xFF166534);
+                            icon = Icons.check_circle;
+                          } else if (status == 'Rejected') {
+                            iconBg = const Color(0xFFFEE2E2);
+                            iconColor = const Color(0xFFDC2626);
+                            icon = Icons.cancel;
+                          } else if (type == 'assignment') {
+                            iconBg = const Color(0xFFDBEAFE);
+                            iconColor = const Color(0xFF2563EB);
+                            icon = Icons.assignment_rounded;
                           }
-                        }
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.02),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: iconBg,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(icon, color: iconColor, size: 20),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          title,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF1F2937),
+                          String timeStr = date;
+                          if (date.contains(' ')) {
+                            timeStr = date.split(' ')[1];
+                            if (timeStr.length > 5) {
+                              timeStr = timeStr.substring(0, 5);
+                            }
+                          }
+
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context); // Close bottom sheet
+                              if (type == 'assignment') {
+                                final taskId =
+                                    n['task_id']?.toString() ??
+                                    n['reference_id']?.toString();
+                                if (taskId != null) {
+                                  Navigator.push(
+                                    parentContext,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => TaskDetailScreen(
+                                            taskId: int.parse(taskId),
                                           ),
+                                    ),
+                                  );
+                                } else {
+                                  Navigator.push(
+                                    parentContext,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => const AssignmentScreen(),
+                                    ),
+                                  );
+                                }
+                              } else if (n['screen'] == 'approval') {
+                                Navigator.push(
+                                  parentContext,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => const MainPermitScreen(
+                                          initialIndex: 1,
                                         ),
+                                  ),
+                                );
+                              } else {
+                                Navigator.push(
+                                  parentContext,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => const MainPermitScreen(),
+                                  ),
+                                );
+                              }
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.02),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: iconBg,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      icon,
+                                      color: iconColor,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                title,
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: const Color(
+                                                    0xFF1F2937,
+                                                  ),
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              timeStr,
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 11,
+                                                color: const Color(0xFF9CA3AF),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
                                         Text(
-                                          timeStr,
+                                          body,
                                           style: GoogleFonts.poppins(
-                                            fontSize: 11,
-                                            color: const Color(0xFF9CA3AF),
+                                            fontSize: 12,
+                                            color: const Color(0xFF6B7280),
+                                            height: 1.4,
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      body,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        color: const Color(0xFF6B7280),
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -1794,6 +1914,7 @@ class HomeTab extends StatelessWidget {
         'icon': Icons.swap_horiz,
         'color': Colors.indigo,
       },
+      {'title': 'Penugasan', 'icon': Icons.assignment, 'color': Colors.orange},
     ];
 
     return GridView.count(
@@ -1855,6 +1976,13 @@ class HomeTab extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const ShiftSwapScreen(),
+                        ),
+                      );
+                    } else if (menu['title'] == 'Penugasan') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AssignmentScreen(),
                         ),
                       );
                     }

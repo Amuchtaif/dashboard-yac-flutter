@@ -39,12 +39,13 @@ class _CreateNewsScreenState extends State<CreateNewsScreen> {
   }
 
   Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(
+    final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
+      imageQuality: 70, // Kompres otomatis ke kualitas 70%
     );
-    if (pickedFile != null) {
+    if (image != null) {
       setState(() {
-        _imageFile = File(pickedFile.path);
+        _imageFile = File(image.path);
       });
     }
   }
