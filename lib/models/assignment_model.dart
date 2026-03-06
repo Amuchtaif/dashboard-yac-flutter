@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class Assignment {
   final int id;
   final String title;
@@ -17,6 +19,8 @@ class Assignment {
   final String? assigneeRole;
   final String? assigneeAvatar;
   final String? attachment;
+  final String? reportAttachment;
+  final String? reportNotes;
   final String createdAt;
   final int progress;
 
@@ -39,6 +43,8 @@ class Assignment {
     this.assigneeRole,
     this.assigneeAvatar,
     this.attachment,
+    this.reportAttachment,
+    this.reportNotes,
     required this.createdAt,
     this.progress = 0,
   });
@@ -75,12 +81,15 @@ class Assignment {
           json['assignee_role'] ??
           json['jabatan_penerima'],
       assigneeAvatar: json['assignee_avatar'] ?? json['photo_penerima'],
-      attachment: json['attachment'],
+      attachment: json['attachment'] ?? json['attachment_path'],
+      reportAttachment:
+          json['report_attachment_url'] ?? json['report_attachment'],
+      reportNotes: json['report_notes'],
       createdAt: json['created_at'] ?? '',
       progress: toInt(json['progress']),
     ).also((a) {
       if (a.assigneeName == null && a.assigneeRole == null) {
-        print(
+        debugPrint(
           "⚠️ DEBUG: Data Penerima Kosong! Keys yang ada: ${json.keys.toList()}",
         );
       }

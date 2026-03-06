@@ -103,6 +103,18 @@ class NotificationService {
     }
   }
 
+  /// Public method to immediately refresh the badge count (e.g. after FCM arrives)
+  Future<void> refreshBadge() async {
+    try {
+      final notifications = await getNotifications();
+      if (!_unreadCountController.isClosed) {
+        _unreadCountController.add(notifications.length);
+      }
+    } catch (e) {
+      debugPrint('Error refreshing badge: $e');
+    }
+  }
+
   // Public method for UI
   Future<List<dynamic>> getNotifications() async {
     try {
@@ -190,6 +202,27 @@ class NotificationService {
     }
   }
 
+  /// Dismiss a single notification by its key (e.g. "asn_5", "inc_3")
+  Future<void> dismissNotification(String notificationKey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('userId')?.toString();
+      if (userId == null) return;
+
+      final url =
+          '${ApiConfig.baseUrl}/dismiss_notification.php?user_id=$userId&notification_key=${Uri.encodeComponent(notificationKey)}';
+      await http.get(
+        Uri.parse(url),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
+
+      // Refresh badge count
+      await refreshBadge();
+    } catch (e) {
+      debugPrint('Error dismissing notification: $e');
+    }
+  }
+
   Future<void> clearNotifications() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -205,7 +238,15 @@ class NotificationService {
 
       if (response.statusCode == 200) {
         debugPrint('NotificationService: All notifications cleared');
-        _fetchNotifications(); // Refresh count
+      }
+
+      // Clear local processed IDs cache so badge resets
+      _processedIds.clear();
+      await prefs.remove('shown_notification_ids');
+
+      // Broadcast 0 to reset the bell badge immediately
+      if (!_unreadCountController.isClosed) {
+        _unreadCountController.add(0);
       }
     } catch (e) {
       debugPrint('Error clearing notifications: $e');
@@ -218,12 +259,16 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
-    // Shared deduplication check
-    if (_processedIds.contains(id)) {
-      debugPrint('NotificationService: Skipping already processed ID: $id');
+    // Content hash for cross-source deduplication (FCM vs polling)
+    String contentHash = 'hash_${title.hashCode}_${body.hashCode}';
+
+    // Shared deduplication check (by ID or content hash)
+    if (_processedIds.contains(id) || _processedIds.contains(contentHash)) {
+      debugPrint('NotificationService: Skipping already processed: $id');
       return;
     }
     _processedIds.add(id);
+    _processedIds.add(contentHash);
 
     // Also save to prefs for persistence
     final prefs = await SharedPreferences.getInstance();

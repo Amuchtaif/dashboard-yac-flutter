@@ -79,9 +79,29 @@ class _AssignmentScreenState extends State<AssignmentScreen>
       debugPrint("📋 DELEGATED TASKS COUNT: ${created.length}");
     }
 
+    // Deduplicate by ID
+    final Set<int> seenIds = {};
+    final List<Assignment> uniqueAssignments = [];
+    for (final a in data) {
+      if (seenIds.add(a.id)) {
+        uniqueAssignments.add(a);
+      }
+    }
+
+    // If user can create assignments, exclude tasks they created from
+    // the regular list (those appear in the Delegasi tab instead)
+    final List<Assignment> filteredAssignments;
+    if (_canCreateAssignment) {
+      final createdIds = created.map((c) => c.id).toSet();
+      filteredAssignments =
+          uniqueAssignments.where((a) => !createdIds.contains(a.id)).toList();
+    } else {
+      filteredAssignments = uniqueAssignments;
+    }
+
     if (mounted) {
       setState(() {
-        _assignments = data;
+        _assignments = filteredAssignments;
         _createdAssignments = created;
         _isLoading = false;
       });
@@ -145,7 +165,7 @@ class _AssignmentScreenState extends State<AssignmentScreen>
                     ),
                   );
                   if (result == true) {
-                    _fetchData();
+                    await _fetchData();
                     // Redirect to "Delegasi" tab (index 3)
                     if (_canCreateAssignment) {
                       _tabController.animateTo(3);
@@ -504,11 +524,6 @@ class _AssignmentScreenState extends State<AssignmentScreen>
             statusTextColor = const Color(0xFF166534);
           }
 
-          final String assigneeInitial =
-              (a.assigneeName ?? 'U').isNotEmpty
-                  ? (a.assigneeName ?? 'U')[0].toUpperCase()
-                  : 'U';
-
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: Container(
@@ -536,252 +551,239 @@ class _AssignmentScreenState extends State<AssignmentScreen>
                           builder: (context) => TaskDetailScreen(taskId: a.id),
                         ),
                       );
-                      if (result == true) _fetchData();
+                      if (result != null) {
+                        await _fetchData();
+                        // Switch tab based on returned status
+                        if (result is String) {
+                          if (result == 'Sedang Dikerjakan') {
+                            _tabController.animateTo(1);
+                          } else if (result == 'Selesai') {
+                            _tabController.animateTo(2);
+                          }
+                        }
+                      }
                     },
-                    child: Stack(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Status badge + Date + Priority
+                          Row(
                             children: [
-                              // Status badge (Priority moved to Positioned)
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: statusColor,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      a.status.toUpperCase(),
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: statusTextColor,
-                                      ),
-                                    ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: statusColor,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  a.status.toUpperCase(),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: statusTextColor,
                                   ),
-                                  const Spacer(),
-                                  Row(
+                                ),
+                              ),
+                              const Spacer(),
+                              Icon(
+                                Icons.access_time,
+                                size: 14,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                a.dueDate,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF64748B),
+                                ),
+                              ),
+                              if (a.priority.trim().isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: pColor,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: pTextColor.withValues(
+                                          alpha: 0.15,
+                                        ),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
-                                        Icons.access_time,
-                                        size: 14,
-                                        color: Colors.grey[400],
+                                        a.priority.toUpperCase().contains(
+                                              'TINGGI',
+                                            )
+                                            ? Icons.bolt_rounded
+                                            : Icons.flag_rounded,
+                                        size: 11,
+                                        color: pTextColor,
                                       ),
-                                      const SizedBox(width: 4),
+                                      const SizedBox(width: 3),
                                       Text(
-                                        a.dueDate,
+                                        a.priority.toUpperCase(),
                                         style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                          color: const Color(0xFF64748B),
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700,
+                                          color: pTextColor,
+                                          letterSpacing: 0.3,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(
-                                    width: 32,
-                                  ), // Spacer for priority badge
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              // Title
-                              Text(
-                                a.title,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF1E293B),
-                                  height: 1.3,
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                a.description,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  color: const Color(0xFF64748B),
-                                  height: 1.5,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              // Progress bar
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              progressLabel,
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: progressColor,
-                                              ),
-                                            ),
-                                            Text(
-                                              '${(progress * 100).toInt()}%',
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: progressColor,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                          child: LinearProgressIndicator(
-                                            value: progress,
-                                            backgroundColor: const Color(
-                                              0xFFF1F5F9,
-                                            ),
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  progressColor,
-                                                ),
-                                            minHeight: 6,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                              const Divider(
-                                height: 1,
-                                color: Color(0xFFF1F5F9),
-                              ),
-                              const SizedBox(height: 16),
-                              // Assignee info
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 38,
-                                    height: 38,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: progressColor.withValues(
-                                        alpha: 0.15,
-                                      ),
-                                      border: Border.all(
-                                        color: progressColor.withValues(
-                                          alpha: 0.3,
-                                        ),
-                                        width: 2,
-                                      ),
-                                      image:
-                                          a.assigneeAvatar != null
-                                              ? DecorationImage(
-                                                image: NetworkImage(
-                                                  a.assigneeAvatar!,
-                                                ),
-                                                fit: BoxFit.cover,
-                                              )
-                                              : null,
-                                    ),
-                                    child:
-                                        a.assigneeAvatar == null
-                                            ? Center(
-                                              child: Text(
-                                                assigneeInitial,
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: progressColor,
-                                                ),
-                                              ),
-                                            )
-                                            : null,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          // Title
+                          Text(
+                            a.title,
+                            style: GoogleFonts.poppins(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF1E293B),
+                              height: 1.3,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            a.description,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: const Color(0xFF64748B),
+                              height: 1.5,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          // Progress bar
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                          "Ditugaskan kepada:",
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF94A3B8),
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                        Text(
-                                          a.assigneeName ?? 'Penerima',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF1E293B),
-                                          ),
-                                        ),
-                                        Text(
-                                          a.assigneeRole ?? 'Pegawai',
+                                          progressLabel,
                                           style: GoogleFonts.poppins(
                                             fontSize: 11,
-                                            color: const Color(0xFF94A3B8),
+                                            fontWeight: FontWeight.w600,
+                                            color: progressColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${(progress * 100).toInt()}%',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: progressColor,
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  Icon(
-                                    Icons.arrow_forward_ios_rounded,
-                                    size: 14,
-                                    color: Colors.grey[300],
-                                  ),
-                                ],
+                                    const SizedBox(height: 6),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: progress,
+                                        backgroundColor: const Color(
+                                          0xFFF1F5F9,
+                                        ),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              progressColor,
+                                            ),
+                                        minHeight: 6,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        if (a.priority.trim().isNotEmpty)
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: pColor,
-                                borderRadius: const BorderRadius.only(
-                                  topRight: Radius.circular(24),
-                                  bottomLeft: Radius.circular(12),
+                          const SizedBox(height: 20),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          const SizedBox(height: 16),
+                          // Assignee info
+                          Row(
+                            children: [
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: progressColor.withValues(alpha: 0.1),
+                                ),
+                                child: Icon(
+                                  Icons.person_rounded,
+                                  size: 18,
+                                  color: progressColor,
                                 ),
                               ),
-                              child: Text(
-                                a.priority.toUpperCase(),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  color: pTextColor,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Ditugaskan kepada:",
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF94A3B8),
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    Text(
+                                      a.assigneeName ?? 'Penerima',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF1E293B),
+                                      ),
+                                    ),
+                                    Text(
+                                      a.assigneeRole ?? 'Pegawai',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        color: const Color(0xFF94A3B8),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
+                              Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 14,
+                                color: Colors.grey[300],
+                              ),
+                            ],
                           ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -831,200 +833,193 @@ class _AssignmentScreenState extends State<AssignmentScreen>
                   builder: (context) => TaskDetailScreen(taskId: id),
                 ),
               );
-              if (result == true) {
-                _fetchData();
+              if (result != null) {
+                await _fetchData();
+                // Switch tab based on returned status
+                if (result is String) {
+                  if (result == 'Sedang Dikerjakan') {
+                    _tabController.animateTo(1);
+                  } else if (result == 'Selesai') {
+                    _tabController.animateTo(2);
+                  }
+                }
               }
             },
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const SizedBox(),
-                          Row(
+                      Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        date,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF64748B),
+                        ),
+                      ),
+                      const Spacer(),
+                      if (priority.trim().isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: priorityColor,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: priorityTextColor.withValues(
+                                  alpha: 0.15,
+                                ),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.access_time,
-                                size: 14,
-                                color: Colors.grey[400],
+                                priority.contains('TINGGI')
+                                    ? Icons.bolt_rounded
+                                    : Icons.flag_rounded,
+                                size: 11,
+                                color: priorityTextColor,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 3),
                               Text(
-                                date,
+                                priority,
                                 style: GoogleFonts.poppins(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF64748B),
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: priorityTextColor,
+                                  letterSpacing: 0.3,
                                 ),
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        title,
-                        style: GoogleFonts.poppins(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E293B),
-                          height: 1.3,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1E293B),
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    description,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: const Color(0xFF64748B),
+                      height: 1.5,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (progress > 0) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: const Color(0xFFF1F5F9),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Color(0xFF3B82F6),
+                              ),
+                              minHeight: 6,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '${(progress * 100).toInt()}%',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF3B82F6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFFF1F5F9),
+                        ),
+                        child: const Icon(
+                          Icons.person_rounded,
+                          size: 18,
+                          color: Color(0xFF64748B),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        description,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: const Color(0xFF64748B),
-                          height: 1.5,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (progress > 0) ...[
-                        const SizedBox(height: 16),
-                        Row(
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: progress,
-                                  backgroundColor: const Color(0xFFF1F5F9),
-                                  valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                        Color(0xFF3B82F6),
-                                      ),
-                                  minHeight: 6,
-                                ),
+                            Text(
+                              "Ditugaskan oleh:",
+                              style: GoogleFonts.poppins(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF94A3B8),
+                                letterSpacing: 0.5,
                               ),
                             ),
-                            const SizedBox(width: 12),
                             Text(
-                              '${(progress * 100).toInt()}%',
+                              assignerName,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF1E293B),
+                              ),
+                            ),
+                            Text(
+                              assignerRole,
                               style: GoogleFonts.poppins(
                                 fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF3B82F6),
+                                color: const Color(0xFF94A3B8),
                               ),
                             ),
                           ],
                         ),
-                      ],
-                      const SizedBox(height: 20),
-                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: const Color(0xFFF1F5F9),
-                              border: Border.all(
-                                color: const Color(0xFFE2E8F0),
-                                width: 2,
-                              ),
-                              image:
-                                  assignerAvatar != null
-                                      ? DecorationImage(
-                                        image: NetworkImage(assignerAvatar),
-                                        fit: BoxFit.cover,
-                                      )
-                                      : null,
-                            ),
-                            child:
-                                assignerAvatar == null
-                                    ? Center(
-                                      child: Text(
-                                        assignerName.isNotEmpty
-                                            ? assignerName[0].toUpperCase()
-                                            : 'A',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(0xFF64748B),
-                                        ),
-                                      ),
-                                    )
-                                    : null,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Ditugaskan oleh:",
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF94A3B8),
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                Text(
-                                  assignerName,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF1E293B),
-                                  ),
-                                ),
-                                Text(
-                                  assignerRole,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 11,
-                                    color: const Color(0xFF94A3B8),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            Icons.arrow_forward_ios_rounded,
-                            size: 14,
-                            color: Colors.grey[300],
-                          ),
-                        ],
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: Colors.grey[300],
                       ),
                     ],
                   ),
-                ),
-                if (priority.trim().isNotEmpty)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: priorityColor,
-                        borderRadius: const BorderRadius.only(
-                          topRight: Radius.circular(24),
-                          bottomLeft: Radius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        priority,
-                        style: GoogleFonts.poppins(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: priorityTextColor,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

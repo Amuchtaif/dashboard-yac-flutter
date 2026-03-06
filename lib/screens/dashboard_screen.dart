@@ -171,6 +171,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           payload: jsonEncode(payloadData),
         );
       }
+
+      // Immediately refresh badge count so bell icon updates in real-time
+      NotificationService().refreshBadge();
     });
 
     // 4. Listen to Local Notification Taps
@@ -1130,7 +1133,12 @@ class HomeTab extends StatelessWidget {
                         ),
                         if (!isLoading && notifs.isNotEmpty)
                           TextButton(
-                            onPressed: () {},
+                            onPressed: () async {
+                              await NotificationService().clearNotifications();
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                              }
+                            },
                             child: Text(
                               "Hapus Semua",
                               style: GoogleFonts.poppins(
@@ -1216,6 +1224,14 @@ class HomeTab extends StatelessWidget {
 
                           return GestureDetector(
                             onTap: () {
+                              // Dismiss this notification from server
+                              final notifKey = n['id']?.toString() ?? '';
+                              if (notifKey.isNotEmpty) {
+                                NotificationService().dismissNotification(
+                                  notifKey,
+                                );
+                              }
+
                               Navigator.pop(context); // Close bottom sheet
                               if (type == 'assignment') {
                                 final taskId =
