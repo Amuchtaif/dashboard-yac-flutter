@@ -145,6 +145,18 @@ class PermissionService {
       _activePermissions.add('can_approve_permits');
     }
 
+    // Mudir dan Kabid (Level 1 & 2) punya akses menu Kepala Bidang
+    if (positionLevel <= 2) {
+      _activePermissions.add('can_access_kabid');
+    }
+
+    // Menu Kesantrian untuk level <= 3 atau jabatan spesifik
+    if (positionLevel <= 3 ||
+        positionName.toLowerCase().contains('musyrif') ||
+        positionName.toLowerCase().contains('kesantrian')) {
+      _activePermissions.add('can_access_kesantrian');
+    }
+
     // Staf (level 5) punya akses Tahfidz
     if (positionName.toLowerCase().contains('staf') ||
         positionName.toLowerCase().contains('staff') ||

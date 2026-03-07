@@ -119,24 +119,32 @@ class AssignmentService {
     required int createdBy,
     required int assignedTo,
     String? specialInstruction,
+    File? attachment,
   }) async {
     try {
-      final response = await http.post(
+      final request = http.MultipartRequest(
+        'POST',
         Uri.parse(ApiConstants.createAssignment),
-        headers: {
-          'ngrok-skip-browser-warning': 'true',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: {
-          'title': title,
-          'description': description,
-          'priority': priority,
-          'due_date': dueDate,
-          'created_by': createdBy.toString(),
-          'assigned_to': assignedTo.toString(),
-          'special_instructions': specialInstruction ?? '',
-        },
       );
+
+      request.headers.addAll({'ngrok-skip-browser-warning': 'true'});
+
+      request.fields['title'] = title;
+      request.fields['description'] = description;
+      request.fields['priority'] = priority;
+      request.fields['due_date'] = dueDate;
+      request.fields['created_by'] = createdBy.toString();
+      request.fields['assigned_to'] = assignedTo.toString();
+      request.fields['special_instructions'] = specialInstruction ?? '';
+
+      if (attachment != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath('attachment', attachment.path),
+        );
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);

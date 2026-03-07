@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,6 +24,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   bool _isLoadingSubordinates = true;
   int? _userId;
 
+  File? _selectedFile;
   List<Map<String, dynamic>> _subordinates = [];
 
   final List<String> _priorities = ['Biasa', 'Sedang', 'Tinggi'];
@@ -94,11 +97,12 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       createdBy: creatorId,
       assignedTo: _selectedMemberId!,
       specialInstruction: _instructionController.text,
+      attachment: _selectedFile,
     );
 
     if (mounted) {
       setState(() => _isLoading = false);
-      if (res['success'] == true) {
+      if (res['success'] == true || res['status'] == 'success') {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Tugas berhasil dikirim')));
@@ -121,6 +125,19 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
+      });
+    }
+  }
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'zip', 'jpg', 'png', 'jpeg'],
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedFile = File(result.files.single.path!);
       });
     }
   }
@@ -229,7 +246,92 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
           const SizedBox(height: 24),
           _buildFieldLabel('PILIH PENERIMA'),
           _buildMemberPickerField(),
+          const SizedBox(height: 24),
+          _buildFieldLabel('LAMPIRAN (OPSIONAL)'),
+          _buildUploadArea(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildUploadArea() {
+    return InkWell(
+      onTap: _pickFile,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color:
+                _selectedFile != null
+                    ? const Color(0xFF3B82F6).withValues(alpha: 0.4)
+                    : const Color(0xFFE2E8F0),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color:
+                    _selectedFile != null
+                        ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
+                        : const Color(0xFFE2E8F0).withValues(alpha: 0.3),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _selectedFile == null
+                    ? Icons.attach_file_rounded
+                    : Icons.check_circle_rounded,
+                size: 20,
+                color:
+                    _selectedFile != null
+                        ? const Color(0xFF3B82F6)
+                        : const Color(0xFF94A3B8),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _selectedFile == null ? 'Pilih Berkas' : 'Berkas Terpilih',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1E293B),
+                    ),
+                  ),
+                  Text(
+                    _selectedFile == null
+                        ? 'PDF, ZIP, JPG, PNG'
+                        : _selectedFile!.path.split('/').last,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: const Color(0xFF94A3B8),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            if (_selectedFile != null)
+              IconButton(
+                onPressed: () => setState(() => _selectedFile = null),
+                icon: const Icon(
+                  Icons.cancel_rounded,
+                  size: 20,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

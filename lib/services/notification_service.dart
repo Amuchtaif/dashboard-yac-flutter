@@ -259,16 +259,49 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
-    // Content hash for cross-source deduplication (FCM vs polling)
+    // 1. Better Deduplication using Stable IDs
+    String? stableKey;
+    if (payload != null) {
+      try {
+        final data = jsonDecode(payload);
+        // Handle both FCM (using notification_id or task_id) and API Polling (using id "asn_123")
+        String rawId =
+            data['notification_id']?.toString() ??
+            data['id']?.toString() ??
+            data['task_id']?.toString() ??
+            '';
+
+        if (rawId.isNotEmpty) {
+          // Normalize ID: "asn_123" -> "123"
+          stableKey =
+              "stable_" +
+              rawId
+                  .replaceAll('asn_', '')
+                  .replaceAll('upd_', '')
+                  .replaceAll('inc_', '');
+        }
+      } catch (e) {
+        debugPrint('Deduplication Parse Error: $e');
+      }
+    }
+
+    // Falls back to content hash if no stable key found
     String contentHash = 'hash_${title.hashCode}_${body.hashCode}';
 
-    // Shared deduplication check (by ID or content hash)
-    if (_processedIds.contains(id) || _processedIds.contains(contentHash)) {
-      debugPrint('NotificationService: Skipping already processed: $id');
+    // Shared deduplication check
+    if (_processedIds.contains(id) ||
+        _processedIds.contains(contentHash) ||
+        (stableKey != null && _processedIds.contains(stableKey))) {
+      debugPrint(
+        'NotificationService: Skipping duplicate - ID: $id, Hash: $contentHash, Stable: $stableKey',
+      );
       return;
     }
+
+    // Mark as processed
     _processedIds.add(id);
     _processedIds.add(contentHash);
+    if (stableKey != null) _processedIds.add(stableKey);
 
     // Also save to prefs for persistence
     final prefs = await SharedPreferences.getInstance();

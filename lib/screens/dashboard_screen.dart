@@ -26,6 +26,15 @@ import 'tahfidz/absensi_pengampu_screen.dart';
 import 'tahfidz/setoran_tahfidz_screen.dart';
 import 'tahfidz/penilaian_tahfidz_screen.dart';
 import 'teaching_schedule_screen.dart';
+import 'rpp_screen.dart';
+import 'kabid/data_presensi_screen.dart';
+import 'kabid/rekap_absensi_screen.dart';
+import 'kabid/absensi_manual_screen.dart';
+import 'kabid/daftar_kehadiran_screen.dart';
+import 'kesantrian/absensi_asrama_screen.dart';
+import 'kesantrian/absensi_makan_screen.dart';
+import 'kesantrian/pelanggaran_screen.dart';
+import 'kesantrian/kepulangan_screen.dart';
 import 'class_list_screen.dart';
 import '../services/attendance_service.dart';
 import '../models/location_model.dart';
@@ -42,6 +51,7 @@ import 'attendance_recap_screen.dart';
 import 'shift_swap_screen.dart';
 import '../services/news_service.dart';
 import '../models/news_model.dart';
+import 'student_grading_screen.dart';
 import 'news_detail_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -748,10 +758,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return Future.error('Izin lokasi ditolak permanen.');
     }
 
-    return await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-      timeLimit: const Duration(seconds: 15),
-    );
+    try {
+      // Mencoba mengambil lokasi dengan akurasi tinggi dan timeout yang lebih lama (30 detik)
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 30),
+      );
+    } catch (e) {
+      // Jika akurasi tinggi gagal/timeout, coba dengan akurasi medium
+      try {
+        return await Geolocator.getCurrentPosition(
+          desiredAccuracy:
+              LocationAccuracy.medium, // Lebih cepat mengunci lokasi
+          timeLimit: const Duration(seconds: 15),
+        );
+      } catch (e2) {
+        // Sebagai upaya terakhir, coba ambil lokasi terakhir yang diketahui
+        Position? lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) {
+          return lastKnown;
+        }
+        // Jika semua gagal, baru lemparkan error original
+        return Future.error(
+          'Gagal mendapatkan lokasi GPS. Mohon pastikan Anda berada di area terbuka dan coba lagi.',
+        );
+      }
+    }
   }
 
   @override
@@ -931,9 +963,9 @@ class HomeTab extends StatelessWidget {
             _buildHeader(context),
             const SizedBox(height: 20),
             _buildStatusCard(),
+            const SizedBox(height: 27),
+            _buildSectionTitle('Aktivitas Terbaru'),
             const SizedBox(height: 20),
-            _buildSectionTitle('Aktivitas Terbaru', action: 'View All'),
-            const SizedBox(height: 10),
             _buildRecentActivityList(),
             const SizedBox(height: 27),
             _buildSectionTitle('Menu Islami'),
@@ -958,6 +990,20 @@ class HomeTab extends StatelessWidget {
               _buildSectionTitle('Menu Tahfidz'),
               const SizedBox(height: 12),
               _buildTahfidzMenuGrid(context),
+            ],
+            // Show Kepala Bidang Menu Only If User Has Permission
+            if (AccessControl.can('can_access_kabid')) ...[
+              const SizedBox(height: 24),
+              _buildSectionTitle('Menu Kepala Bidang'),
+              const SizedBox(height: 12),
+              _buildKabidMenuGrid(context),
+            ],
+            // Show Kesantrian Menu Only If User Has Permission
+            if (AccessControl.can('can_access_kesantrian')) ...[
+              const SizedBox(height: 24),
+              _buildSectionTitle('Menu Kesantrian'),
+              const SizedBox(height: 12),
+              _buildKesantrianMenuGrid(context),
             ],
             const SizedBox(height: 24),
           ],
@@ -1916,7 +1962,7 @@ class HomeTab extends StatelessWidget {
   }
 
   Widget _buildGeneralMenuGrid(BuildContext context) {
-    final menus = [
+    final row1 = [
       {'title': 'Izin Kerja', 'icon': Icons.work_outline, 'color': Colors.blue},
       {'title': 'Rapat Pertemuan', 'icon': Icons.groups, 'color': Colors.amber},
       {
@@ -1925,6 +1971,9 @@ class HomeTab extends StatelessWidget {
         'color': Colors.teal,
       },
       {'title': 'Penggajian', 'icon': Icons.payments, 'color': Colors.pink},
+    ];
+
+    final row2 = [
       {
         'title': 'Tukar Shift',
         'icon': Icons.swap_horiz,
@@ -1933,116 +1982,22 @@ class HomeTab extends StatelessWidget {
       {'title': 'Penugasan', 'icon': Icons.assignment, 'color': Colors.orange},
     ];
 
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 4,
-      crossAxisSpacing: 8,
-      mainAxisSpacing: 16,
-      childAspectRatio: 0.8,
-      children:
-          menus.map((menu) {
-            return Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () {
-                    if (menu['title'] == 'Izin Kerja') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MainPermitScreen(),
-                        ),
-                      );
-                    } else if (menu['title'] == 'Rapat Pertemuan') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MeetingListScreen(),
-                        ),
-                      );
-                    } else if (menu['title'] == 'Inventaris Barang') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const InventoryCategoryScreen(),
-                        ),
-                      );
-                    } else if (menu['title'] == 'Penggajian') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const PayrollHistoryScreen(),
-                        ),
-                      );
-                    } else if (menu['title'] == 'Tukar Shift') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ShiftSwapScreen(),
-                        ),
-                      );
-                    } else if (menu['title'] == 'Penugasan') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AssignmentScreen(),
-                        ),
-                      );
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 4,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: (menu['color'] as Color).withValues(
-                              alpha: 0.1,
-                            ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            menu['icon'] as IconData,
-                            color: menu['color'] as Color,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          menu['title'] as String,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.poppins(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
+    return Column(
+      children: [
+        Row(
+          children:
+              row1
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children:
+              row2
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
+        ),
+      ],
     );
   }
 
@@ -2095,24 +2050,50 @@ class HomeTab extends StatelessWidget {
     ];
     final row2 = [
       {
-        'title': 'Jadwal Mengajar',
-        'icon': Icons.calendar_today_outlined,
-        'color': Colors.pink,
+        'title': 'RPP',
+        'subtitle': 'Rencana Pembelajaran',
+        'icon': Icons.assignment_outlined,
+        'color': Colors.indigo,
+        'flex': 2,
       },
       {
         'title': 'Rekap Presensi',
         'icon': Icons.assignment_ind_outlined,
         'color': Colors.redAccent,
+        'flex': 1,
       },
       {
         'title': 'Kalender Akademik',
         'icon': Icons.event_note_outlined,
-        'color': Colors.indigo,
+        'color': Colors.teal,
+        'flex': 1,
       },
     ];
 
     return Column(
       children: [
+        _buildFullWidthMenuCard(context, {
+          'title': 'Jadwal Mengajar',
+          'subtitle': 'Lihat jadwal hari ini',
+          'icon': Icons.calendar_today_rounded,
+          'color': const Color(0xFF2563EB),
+          'gradientColors': [const Color(0xFF2563EB), const Color(0xFF3B82F6)],
+          'textColor': Colors.white,
+          'iconColor': Colors.white,
+          'iconBgColor': Colors.white.withValues(alpha: 0.2),
+        }),
+        const SizedBox(height: 12),
+        _buildFullWidthMenuCard(context, {
+          'title': 'Input Penilaian Siswa',
+          'subtitle': 'Input nilai akademik siswa',
+          'icon': Icons.grade_rounded,
+          'color': const Color(0xFF7C3AED),
+          'gradientColors': [const Color(0xFF7C3AED), const Color(0xFF8B5CF6)],
+          'textColor': Colors.white,
+          'iconColor': Colors.white,
+          'iconBgColor': Colors.white.withValues(alpha: 0.2),
+        }),
+        const SizedBox(height: 12),
         Row(
           children:
               row1
@@ -2215,6 +2196,92 @@ class HomeTab extends StatelessWidget {
     }
   }
 
+  Widget _buildKesantrianMenuGrid(BuildContext context) {
+    final menus = [
+      {
+        'title': 'Absensi Asrama',
+        'icon': Icons.night_shelter_rounded,
+        'color': Colors.blueGrey,
+      },
+      {
+        'title': 'Absensi Makan',
+        'icon': Icons.restaurant_rounded,
+        'color': Colors.orange,
+      },
+      {
+        'title': 'Pelanggaran',
+        'icon': Icons.gavel_rounded,
+        'color': Colors.redAccent,
+      },
+      {'title': 'Kepulangan', 'icon': Icons.home_rounded, 'color': Colors.teal},
+    ];
+
+    return Column(
+      children: [
+        Row(
+          children:
+              menus
+                  .sublist(0, 2)
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children:
+              menus
+                  .sublist(2, 4)
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKabidMenuGrid(BuildContext context) {
+    final menus = [
+      {
+        'title': 'Data Presensi',
+        'icon': Icons.calendar_today_rounded,
+        'color': Colors.blue,
+      },
+      {
+        'title': 'Rekap Absensi',
+        'icon': Icons.analytics_rounded,
+        'color': Colors.orange,
+      },
+      {
+        'title': 'Absensi Manual',
+        'icon': Icons.edit_calendar_rounded,
+        'color': Colors.teal,
+      },
+      {
+        'title': 'Daftar Kehadiran',
+        'icon': Icons.fact_check_rounded,
+        'color': Colors.indigo,
+      },
+    ];
+
+    return Column(
+      children: [
+        Row(
+          children:
+              menus
+                  .sublist(0, 2)
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children:
+              menus
+                  .sublist(2, 4)
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMenuCard(BuildContext context, Map<String, dynamic> menu) {
     return Container(
       height: 100,
@@ -2271,6 +2338,18 @@ class HomeTab extends StatelessWidget {
     BuildContext context,
     Map<String, dynamic> menu,
   ) {
+    final Color baseColor = menu['color'] as Color;
+    final List<Color> gradientColors =
+        menu['gradientColors'] as List<Color>? ??
+        [baseColor.withValues(alpha: 0.1), Colors.white];
+    final Color textColor =
+        menu['textColor'] as Color? ?? const Color(0xFF1E293B);
+    final Color subtitleColor =
+        menu['textColor'] as Color? ?? const Color(0xFF64748B);
+    final Color iconBgColor =
+        menu['iconBgColor'] as Color? ?? baseColor.withValues(alpha: 0.2);
+    final Color iconColor = menu['iconColor'] as Color? ?? baseColor;
+
     return Container(
       width: double.infinity,
       height: 80,
@@ -2278,16 +2357,18 @@ class HomeTab extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
-          colors: [
-            (menu['color'] as Color).withValues(alpha: 0.1),
-            Colors.white,
-          ],
+          colors: gradientColors,
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color:
+                (menu['gradientColors'] != null)
+                    ? (menu['gradientColors'] as List<Color>)[0].withValues(
+                      alpha: 0.2,
+                    )
+                    : Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -2306,12 +2387,12 @@ class HomeTab extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: (menu['color'] as Color).withValues(alpha: 0.2),
+                    color: iconBgColor,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     menu['icon'] as IconData,
-                    color: menu['color'] as Color,
+                    color: iconColor,
                     size: 28,
                   ),
                 ),
@@ -2326,23 +2407,27 @@ class HomeTab extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: textColor,
                         ),
                       ),
-                      Text(
-                        menu['subtitle'] as String? ?? '',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.grey[600],
+                      if (menu['subtitle'] != null)
+                        Text(
+                          menu['subtitle'] as String,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: subtitleColor.withValues(alpha: 0.8),
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 16,
-                  color: (menu['color'] as Color).withValues(alpha: 0.5),
+                  color:
+                      (menu['textColor'] != null)
+                          ? (menu['textColor'] as Color).withValues(alpha: 0.5)
+                          : (menu['color'] as Color).withValues(alpha: 0.5),
                 ),
               ],
             ),
@@ -2385,10 +2470,20 @@ class HomeTab extends StatelessWidget {
         context,
         MaterialPageRoute(builder: (context) => const PenilaianTahfidzScreen()),
       );
+    } else if (navTitle == 'RPP') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const RppScreen()),
+      );
     } else if (navTitle == 'Jadwal Mengajar') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const TeachingScheduleScreen()),
+      );
+    } else if (navTitle == 'Input Penilaian Siswa') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const StudentGradingScreen()),
       );
     } else if (navTitle == 'Rekap Presensi') {
       Navigator.push(
@@ -2419,6 +2514,78 @@ class HomeTab extends StatelessWidget {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const TeacherDataScreen()),
+      );
+    } else if (navTitle == 'Izin Kerja') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const MainPermitScreen()),
+      );
+    } else if (navTitle == 'Rapat Pertemuan') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const MeetingListScreen()),
+      );
+    } else if (navTitle == 'Inventaris Barang') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const InventoryCategoryScreen(),
+        ),
+      );
+    } else if (navTitle == 'Penggajian') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PayrollHistoryScreen()),
+      );
+    } else if (navTitle == 'Tukar Shift') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ShiftSwapScreen()),
+      );
+    } else if (navTitle == 'Penugasan') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AssignmentScreen()),
+      );
+    } else if (navTitle == 'Data Presensi') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const DataPresensiScreen()),
+      );
+    } else if (navTitle == 'Rekap Absensi') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const RekapAbsensiScreen()),
+      );
+    } else if (navTitle == 'Absensi Manual') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AbsensiManualScreen()),
+      );
+    } else if (navTitle == 'Daftar Kehadiran') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const DaftarKehadiranScreen()),
+      );
+    } else if (navTitle == 'Absensi Asrama') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AbsensiAsramaScreen()),
+      );
+    } else if (navTitle == 'Absensi Makan') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AbsensiMakanScreen()),
+      );
+    } else if (navTitle == 'Pelanggaran') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const PelanggaranScreen()),
+      );
+    } else if (navTitle == 'Kepulangan') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const KepulanganScreen()),
       );
     } else {
       ScaffoldMessenger.of(

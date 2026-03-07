@@ -100,9 +100,18 @@ class _AssignmentScreenState extends State<AssignmentScreen>
     }
 
     if (mounted) {
+      // Deduplicate created assignments as well (defensive)
+      final Set<int> seenCreatedIds = {};
+      final List<Assignment> uniqueCreated = [];
+      for (final a in created) {
+        if (seenCreatedIds.add(a.id)) {
+          uniqueCreated.add(a);
+        }
+      }
+
       setState(() {
         _assignments = filteredAssignments;
-        _createdAssignments = created;
+        _createdAssignments = uniqueCreated;
         _isLoading = false;
       });
     }

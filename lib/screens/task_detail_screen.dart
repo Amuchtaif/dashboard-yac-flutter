@@ -25,6 +25,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   int? _userId;
   int _currentProgress = 0;
   bool _isProgressChanged = false;
+  final TextEditingController _reportNotesController = TextEditingController();
+
+  @override
+  void dispose() {
+    _reportNotesController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -58,12 +65,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       setState(() {
         _isLoading = false;
         if (res['success'] == true || res['status'] == 'success') {
-          _isProgressChanged = false;
-          // Get updated status from API response
-          final newStatus = res['data']?['status'];
-          // Pop back with the new status so assignment screen can switch tab
-          Navigator.pop(context, newStatus ?? true);
-          return;
+          setState(() {
+            _isProgressChanged = false;
+          });
+          _fetchDetail();
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -130,6 +135,154 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     }
   }
 
+  void _showPreviewDialog(String url) {
+    bool isImage =
+        url.toLowerCase().endsWith('.jpg') ||
+        url.toLowerCase().endsWith('.jpeg') ||
+        url.toLowerCase().endsWith('.png');
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.all(20),
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Pratinjau Berkas',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: const Color(0xFF1E293B),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.5,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child:
+                          isImage
+                              ? ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: InteractiveViewer(
+                                  child: Image.network(
+                                    url,
+                                    loadingBuilder: (
+                                      context,
+                                      child,
+                                      loadingProgress,
+                                    ) {
+                                      if (loadingProgress == null) return child;
+                                      return const Center(
+                                        child: CircularProgressIndicator(),
+                                      );
+                                    },
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const Center(
+                                              child: Icon(
+                                                Icons.error_outline,
+                                                size: 48,
+                                                color: Colors.red,
+                                              ),
+                                            ),
+                                  ),
+                                ),
+                              )
+                              : Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 40,
+                                ),
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.insert_drive_file_outlined,
+                                      size: 64,
+                                      color: Color(0xFF3B82F6),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Berkas non-gambar',
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF1E293B),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      url.split('/').last,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        color: const Color(0xFF64748B),
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _openUrl(url);
+                        },
+                        icon: const Icon(Icons.open_in_new, size: 18),
+                        label: const Text('Buka Selengkapnya'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF3B82F6),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          textStyle: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+
   Future<void> _submitReport() async {
     if (_selectedFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -141,7 +294,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     setState(() => _isLoading = true);
     final res = await _service.submitReport(
       taskId: widget.taskId,
-      reportNotes: 'Laporan selesai dikerjakan',
+      reportNotes:
+          _reportNotesController.text.isEmpty
+              ? 'Laporan selesai dikerjakan'
+              : _reportNotesController.text,
       attachment: _selectedFile,
     );
 
@@ -260,10 +416,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             children: [
               if (_task!.priority.isNotEmpty) ...[
                 _buildBadge(
-                  _task!.priority.toUpperCase(),
+                  'PRIORITAS: ${_task!.priority.toUpperCase()}',
                   _task!.priority.toUpperCase().contains('TINGGI')
                       ? const Color(0xFFFFB038)
-                      : _task!.priority.toUpperCase().contains('SEDANG')
+                      : (_task!.priority.toUpperCase().contains('SEDANG') ||
+                          _task!.priority.toUpperCase().contains('MEDIUM'))
                       ? const Color(0xFFD97706)
                       : const Color(0xFF4C8CFF),
                   Colors.white,
@@ -552,6 +709,64 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
           const SizedBox(height: 12),
           _buildUploadArea(),
+          if (_userId == _task!.assignedTo && _task!.status != 'Selesai') ...[
+            const SizedBox(height: 24),
+            Text(
+              'Catatan Laporan',
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _reportNotesController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Tambahkan catatan atau keterangan hasil kerja...',
+                hintStyle: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: Colors.grey[400],
+                ),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.all(16),
+              ),
+              style: GoogleFonts.poppins(fontSize: 14),
+            ),
+          ],
+          if (_task!.status == 'Selesai' && _task!.reportNotes != null) ...[
+            const SizedBox(height: 24),
+            Text(
+              'Catatan Hasil Kerja',
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F7FF),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                _task!.reportNotes!,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -629,7 +844,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             title: 'Berkas Pendukung Tugas',
             subtitle: 'Klik untuk melihat berkas dari atasan',
             icon: Icons.folder_open_rounded,
-            onTap: () => _openUrl(_task!.attachment),
+            onTap: () => _showPreviewDialog(_task!.attachment!),
           ),
 
         const SizedBox(height: 16),
@@ -643,7 +858,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             icon: Icons.task_alt_rounded,
             color: const Color(0xFFDCFCE7),
             iconColor: const Color(0xFF166534),
-            onTap: () => _openUrl(_task!.reportAttachment),
+            onTap: () => _showPreviewDialog(_task!.reportAttachment!),
           )
         else if (_userId == _task!.assignedTo && _task!.status != 'Selesai')
           // Upload area for assignee if not finished
@@ -688,7 +903,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   Text(
                     _selectedFile == null
                         ? 'PDF, ZIP, ATAU GAMBAR (MAKS 10MB)'
-                        : _selectedFile!.path.split('/').last,
+                        : _selectedFile!.path
+                            .split(Platform.isWindows ? '\\' : '/')
+                            .last,
                     style: GoogleFonts.poppins(
                       fontSize: 10,
                       color: const Color(0xFF94A3B8),
@@ -831,7 +1048,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     IconData icon = Icons.send_rounded;
     VoidCallback onPressed = _submitReport;
 
-    if (_isProgressChanged) {
+    if (_selectedFile != null) {
+      label = 'Kirim Laporan';
+      icon = Icons.send_rounded;
+      onPressed = _submitReport;
+    } else if (_isProgressChanged) {
       label = 'Update Progres';
       icon = Icons.sync_rounded;
       onPressed = _saveProgress;
