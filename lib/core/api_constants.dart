@@ -53,6 +53,7 @@ class ApiConstants {
       '${baseUrl}assignment/submit_report.php';
   static const String getSubordinates =
       '${baseUrl}assignment/get_subordinates.php';
+  static const String getEmployees = '${baseUrl}get_employees.php';
 
   // Helper for Profile Photo
   static String getProfilePhotoUrl(String? filename) {
@@ -62,4 +63,18 @@ class ApiConstants {
     final rootUrl = ApiConfig.baseUrl.replaceAll('/api', '');
     return "$rootUrl/uploads/profile_photos/$filename";
   }
+
+  // Shift Exchange Endpoints
+  static const String shiftGetList = '${baseUrl}shift_exchange/get_list.php';
+  static const String shiftCreate = '${baseUrl}shift_exchange/create.php';
+  static const String shiftUpdateStatus =
+      '${baseUrl}shift_exchange/update_status.php';
+  static const String shiftSummary = '${baseUrl}shift_exchange/get_summary.php';
+
+  // RPP Endpoints
+  static const String rppGetList = '${baseUrl}rpp/get_list.php';
+  static const String rppGetDetail = '${baseUrl}rpp/get_detail.php';
+  static const String rppCreate = '${baseUrl}rpp/create.php';
+  static const String rppGetActivePeriod =
+      '${baseUrl}rpp/get_active_period.php';
 }

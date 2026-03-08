@@ -9,6 +9,7 @@ class User {
   final String address; // Added address
   final int positionLevel;
   final int divisionId; // Added divisionId
+  final int unitId; // Added unitId
   final bool canManageNews; // Added canManageNews
 
   final String profilePhoto;
@@ -24,6 +25,7 @@ class User {
     required this.address,
     required this.positionLevel,
     required this.divisionId,
+    required this.unitId,
     required this.profilePhoto,
     this.canManageNews = false,
   });
@@ -46,6 +48,10 @@ class User {
           json['division_id'] is int
               ? json['division_id']
               : int.tryParse(json['division_id']?.toString() ?? '0') ?? 0,
+      unitId:
+          json['unit_id'] is int
+              ? json['unit_id']
+              : int.tryParse(json['unit_id']?.toString() ?? '0') ?? 0,
       profilePhoto: json['profile_photo'] ?? '',
       canManageNews:
           json['can_manage_news'] == 1 ||
@@ -66,6 +72,7 @@ class User {
       'address': address,
       'position_level': positionLevel,
       'division_id': divisionId,
+      'unit_id': unitId,
       'profile_photo': profilePhoto,
       'can_manage_news': canManageNews ? 1 : 0,
     };

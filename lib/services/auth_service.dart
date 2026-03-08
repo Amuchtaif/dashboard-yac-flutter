@@ -63,6 +63,7 @@ class AuthService {
               'divisionId',
               user.divisionId,
             ); // Added divisionId
+            await prefs.setInt('unitId', user.unitId); // Added unitId
             await prefs.setString('profilePhoto', user.profilePhoto);
             await prefs.setBool('canManageNews', user.canManageNews);
             await prefs.setBool('isLoggedIn', true);

@@ -361,6 +361,12 @@ class _PerformanceScreenState extends State<PerformanceScreen>
                 ),
                 const SizedBox(height: 6),
                 _buildRuleRow(
+                  'Pulang Sesuai Waktu',
+                  '+10 Poin',
+                  const Color(0xFF10B981),
+                ),
+                const SizedBox(height: 6),
+                _buildRuleRow(
                   'Kehadiran Rapat',
                   '+10 Poin',
                   const Color(0xFF10B981),
@@ -368,6 +374,12 @@ class _PerformanceScreenState extends State<PerformanceScreen>
                 const SizedBox(height: 6),
                 _buildRuleRow(
                   'Absen Telat',
+                  '-5 Poin',
+                  const Color(0xFFEF4444),
+                ),
+                const SizedBox(height: 6),
+                _buildRuleRow(
+                  'Pulang Cepat',
                   '-5 Poin',
                   const Color(0xFFEF4444),
                 ),
@@ -636,8 +648,10 @@ class _PerformanceScreenState extends State<PerformanceScreen>
               'Poin kinerja dihitung berdasarkan aktivitas harian Anda. '
               'Poin akan terus bertambah seiring waktu.\n\n'
               '• Absen tepat waktu: +10 poin\n'
+              '• Pulang sesuai jadwal: +10 poin\n'
               '• Kehadiran rapat: +10 poin\n'
-              '• Terlambat masuk: -5 poin\n\n'
+              '• Terlambat masuk: -5 poin\n'
+              '• Pulang sebelum jadwal: -5 poin\n\n'
               'Status Kinerja:\n'
               '• Kurang: 1 – 99 poin\n'
               '• Cukup: 100 – 499 poin\n'

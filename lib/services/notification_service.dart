@@ -21,6 +21,8 @@ class NotificationService {
 
   Timer? _timer;
   final Set<String> _processedIds = {};
+  DateTime? _lastFetchTime;
+  static const Duration _pollingInterval = Duration(minutes: 5);
 
   final StreamController<String?> _selectNotificationController =
       StreamController<String?>.broadcast();
@@ -74,8 +76,9 @@ class NotificationService {
     // Fetch immediately
     _fetchNotifications();
 
-    // Start timer (every 30 seconds)
-    _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    // Start timer (every 5 minutes as fallback to Push Notifications)
+    debugPrint('NotificationService: periodic polling set to 5 minutes');
+    _timer = Timer.periodic(_pollingInterval, (timer) {
       _fetchNotifications();
     });
   }
@@ -87,15 +90,23 @@ class NotificationService {
   }
 
   // 4. Fetch API
-  Future<void> _fetchNotifications() async {
+  Future<void> _fetchNotifications({bool force = false}) async {
+    // Throttling: prevent fetching too often
+    if (!force &&
+        _lastFetchTime != null &&
+        DateTime.now().difference(_lastFetchTime!) <
+            const Duration(minutes: 1)) {
+      debugPrint('NotificationService: Skipping fetch (minimum 1m cooldown)');
+      return;
+    }
+
     try {
       debugPrint('NotificationService: Calling getNotifications...');
       final notifications = await getNotifications();
+      _lastFetchTime = DateTime.now();
+
       debugPrint(
         'NotificationService: Await complete. Received ${notifications.length} items.',
-      );
-      debugPrint(
-        'NotificationService: Got ${notifications.length} notifications. Processing...',
       );
       _processNotifications(notifications);
     } catch (e, stackTrace) {

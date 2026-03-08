@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/rpp_service.dart';
+import 'create_rpp_screen.dart';
+import 'rpp_detail_screen.dart';
 
 class RppScreen extends StatefulWidget {
   const RppScreen({super.key});
@@ -11,11 +14,26 @@ class RppScreen extends StatefulWidget {
 class _RppScreenState extends State<RppScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final RppService _rppService = RppService();
+
+  Map<String, dynamic>? _activePeriod;
+  bool _isLoadingHeader = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadHeaderData();
+  }
+
+  Future<void> _loadHeaderData() async {
+    final period = await _rppService.getActivePeriod();
+    if (mounted) {
+      setState(() {
+        _activePeriod = period;
+        _isLoadingHeader = false;
+      });
+    }
   }
 
   @override
@@ -63,7 +81,15 @@ class _RppScreenState extends State<RppScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CreateRppScreen()),
+          );
+          if (result == true) {
+            setState(() {}); // Refresh lists
+          }
+        },
         backgroundColor: const Color(0xFF4F46E5),
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -129,85 +155,53 @@ class _RppScreenState extends State<RppScreen>
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.auto_stories_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Semester Genap 2025/2026',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withValues(alpha: 0.9),
-                ),
-              ),
-            ],
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.auto_stories_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
           ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '12',
-                    style: GoogleFonts.poppins(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Semester Aktif',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.8),
                   ),
-                  Text(
-                    'RPP Disetujui',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.8),
+                ),
+                _isLoadingHeader
+                    ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                    : Text(
+                      _activePeriod != null && _activePeriod!.isNotEmpty
+                          ? '${_activePeriod!['semester']} ${_activePeriod!['academic_year_name']}'
+                          : 'Pilih Semester',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              Container(
-                height: 40,
-                width: 1,
-                color: Colors.white.withValues(alpha: 0.2),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '4',
-                    style: GoogleFonts.poppins(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Text(
-                    'Menunggu',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.8),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 20),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -253,188 +247,194 @@ class _RppScreenState extends State<RppScreen>
   }
 
   Widget _buildRppList({required bool isDraft}) {
-    // Mock Data
-    final rppData =
-        isDraft
-            ? [
-              {
-                'title': 'Adab Terhadap Orang Tua',
-                'subject': 'Aqidah Akhlak',
-                'class': 'VII-A',
-                'date': '10 Mar 2026',
-                'status': 'Draft',
-              },
-            ]
-            : [
-              {
-                'title': 'Shalat Berjamaah',
-                'subject': 'Fiqih',
-                'class': 'VIII-C',
-                'date': '08 Mar 2026',
-                'status': 'Disetujui',
-              },
-              {
-                'title': 'Sejarah Bani Umayyah',
-                'subject': 'SKI',
-                'class': 'IX-B',
-                'date': '05 Mar 2026',
-                'status': 'Menunggu',
-              },
-              {
-                'title': 'Tajwid Mad Wajib',
-                'subject': 'Tahfidz',
-                'class': 'VII-D',
-                'date': '01 Mar 2026',
-                'status': 'Disetujui',
-              },
-            ];
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _rppService.getRppList(isDraft: isDraft),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.description_outlined,
+                  size: 64,
+                  color: Colors.grey[300],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  isDraft
+                      ? 'Belum ada draft RPP'
+                      : 'Belum ada RPP yang diterbitkan',
+                  style: GoogleFonts.poppins(
+                    color: Colors.grey[500],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      itemCount: rppData.length,
-      itemBuilder: (context, index) {
-        final rpp = rppData[index];
-        return _buildRppCard(rpp);
+        final rppData = snapshot.data!;
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          itemCount: rppData.length,
+          itemBuilder: (context, index) {
+            return _buildRppCard(rppData[index]);
+          },
+        );
       },
     );
   }
 
-  Widget _buildRppCard(Map<String, String> rpp) {
-    Color statusColor;
-    IconData statusIcon;
-
-    switch (rpp['status']) {
-      case 'Disetujui':
-        statusColor = const Color(0xFF10B981);
-        statusIcon = Icons.check_circle_rounded;
-        break;
-      case 'Menunggu':
-        statusColor = const Color(0xFFF59E0B);
-        statusIcon = Icons.query_builder_rounded;
-        break;
-      default:
-        statusColor = const Color(0xFF94A3B8);
-        statusIcon = Icons.edit_document;
-    }
-
+  Widget _buildRppCard(Map<String, dynamic> rpp) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => RppDetailScreen(rpp: rpp),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(statusIcon, size: 14, color: statusColor),
-                    const SizedBox(width: 6),
-                    Text(
-                      rpp['status']!.toUpperCase(),
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: statusColor,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF2FF),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 14,
+                            color: Color(0xFF4F46E5),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          rpp['created_at'] != null
+                              ? (rpp['created_at'] as String).substring(0, 10)
+                              : 'Baru Saja',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(
+                        Icons.more_horiz,
+                        color: Color(0xFF94A3B8),
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  rpp['title'] ?? '-',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF1E293B),
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _buildCardInfo(
+                      Icons.book_outlined,
+                      rpp['subject_name'] ?? '-',
+                    ),
+                    const SizedBox(width: 16),
+                    _buildCardInfo(
+                      Icons.people_outline_rounded,
+                      'Kelas ${rpp['class_name'] ?? '-'}',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFF1F5F9)),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Lihat Detail Rencana',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF4F46E5),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.more_horiz, color: Color(0xFF94A3B8)),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            rpp['title']!,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF1E293B),
+              ],
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            '${rpp['subject']} • Kelas ${rpp['class']}',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: const Color(0xFF64748B),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.calendar_today_rounded,
-                    size: 14,
-                    color: Color(0xFF94A3B8),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    rpp['date']!,
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF94A3B8),
-                    ),
-                  ),
-                ],
-              ),
-              TextButton(
-                onPressed: () {},
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFFEEF2FF),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 0,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(
-                  'Lihat Detail',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF4F46E5),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildCardInfo(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: const Color(0xFF94A3B8)),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF64748B),
+          ),
+        ),
+      ],
     );
   }
 }

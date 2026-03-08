@@ -122,6 +122,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> _recentActivities = [];
   bool _isKoordinator = false;
   bool _isLoadingActivity = false;
+  bool _isSwapped = false;
+  String? _swapPartnerName;
 
   final String baseUrl = ApiConfig.baseUrl;
   List<LocationModel> _locations = [];
@@ -365,7 +367,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // 4. History
             _recentActivities = data['history'] ?? [];
 
-            // 5. Check Koordinator
+            // 5. Swap Info
+            _isSwapped = data['is_swapped'] == true;
+            _swapPartnerName = data['swap_partner_name'];
+
+            // 6. Check Koordinator
             _isKoordinator =
                 data['user_profile']?['is_koordinator'] == 1 ||
                 data['user_profile']?['is_koordinator'] == true ||
@@ -806,6 +812,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         profilePhoto: _profilePhoto,
         newsList: _newsList,
         isLoadingNews: _isLoadingNews,
+        isSwapped: _isSwapped,
+        swapPartnerName: _swapPartnerName,
+        onRefresh: () async {
+          await _fetchDashboardData();
+          await _fetchNewsData();
+        },
       ),
       const NewsScreen(),
       const PerformanceScreen(),
@@ -930,6 +942,9 @@ class HomeTab extends StatelessWidget {
 
   final String todaySchedule;
   final bool isKoordinator;
+  final bool isSwapped;
+  final String? swapPartnerName;
+  final Future<void> Function() onRefresh;
 
   const HomeTab({
     super.key,
@@ -948,65 +963,72 @@ class HomeTab extends StatelessWidget {
     required this.profilePhoto,
     required this.newsList,
     required this.isLoadingNews,
+    required this.isSwapped,
+    this.swapPartnerName,
+    required this.onRefresh,
   });
 
   final List<News> newsList;
   final bool isLoadingNews;
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(context),
-            const SizedBox(height: 20),
-            _buildStatusCard(),
-            const SizedBox(height: 27),
-            _buildSectionTitle('Aktivitas Terbaru'),
-            const SizedBox(height: 20),
-            _buildRecentActivityList(),
-            const SizedBox(height: 27),
-            _buildSectionTitle('Menu Islami'),
-            const SizedBox(height: 12),
-            _buildServicesGrid(context),
-            const SizedBox(height: 24),
-            _buildNewsBanner(context),
-            const SizedBox(height: 24),
-            _buildSectionTitle('Menu Umum'),
-            const SizedBox(height: 12),
-            _buildGeneralMenuGrid(context),
-            // Show Education Menu Only If User Has Permission
-            if (AccessControl.can('can_access_education')) ...[
-              const SizedBox(height: 24),
-              _buildSectionTitle('Menu Pendidikan'),
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: SafeArea(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(context),
+              const SizedBox(height: 20),
+              _buildStatusCard(),
+              const SizedBox(height: 27),
+              _buildSectionTitle('Aktivitas Terbaru'),
+              const SizedBox(height: 20),
+              _buildRecentActivityList(),
+              const SizedBox(height: 27),
+              _buildSectionTitle('Menu Islami'),
               const SizedBox(height: 12),
-              _buildEducationMenuGrid(context),
-            ],
-            // Show Tahfidz Menu Only If User Has Permission
-            if (AccessControl.can('can_access_tahfidz')) ...[
+              _buildServicesGrid(context),
               const SizedBox(height: 24),
-              _buildSectionTitle('Menu Tahfidz'),
-              const SizedBox(height: 12),
-              _buildTahfidzMenuGrid(context),
-            ],
-            // Show Kepala Bidang Menu Only If User Has Permission
-            if (AccessControl.can('can_access_kabid')) ...[
+              _buildNewsBanner(context),
               const SizedBox(height: 24),
-              _buildSectionTitle('Menu Kepala Bidang'),
+              _buildSectionTitle('Menu Umum'),
               const SizedBox(height: 12),
-              _buildKabidMenuGrid(context),
-            ],
-            // Show Kesantrian Menu Only If User Has Permission
-            if (AccessControl.can('can_access_kesantrian')) ...[
+              _buildGeneralMenuGrid(context),
+              // Show Education Menu Only If User Has Permission
+              if (AccessControl.can('can_access_education')) ...[
+                const SizedBox(height: 24),
+                _buildSectionTitle('Menu Pendidikan'),
+                const SizedBox(height: 12),
+                _buildEducationMenuGrid(context),
+              ],
+              // Show Tahfidz Menu Only If User Has Permission
+              if (AccessControl.can('can_access_tahfidz')) ...[
+                const SizedBox(height: 24),
+                _buildSectionTitle('Menu Tahfidz'),
+                const SizedBox(height: 12),
+                _buildTahfidzMenuGrid(context),
+              ],
+              // Show Kepala Bidang Menu Only If User Has Permission
+              if (AccessControl.can('can_access_kabid')) ...[
+                const SizedBox(height: 24),
+                _buildSectionTitle('Menu Kepala Bidang'),
+                const SizedBox(height: 12),
+                _buildKabidMenuGrid(context),
+              ],
+              // Show Kesantrian Menu Only If User Has Permission
+              if (AccessControl.can('can_access_kesantrian')) ...[
+                const SizedBox(height: 24),
+                _buildSectionTitle('Menu Kesantrian'),
+                const SizedBox(height: 12),
+                _buildKesantrianMenuGrid(context),
+              ],
               const SizedBox(height: 24),
-              _buildSectionTitle('Menu Kesantrian'),
-              const SizedBox(height: 12),
-              _buildKesantrianMenuGrid(context),
             ],
-            const SizedBox(height: 24),
-          ],
+          ),
         ),
       ),
     );
@@ -1541,27 +1563,63 @@ class HomeTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Jam Kerja Hari ini",
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF90A4AE),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            "Jam Kerja Hari ini",
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF90A4AE),
+                            ),
+                          ),
+                          if (isSwapped) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue[100],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                "Tukar Shift",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue[800],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      todaySchedule,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF263238),
+                      const SizedBox(height: 2),
+                      Text(
+                        todaySchedule,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF263238),
+                        ),
                       ),
-                    ),
-                  ],
+                      if (isSwapped && swapPartnerName != null)
+                        Text(
+                          "Partner: $swapPartnerName",
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -2541,7 +2599,7 @@ class HomeTab extends StatelessWidget {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const ShiftSwapScreen()),
-      );
+      ).then((_) => onRefresh());
     } else if (navTitle == 'Penugasan') {
       Navigator.push(
         context,

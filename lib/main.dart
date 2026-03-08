@@ -11,6 +11,7 @@ import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'services/permission_service.dart';
 import 'providers/tahfidz_provider.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -117,6 +118,13 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('id', 'ID')],
+      locale: const Locale('id', 'ID'),
 
       // Jika Sesi Valid -> Dashboard, Jika Tidak -> Login
       home: isSessionValid ? const DashboardScreen() : const LoginScreen(),
