@@ -101,4 +101,29 @@ class RppService {
       return {'status': 'error', 'message': 'Connection error: $e'};
     }
   }
+
+  Future<Map<String, dynamic>> updateRpp(Map<String, dynamic> rppData) async {
+    try {
+      final employeeId = await _getEmployeeId();
+      final body = {...rppData, 'employee_id': employeeId};
+
+      debugPrint('RppService: Sending updateRpp payload: ${jsonEncode(body)}');
+
+      final response = await http.post(
+        Uri.parse(ApiConstants.rppUpdate),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      debugPrint('RppService: Update RPP Response: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'status': 'error', 'message': 'HTTP ${response.statusCode}'};
+    } catch (e) {
+      debugPrint('RppService: Error updating RPP: $e');
+      return {'status': 'error', 'message': e.toString()};
+    }
+  }
 }

@@ -215,7 +215,7 @@ class _StudentGradingScreenState extends State<StudentGradingScreen> {
                   ],
                 ),
               ),
-              Container(
+              SizedBox(
                 width: 60,
                 child: TextField(
                   keyboardType: TextInputType.number,

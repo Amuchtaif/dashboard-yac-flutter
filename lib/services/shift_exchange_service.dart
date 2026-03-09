@@ -23,8 +23,9 @@ class ShiftExchangeService {
   Future<Map<String, dynamic>> getSummary() async {
     try {
       final userId = await _getUserId();
-      if (userId == null)
+      if (userId == null) {
         return {'success': false, 'message': 'User not found'};
+      }
 
       final response = await http.get(
         Uri.parse('${ApiConstants.shiftSummary}?user_id=$userId'),
@@ -120,8 +121,9 @@ class ShiftExchangeService {
   }) async {
     try {
       final userId = await _getUserId();
-      if (userId == null)
+      if (userId == null) {
         return {'success': false, 'message': 'User not found'};
+      }
 
       final response = await http.post(
         Uri.parse(ApiConstants.shiftCreate),
@@ -153,8 +155,9 @@ class ShiftExchangeService {
   Future<Map<String, dynamic>> updateStatus(int id, String status) async {
     try {
       final userId = await _getUserId();
-      if (userId == null)
+      if (userId == null) {
         return {'success': false, 'message': 'User not found'};
+      }
 
       final response = await http.post(
         Uri.parse(ApiConstants.shiftUpdateStatus),

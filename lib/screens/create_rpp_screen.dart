@@ -7,7 +7,9 @@ import '../core/api_constants.dart';
 import '../services/rpp_service.dart';
 
 class CreateRppScreen extends StatefulWidget {
-  const CreateRppScreen({super.key});
+  final Map<String, dynamic>? initialRppData;
+
+  const CreateRppScreen({super.key, this.initialRppData});
 
   @override
   State<CreateRppScreen> createState() => _CreateRppScreenState();
@@ -42,7 +44,7 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
 
   List<Map<String, dynamic>> _allTeachingInfo = [];
   List<String> _academicYears = [];
-  List<String> _semesters = ['Ganjil', 'Genap'];
+  final List<String> _semesters = ['Ganjil', 'Genap'];
 
   List<String> _levels = [];
   List<String> _filteredSubjects = [];
@@ -75,7 +77,40 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
       _fetchMasterData(),
     ]);
 
-    setState(() => _isLoadingInfo = false);
+    setState(() {
+      _isLoadingInfo = false;
+      if (widget.initialRppData != null) {
+        final data = widget.initialRppData!;
+        _titleController.text = data['title'] ?? '';
+        _meetingController.text =
+            data['session_no'] ?? data['meeting_no'] ?? '';
+        _timeAllocationController.text =
+            data['allocation'] ?? data['time_allocation'] ?? '';
+        _standardCompetencyController.text = data['content_sk'] ?? '';
+        _basicCompetencyController.text = data['content_kd'] ?? '';
+        _indicatorController.text = data['content_indicator'] ?? '';
+        _objectivesController.text = data['learning_goal'] ?? '';
+        _materialController.text = data['teaching_material'] ?? '';
+        _resourcesController.text = data['teaching_method'] ?? '';
+        _stepsController.text = data['content_steps'] ?? '';
+        _assessmentController.text = data['assessment'] ?? '';
+
+        final cName = data['grade_name'] ?? data['class_name'] ?? '';
+        final sName = data['subject_name'] ?? '';
+        if (cName.isNotEmpty && sName.isNotEmpty) {
+          final match = _allTeachingInfo.firstWhere(
+            (e) => e['class_name'] == cName && e['subject_name'] == sName,
+            orElse: () => {},
+          );
+          if (match.isNotEmpty) {
+            _selectedLevel = match['level_name'];
+            _updateFilteredData();
+            _selectedSubject = sName;
+            _selectedClass = cName;
+          }
+        }
+      }
+    });
   }
 
   Future<void> _fetchMasterData() async {
@@ -240,45 +275,55 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
     int foundLevelId = 0;
     if (classItem.isNotEmpty) {
       final unit = classItem['unit_name']?.toString() ?? '';
-      if (unit == 'MTs')
+      if (unit == 'MTs') {
         foundLevelId = 1;
-      else if (unit == 'MA')
+      } else if (unit == 'MA') {
         foundLevelId = 2;
-      else if (unit == 'SDIT')
+      } else if (unit == 'SDIT') {
         foundLevelId = 3;
-      else if (unit == 'TKIT')
+      } else if (unit == 'TKIT') {
         foundLevelId = 4;
+      }
     }
 
     final rppData = {
       'academic_year_id': _activePeriod?['academic_year_id'] ?? 1,
       'semester': _selectedSemester ?? '',
-      'grade_level_id': foundLevelId != 0 ? foundLevelId : 1,
+      'education_unit_id': foundLevelId != 0 ? foundLevelId : 1, // unit jenjang
+      'grade_level_id':
+          classItem['id'] ?? 0, // actual class ID from grade_levels table
       'subject_id': subjectItem['id'] ?? 0,
-      'class_id': classItem['id'] ?? 0,
+      'session_no': _meetingController.text,
+      'allocation': _timeAllocationController.text,
       'title': _titleController.text,
       'content_sk': _standardCompetencyController.text,
       'content_kd': _basicCompetencyController.text,
       'content_indicator': _indicatorController.text,
+      'learning_goal': _objectivesController.text,
+      'teaching_material': _materialController.text,
+      'teaching_method': _resourcesController.text,
       'content_steps': _stepsController.text,
-      'content_summary': _assessmentController.text,
+      'content_summary': '',
+      'assessment': _assessmentController.text,
       'is_draft': isDraft ? 1 : 0,
-      'meeting_no': _meetingController.text,
-      'time_allocation': _timeAllocationController.text,
-      'objectives': _objectivesController.text,
-      'material': _materialController.text,
-      'resources': _resourcesController.text,
     };
 
-    final result = await _rppService.createRpp(rppData);
+    if (widget.initialRppData != null) {
+      rppData['id'] = widget.initialRppData!['id'];
+    }
+
+    final result =
+        widget.initialRppData != null
+            ? await _rppService.updateRpp(rppData)
+            : await _rppService.createRpp(rppData);
 
     if (mounted) {
       setState(() => _isSubmitting = false);
-      if (result['status'] == 'success') {
+      if (result['success'] == true || result['status'] == 'success') {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message'] ?? 'RPP Berhasil Disimpan!'),
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -311,7 +356,7 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Buat RPP Baru',
+          widget.initialRppData != null ? 'Edit RPP' : 'Buat RPP Baru',
           style: GoogleFonts.poppins(
             fontSize: 18,
             fontWeight: FontWeight.bold,

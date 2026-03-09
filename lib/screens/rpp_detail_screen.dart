@@ -1,13 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/rpp_service.dart';
+import 'create_rpp_screen.dart';
 
-class RppDetailScreen extends StatelessWidget {
+class RppDetailScreen extends StatefulWidget {
   final Map<String, dynamic> rpp;
 
   const RppDetailScreen({super.key, required this.rpp});
 
   @override
+  State<RppDetailScreen> createState() => _RppDetailScreenState();
+}
+
+class _RppDetailScreenState extends State<RppDetailScreen> {
+  final RppService _rppService = RppService();
+  Map<String, dynamic>? _fullRppData;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDetail();
+  }
+
+  Future<void> _fetchDetail() async {
+    final detail = await _rppService.getRppDetail(widget.rpp['id'].toString());
+    if (mounted) {
+      if (detail != null) {
+        setState(() {
+          _fullRppData = detail;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _fullRppData = widget.rpp;
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF8FAFC),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF4F46E5)),
+        ),
+      );
+    }
+
+    final rppData = _fullRppData ?? widget.rpp;
+    final bool isDraft =
+        rppData['is_draft'] == 1 || rppData['is_draft'] == true;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -41,6 +88,33 @@ class RppDetailScreen extends StatelessWidget {
           ),
         ],
       ),
+      floatingActionButton:
+          isDraft
+              ? FloatingActionButton.extended(
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) => CreateRppScreen(initialRppData: rppData),
+                    ),
+                  );
+                  if (result == true) {
+                    // refresh or pop with true
+                    Navigator.pop(context, true);
+                  }
+                },
+                backgroundColor: const Color(0xFF4F46E5),
+                icon: const Icon(Icons.edit_rounded, color: Colors.white),
+                label: Text(
+                  'Lanjutkan Draft',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              )
+              : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -77,7 +151,9 @@ class RppDetailScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          (rpp['level_name'] ?? 'JENJANG')
+                          (rppData['level_name'] ??
+                                  rppData['unit_name'] ??
+                                  'JENJANG')
                               .toString()
                               .toUpperCase(),
                           style: GoogleFonts.poppins(
@@ -88,8 +164,8 @@ class RppDetailScreen extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        rpp['created_at'] != null
-                            ? (rpp['created_at'] as String).substring(0, 10)
+                        rppData['created_at'] != null
+                            ? (rppData['created_at'] as String).substring(0, 10)
                             : '-',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
@@ -101,7 +177,7 @@ class RppDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    rpp['title'] ?? 'Judul RPP',
+                    rppData['title'] ?? 'Judul RPP',
                     style: GoogleFonts.poppins(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -109,16 +185,21 @@ class RppDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 8,
                     children: [
                       _buildMiniInfo(
-                        Icons.book_rounded,
-                        rpp['subject_name'] ?? '-',
+                        Icons.person_rounded,
+                        rppData['teacher_name'] ?? '-',
                       ),
-                      const SizedBox(width: 16),
+                      _buildMiniInfo(
+                        Icons.book_rounded,
+                        rppData['subject_name'] ?? '-',
+                      ),
                       _buildMiniInfo(
                         Icons.people_alt_rounded,
-                        rpp['class_name'] ?? '-',
+                        rppData['grade_name'] ?? rppData['class_name'] ?? '-',
                       ),
                     ],
                   ),
@@ -130,41 +211,68 @@ class RppDetailScreen extends StatelessWidget {
             _buildSectionTitle('Informasi Identitas'),
             const SizedBox(height: 16),
             _buildInfoGrid([
-              _buildInfoItem('Tahun Ajaran', rpp['academic_year'] ?? '-'),
-              _buildInfoItem('Semester', rpp['semester'] ?? '-'),
-              _buildInfoItem('Pertemuan', 'Ke-${rpp['meeting_no'] ?? '1'}'),
-              _buildInfoItem('Alokasi Waktu', rpp['time_allocation'] ?? '-'),
+              _buildInfoItem('Tahun Ajaran', rppData['academic_year'] ?? '-'),
+              _buildInfoItem('Semester', rppData['semester'] ?? '-'),
+              _buildInfoItem(
+                'Pertemuan',
+                'Ke-${rppData['session_no'] ?? rppData['meeting_no'] ?? '1'}',
+              ),
+              _buildInfoItem(
+                'Alokasi Waktu',
+                rppData['allocation'] ?? rppData['time_allocation'] ?? '-',
+              ),
             ]),
 
             const SizedBox(height: 32),
             _buildSectionTitle('Kompetensi & Indikator'),
             const SizedBox(height: 16),
-            _buildLongInfoCard('Standar Kompetensi', rpp['content_sk'] ?? '-'),
+            _buildLongInfoCard(
+              'Standar Kompetensi',
+              rppData['content_sk'] ?? '-',
+            ),
             const SizedBox(height: 16),
-            _buildLongInfoCard('Kompetensi Dasar', rpp['content_kd'] ?? '-'),
+            _buildLongInfoCard(
+              'Kompetensi Dasar',
+              rppData['content_kd'] ?? '-',
+            ),
             const SizedBox(height: 16),
-            _buildLongInfoCard('Indikator', rpp['content_indicator'] ?? '-'),
+            _buildLongInfoCard(
+              'Indikator',
+              rppData['content_indicator'] ?? '-',
+            ),
 
             const SizedBox(height: 32),
             _buildSectionTitle('Rencana Pembelajaran'),
             const SizedBox(height: 16),
-            _buildLongInfoCard('Tujuan Pembelajaran', rpp['objectives'] ?? '-'),
+            _buildLongInfoCard(
+              'Tujuan Pembelajaran',
+              rppData['learning_goal'] ?? rppData['objectives'] ?? '-',
+            ),
             const SizedBox(height: 16),
-            _buildLongInfoCard('Materi Ajar', rpp['material'] ?? '-'),
+            _buildLongInfoCard(
+              'Materi Ajar',
+              rppData['teaching_material'] ?? rppData['material'] ?? '-',
+            ),
             const SizedBox(height: 16),
             _buildLongInfoCard(
               'Langkah Pembelajaran',
-              rpp['content_steps'] ?? '-',
+              rppData['content_steps'] ?? '-',
             ),
 
             const SizedBox(height: 32),
             _buildSectionTitle('Pendukung & Penilaian'),
             const SizedBox(height: 16),
-            _buildLongInfoCard('Alat & Sumber', rpp['resources'] ?? '-'),
+            _buildLongInfoCard(
+              'Alat & Sumber',
+              rppData['teaching_method'] ?? rppData['resources'] ?? '-',
+            ),
             const SizedBox(height: 16),
-            _buildLongInfoCard('Penilaian', rpp['content_summary'] ?? '-'),
+            _buildLongInfoCard(
+              'Penilaian',
+              rppData['assessment'] ?? rppData['content_summary'] ?? '-',
+            ),
 
-            const SizedBox(height: 40),
+            const SizedBox(height: 100), // padding for FAB
           ],
         ),
       ),
@@ -232,7 +340,9 @@ class RppDetailScreen extends StatelessWidget {
           ),
         ),
         Text(
-          value,
+          value.isEmpty ? '-' : value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.bold,
@@ -244,6 +354,7 @@ class RppDetailScreen extends StatelessWidget {
   }
 
   Widget _buildLongInfoCard(String label, String value) {
+    final displayValue = (value.isEmpty) ? '-' : value;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -278,7 +389,7 @@ class RppDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            value,
+            displayValue,
             style: GoogleFonts.poppins(
               fontSize: 13,
               height: 1.6,

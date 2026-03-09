@@ -284,12 +284,11 @@ class NotificationService {
 
         if (rawId.isNotEmpty) {
           // Normalize ID: "asn_123" -> "123"
-          stableKey =
-              "stable_" +
-              rawId
-                  .replaceAll('asn_', '')
-                  .replaceAll('upd_', '')
-                  .replaceAll('inc_', '');
+          final cleanedId = rawId
+              .replaceAll('asn_', '')
+              .replaceAll('upd_', '')
+              .replaceAll('inc_', '');
+          stableKey = "stable_$cleanedId";
         }
       } catch (e) {
         debugPrint('Deduplication Parse Error: $e');

@@ -179,7 +179,7 @@ class _PelanggaranScreenState extends State<PelanggaranScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        ...violations.map((v) => _buildViolationCard(v)).toList(),
+        ...violations.map((v) => _buildViolationCard(v)),
       ],
     );
   }

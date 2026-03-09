@@ -165,7 +165,7 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        ...permissions.map((p) => _buildPermissionCard(p)).toList(),
+        ...permissions.map((p) => _buildPermissionCard(p)),
       ],
     );
   }

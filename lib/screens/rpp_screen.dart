@@ -383,7 +383,7 @@ class _RppScreenState extends State<RppScreen>
                     const SizedBox(width: 16),
                     _buildCardInfo(
                       Icons.people_outline_rounded,
-                      'Kelas ${rpp['class_name'] ?? '-'}',
+                      'Kelas ${rpp['grade_name'] ?? rpp['class_name'] ?? '-'}',
                     ),
                   ],
                 ),

@@ -184,7 +184,7 @@ class _AbsensiAsramaScreenState extends State<AbsensiAsramaScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        ...rooms.map((room) => _buildRoomCard(room)).toList(),
+        ...rooms.map((room) => _buildRoomCard(room)),
       ],
     );
   }

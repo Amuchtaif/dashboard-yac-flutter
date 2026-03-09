@@ -1,0 +1,45 @@
+{
+    "rpp": [
+        "id",
+        "employee_id",
+        "academic_year_id",
+        "semester",
+        "grade_level_id",
+        "subject_id",
+        "title",
+        "content_sk",
+        "content_kd",
+        "content_indicator",
+        "content_steps",
+        "content_summary",
+        "is_draft",
+        "created_at",
+        "updated_at",
+        "education_unit_id",
+        "session_no",
+        "allocation",
+        "learning_goal",
+        "teaching_material",
+        "teaching_method",
+        "assessment"
+    ],
+    "classes": "Error or table missing",
+    "grade_levels": [
+        "id",
+        "name",
+        "education_unit_id",
+        "teacher_id",
+        "level",
+        "category",
+        "created_at",
+        "capacity",
+        "level_order"
+    ],
+    "subjects": [
+        "id",
+        "name",
+        "category",
+        "code",
+        "description"
+    ]
+}

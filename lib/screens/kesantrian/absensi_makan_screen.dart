@@ -217,7 +217,7 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        ...recent.map((s) => _buildRecentItem(s)).toList(),
+        ...recent.map((s) => _buildRecentItem(s)),
       ],
     );
   }

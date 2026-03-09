@@ -75,6 +75,7 @@ class ApiConstants {
   static const String rppGetList = '${baseUrl}rpp/get_list.php';
   static const String rppGetDetail = '${baseUrl}rpp/get_detail.php';
   static const String rppCreate = '${baseUrl}rpp/create.php';
+  static const String rppUpdate = '${baseUrl}rpp/update.php';
   static const String rppGetActivePeriod =
       '${baseUrl}rpp/get_active_period.php';
 }
