@@ -145,11 +145,17 @@ class TeacherService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getClassList({String search = ''}) async {
+  Future<List<Map<String, dynamic>>> getClassList({
+    String search = '',
+    String? teacherId,
+  }) async {
     try {
       final queryParams = <String, String>{};
       if (search.isNotEmpty) {
         queryParams['search'] = search;
+      }
+      if (teacherId != null) {
+        queryParams['teacher_id'] = teacherId;
       }
       final uri = Uri.parse(
         ApiConstants.getClasses,
@@ -196,12 +202,16 @@ class TeacherService {
   Future<List<Map<String, dynamic>>> getSubjectList({
     String search = '',
     String category = '',
+    String? teacherId,
   }) async {
     try {
       final queryParams = <String, String>{};
       if (search.isNotEmpty) queryParams['search'] = search;
       if (category.isNotEmpty && category != 'Semua') {
         queryParams['category'] = category;
+      }
+      if (teacherId != null) {
+        queryParams['teacher_id'] = teacherId;
       }
 
       final uri = Uri.parse(

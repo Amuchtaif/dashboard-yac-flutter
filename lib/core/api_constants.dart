@@ -78,4 +78,11 @@ class ApiConstants {
   static const String rppUpdate = '${baseUrl}rpp/update.php';
   static const String rppGetActivePeriod =
       '${baseUrl}rpp/get_active_period.php';
+
+  // Grading Endpoints
+  static const String gradingGetTypes =
+      '${baseUrl}assessment_types/get_list.php';
+  static const String gradingGetHistory = '${baseUrl}grading/get_history.php';
+  static const String gradingGetDetail = '${baseUrl}grading/get_detail.php';
+  static const String gradingSubmit = '${baseUrl}grading/submit.php';
 }

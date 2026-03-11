@@ -70,6 +70,7 @@ class _RppDetailScreenState extends State<RppDetailScreen> {
         ),
         title: Text(
           'Detail RPP',
+          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.poppins(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -99,9 +100,9 @@ class _RppDetailScreenState extends State<RppDetailScreen> {
                           (context) => CreateRppScreen(initialRppData: rppData),
                     ),
                   );
-                  if (result == true) {
-                    // refresh or pop with true
-                    Navigator.pop(context, true);
+                  if (result != null) {
+                    // refresh or pop with result
+                    Navigator.pop(context, result);
                   }
                 },
                 backgroundColor: const Color(0xFF4F46E5),
@@ -292,15 +293,20 @@ class _RppDetailScreenState extends State<RppDetailScreen> {
 
   Widget _buildMiniInfo(IconData icon, String text) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 16, color: const Color(0xFF6366F1)),
         const SizedBox(width: 8),
-        Text(
-          text,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF64748B),
+        Flexible(
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF64748B),
+            ),
           ),
         ),
       ],

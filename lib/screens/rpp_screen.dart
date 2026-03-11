@@ -86,7 +86,12 @@ class _RppScreenState extends State<RppScreen>
             context,
             MaterialPageRoute(builder: (context) => const CreateRppScreen()),
           );
-          if (result == true) {
+          if (result != null) {
+            if (result == 'published') {
+              _tabController.animateTo(0);
+            } else if (result == 'draft') {
+              _tabController.animateTo(1);
+            }
             setState(() {}); // Refresh lists
           }
         },
@@ -123,12 +128,16 @@ class _RppScreenState extends State<RppScreen>
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            'Rencana Pembelajaran',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF1E293B),
+          Expanded(
+            child: Text(
+              'Rencana Pembelajaran',
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1E293B),
+              ),
             ),
           ),
         ],
@@ -308,13 +317,21 @@ class _RppScreenState extends State<RppScreen>
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            Navigator.push(
+          onTap: () async {
+            final result = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => RppDetailScreen(rpp: rpp),
               ),
             );
+            if (result != null) {
+              if (result == 'published') {
+                _tabController.animateTo(0);
+              } else if (result == 'draft') {
+                _tabController.animateTo(1);
+              }
+              setState(() {});
+            }
           },
           borderRadius: BorderRadius.circular(24),
           child: Padding(
@@ -352,8 +369,35 @@ class _RppScreenState extends State<RppScreen>
                         ),
                       ],
                     ),
-                    IconButton(
-                      onPressed: () {},
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'duplicate') {
+                          _duplicateRpp(rpp);
+                        }
+                      },
+                      itemBuilder:
+                          (context) => [
+                            const PopupMenuItem(
+                              value: 'duplicate',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.copy_all_rounded,
+                                    size: 18,
+                                    color: Color(0xFF4F46E5),
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'Duplikat ke Draft',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                       icon: const Icon(
                         Icons.more_horiz,
                         color: Color(0xFF94A3B8),
@@ -376,14 +420,18 @@ class _RppScreenState extends State<RppScreen>
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _buildCardInfo(
-                      Icons.book_outlined,
-                      rpp['subject_name'] ?? '-',
+                    Expanded(
+                      child: _buildCardInfo(
+                        Icons.book_outlined,
+                        rpp['subject_name'] ?? '-',
+                      ),
                     ),
                     const SizedBox(width: 16),
-                    _buildCardInfo(
-                      Icons.people_outline_rounded,
-                      'Kelas ${rpp['grade_name'] ?? rpp['class_name'] ?? '-'}',
+                    Expanded(
+                      child: _buildCardInfo(
+                        Icons.people_outline_rounded,
+                        '${rpp['grade_name'] ?? rpp['class_name'] ?? '-'}',
+                      ),
                     ),
                   ],
                 ),
@@ -420,18 +468,103 @@ class _RppScreenState extends State<RppScreen>
     );
   }
 
+  Future<void> _duplicateRpp(Map<String, dynamic> rpp) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // Get full detail to ensure we have all fields for duplication
+      final fullData = await _rppService.getRppDetail(rpp['id'].toString());
+
+      if (fullData == null) {
+        if (mounted) Navigator.pop(context);
+        throw Exception('Gagal mengambil data detail RPP');
+      }
+
+      // Prepare data for new RPP
+      final Map<String, dynamic> newData = {
+        'academic_year_id': fullData['academic_year_id'] ?? 1,
+        'semester': fullData['semester'] ?? 'Ganjil',
+        'education_unit_id': fullData['education_unit_id'] ?? 1,
+        'grade_level_id': fullData['grade_level_id'] ?? 0,
+        'subject_id': fullData['subject_id'] ?? 0,
+        'session_no': fullData['session_no'] ?? fullData['meeting_no'] ?? '1',
+        'allocation':
+            fullData['allocation'] ?? fullData['time_allocation'] ?? '-',
+        'title': '${fullData['title'] ?? 'Tanpa Judul'} (Duplikat)',
+        'content_sk': fullData['content_sk'] ?? '',
+        'content_kd': fullData['content_kd'] ?? '',
+        'content_indicator': fullData['content_indicator'] ?? '',
+        'learning_goal':
+            fullData['learning_goal'] ?? fullData['objectives'] ?? '',
+        'teaching_material':
+            fullData['teaching_material'] ?? fullData['material'] ?? '',
+        'teaching_method':
+            fullData['teaching_method'] ?? fullData['resources'] ?? '',
+        'content_steps': fullData['content_steps'] ?? '',
+        'content_summary': fullData['content_summary'] ?? '',
+        'assessment': fullData['assessment'] ?? '',
+        'is_draft': 1,
+      };
+
+      final result = await _rppService.createRpp(newData);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        if (result['success'] == true || result['status'] == 'success') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('RPP Berhasil Diduplikasi ke Draft!'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          _tabController.animateTo(1); // Switch to draft tab
+          setState(() {});
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal duplikasi: ${result['message']}'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Terjadi kesalahan: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildCardInfo(IconData icon, String text) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 14, color: const Color(0xFF94A3B8)),
         const SizedBox(width: 6),
-        Text(
-          text,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xFF64748B),
+        Flexible(
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF64748B),
+            ),
           ),
         ),
       ],

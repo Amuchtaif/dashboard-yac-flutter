@@ -95,18 +95,55 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
         _stepsController.text = data['content_steps'] ?? '';
         _assessmentController.text = data['assessment'] ?? '';
 
-        final cName = data['grade_name'] ?? data['class_name'] ?? '';
+        // 1. Handle Level (Jenjang)
+        final lName = data['level_name'] ?? data['unit_name'] ?? '';
+        if (lName.isNotEmpty) {
+          if (!_levels.contains(lName)) {
+            _levels.add(lName);
+            _levels.sort();
+          }
+          _selectedLevel = lName;
+        }
+
+        // 2. Update filtered lists based on level
+        _updateFilteredData();
+
+        // 3. Handle Subject (Mapel)
         final sName = data['subject_name'] ?? '';
-        if (cName.isNotEmpty && sName.isNotEmpty) {
-          final match = _allTeachingInfo.firstWhere(
-            (e) => e['class_name'] == cName && e['subject_name'] == sName,
-            orElse: () => {},
-          );
-          if (match.isNotEmpty) {
-            _selectedLevel = match['level_name'];
-            _updateFilteredData();
-            _selectedSubject = sName;
-            _selectedClass = cName;
+        if (sName.isNotEmpty) {
+          if (!_filteredSubjects.contains(sName)) {
+            _filteredSubjects.add(sName);
+            _filteredSubjects.sort();
+          }
+          _selectedSubject = sName;
+        }
+
+        // 4. Handle Class (Kelas)
+        final cName = data['grade_name'] ?? data['class_name'] ?? '';
+        if (cName.isNotEmpty) {
+          if (!_filteredClasses.contains(cName)) {
+            _filteredClasses.add(cName);
+            _filteredClasses.sort();
+          }
+          _selectedClass = cName;
+        }
+
+        // 5. Handle Year and Semester
+        final yearName =
+            data['academic_year'] ?? data['academic_year_name'] ?? '';
+        if (yearName.isNotEmpty) {
+          if (!_academicYears.contains(yearName)) {
+            _academicYears.add(yearName);
+            _academicYears.sort();
+          }
+          _selectedYear = yearName;
+        }
+
+        if (data['semester'] != null &&
+            data['semester'].toString().isNotEmpty) {
+          final sem = data['semester'].toString();
+          if (_semesters.contains(sem)) {
+            _selectedSemester = sem;
           }
         }
       }
@@ -243,25 +280,7 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
       _formKey.currentState?.save();
     }
 
-    // Find IDs
-    final selectedTeaching = _allTeachingInfo.firstWhere(
-      (e) =>
-          e['level_name'] == _selectedLevel &&
-          e['subject_name'] == _selectedSubject &&
-          e['class_name'] == _selectedClass,
-      orElse: () => {},
-    );
-
-    if (selectedTeaching.isEmpty && !isDraft) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Data mengajar tidak ditemukan')),
-      );
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-
-    // Lookup IDs from master data by matching names
+    // Find IDs from Master Data (Required for creation/publishing)
     final classItem = _masterClasses.firstWhere(
       (e) => e['class_name'] == _selectedClass,
       orElse: () => {},
@@ -270,6 +289,21 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
       (e) => e['name'] == _selectedSubject,
       orElse: () => {},
     );
+
+    if (!isDraft) {
+      if (classItem.isEmpty || subjectItem.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Gagal menemukan referensi Kelas/Mapel di sistem. Pastikan data master tersedia.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
+    setState(() => _isSubmitting = true);
 
     // Map unit_name to a tentative level_id
     int foundLevelId = 0;
@@ -327,7 +361,7 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        Navigator.pop(context, true);
+        Navigator.pop(context, isDraft ? 'draft' : 'published');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
