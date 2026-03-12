@@ -30,6 +30,9 @@ class _StudentGradingScreenState extends State<StudentGradingScreen> {
 
     if (mounted) {
       setState(() => _isLoading = false);
+      if (_assessments.isNotEmpty) {
+        debugPrint('StudentGradingScreen: Sample assessment keys: ${_assessments.first.keys.toList()}');
+      }
     }
   }
 
@@ -266,137 +269,159 @@ class _StudentGradingScreenState extends State<StudentGradingScreen> {
         final avgScore =
             double.tryParse(assessment['avg_score']?.toString() ?? '0') ?? 0.0;
 
-        return InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder:
-                    (context) => GradingDetailScreen(
-                      assessmentId: assessment['id'].toString(),
-                    ),
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () async {
+              final idToPass = (assessment['id'] ??
+                      assessment['assessment_id'] ??
+                      assessment['grading_id'] ??
+                      assessment['id_grading'] ??
+                      assessment['id_penilaian'] ??
+                      '')
+                  .toString();
+              debugPrint(
+                'StudentGradingScreen: Navigating to detail with ID: $idToPass',
+              );
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (context) => GradingDetailScreen(assessmentId: idToPass),
+                ),
+              );
+              if (result != null) {
+                _fetchHistory();
+              }
+            },
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-            );
-          },
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: const Icon(
-                        Icons.assignment_turned_in_rounded,
-                        color: Color(0xFF7C3AED),
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            assessment['assessment_type_name'] ??
-                                assessment['type_name'] ??
-                                assessment['assessment_type'] ??
-                                assessment['name'] ??
-                                'Penilaian',
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: const Color(0xFF1E293B),
-                            ),
-                          ),
-                          Text(
-                            '${assessment['subject_name'] ?? '-'} • ${assessment['class_name'] ?? '-'}',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: const Color(0xFF64748B),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        avgScore.toStringAsFixed(1),
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF059669),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F3FF),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.assignment_turned_in_rounded,
+                          color: Color(0xFF7C3AED),
+                          size: 22,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildIconText(
-                      Icons.calendar_today_outlined,
-                      DateFormat('dd MMM yyyy', 'id_ID').format(
-                        DateTime.parse(
-                          assessment['assessment_date'] ??
-                              assessment['date'] ??
-                              DateTime.now().toString(),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              assessment['assessment_type_name'] ??
+                                  assessment['type_name'] ??
+                                  assessment['assessment_type'] ??
+                                  assessment['name'] ??
+                                  'Penilaian',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: const Color(0xFF1E293B),
+                              ),
+                            ),
+                            Text(
+                              '${assessment['subject_name'] ?? '-'} • ${assessment['class_name'] ?? '-'}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: const Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    _buildIconText(
-                      Icons.people_outline_rounded,
-                      '${assessment['student_count'] ?? assessment['total_students'] ?? 0} Siswa',
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          avgScore.toStringAsFixed(1),
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF059669),
+                          ),
+                        ),
                       ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildIconText(
+                          Icons.calendar_today_outlined,
+                          DateFormat('dd MMM yyyy', 'id_ID').format(
+                            DateTime.parse(
+                              assessment['assessment_date'] ??
+                                  assessment['date'] ??
+                                  DateTime.now().toString(),
+                            ),
+                          ),
+                        ),
                       ),
+                      _buildIconText(
+                        Icons.people_outline_rounded,
+                        '${assessment['student_count'] ?? assessment['total_students'] ?? 0} Siswa',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFF1F5F9)),
+                    ),
+                    child: Center(
                       child: Text(
-                        'Detail',
+                        'Lihat Detail Penilaian',
                         style: GoogleFonts.poppins(
-                          fontSize: 11,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: const Color(0xFF7C3AED),
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -492,10 +517,22 @@ class _GradingDetailScreenState extends State<GradingDetailScreen> {
     final detail = await _gradingService.getAssessmentDetail(
       widget.assessmentId,
     );
-    setState(() {
-      _assessmentDetail = detail;
-      _isLoading = false;
-    });
+    if (mounted) {
+      if (detail == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Detail data tidak ditemukan atau ID tidak valid'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } else {
+        debugPrint('GradingDetailScreen: Detail keys: ${detail.keys.toList()}');
+      }
+      setState(() {
+        _assessmentDetail = detail;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -554,8 +591,10 @@ class _GradingDetailScreenState extends State<GradingDetailScreen> {
             color: const Color(0xFF1E293B),
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new,
@@ -612,6 +651,19 @@ class _GradingDetailScreenState extends State<GradingDetailScreen> {
                     assessment['subject_name'] ?? '-',
                   ),
                   const SizedBox(height: 12),
+                  _buildDetailRow(
+                    Icons.person_outline,
+                    'Nama Guru',
+                    assessment['teacher_name'] ??
+                        assessment['nama_guru'] ??
+                        assessment['guru'] ??
+                        assessment['full_name'] ??
+                        assessment['nama_lengkap'] ??
+                        assessment['nama'] ??
+                        '-',
+                  ),
+                  const SizedBox(height: 12),
+                  // Render the date row
                   _buildDetailRow(
                     Icons.calendar_today_outlined,
                     'Tanggal',

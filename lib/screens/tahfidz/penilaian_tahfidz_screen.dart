@@ -18,6 +18,7 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
   final TahfidzService _service = TahfidzService();
 
   List<dynamic> _studentsList = [];
+  List<dynamic> _assessmentTypes = [];
   int? _selectedStudentId;
   DateTime _selectedDate = DateTime.now();
   String _category = 'Bulanan';
@@ -29,19 +30,50 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
 
   bool _isLoading = true;
   bool _isSubmitting = false;
+  bool _isInputView = false;
 
   // Coordinator state
   bool _isKoordinator = false;
   List<dynamic> _coordAssessmentRecords = [];
+  List<dynamic> _teacherAssessmentRecords = [];
 
   @override
   void initState() {
     super.initState();
     _isKoordinator = AccessControl.can('is_koordinator');
+    _fetchAssessmentTypes();
     if (_isKoordinator) {
       _fetchCoordinatorData();
     } else {
-      _fetchStudents();
+      _fetchTeacherData();
+    }
+  }
+
+  Future<void> _fetchTeacherData() async {
+    setState(() => _isLoading = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final int? teacherId = prefs.getInt('userId');
+      final String? teacherName = prefs.getString('fullName');
+
+      if (!mounted) return;
+      final provider = Provider.of<TahfidzProvider>(context, listen: false);
+      if (provider.myStudents.isEmpty) {
+        await provider.fetchMyStudents(teacherId, teacherName: teacherName);
+      } else {
+        provider.setTeacherInfo(teacherId, teacherName);
+      }
+
+      final history = await _service.getAssessmentHistory(teacherId: teacherId);
+
+      setState(() {
+        _studentsList = provider.myStudents;
+        _teacherAssessmentRecords = history;
+      });
+    } catch (e) {
+      debugPrint("Error fetching teacher data: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -60,28 +92,36 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
     }
   }
 
-  Future<void> _fetchStudents() async {
-    setState(() => _isLoading = true);
+  Future<void> _fetchAssessmentTypes() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final int? teacherId = prefs.getInt('userId');
-      final String? teacherName = prefs.getString('fullName');
+      debugPrint('PenilaianTahfidzScreen: Fetching assessment types...');
+      final types = await _service.getAssessmentTypes();
+      debugPrint('PenilaianTahfidzScreen: Received ${types.length} types');
 
-      if (!mounted) return;
-      final provider = Provider.of<TahfidzProvider>(context, listen: false);
-      if (provider.myStudents.isEmpty) {
-        await provider.fetchMyStudents(teacherId, teacherName: teacherName);
-      } else {
-        provider.setTeacherInfo(teacherId, teacherName);
+      if (mounted) {
+        if (types.isNotEmpty) {
+          setState(() {
+            _assessmentTypes = types;
+            // Check if current category is available in new types
+            bool exists = types.any((t) {
+              final name = (t['name'] ?? t['jenis'] ?? '').toString();
+              return name == _category;
+            });
+
+            if (!exists) {
+              _category =
+                  (types.first['name'] ?? types.first['jenis'] ?? 'Bulanan')
+                      .toString();
+            }
+          });
+        } else {
+          debugPrint(
+            'PenilaianTahfidzScreen: Assessment types list is empty from server',
+          );
+        }
       }
-
-      setState(() {
-        _studentsList = provider.myStudents;
-      });
     } catch (e) {
-      debugPrint("Error fetching students: $e");
-    } finally {
-      setState(() => _isLoading = false);
+      debugPrint('PenilaianTahfidzScreen: Error fetching assessment types: $e');
     }
   }
 
@@ -127,7 +167,16 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pop(context);
+      setState(() {
+        _isInputView = false;
+        // Reset form
+        _tajweedController.clear();
+        _fluencyController.clear();
+        _makhrajController.clear();
+        _commentsController.clear();
+        _selectedStudentId = null;
+      });
+      _fetchTeacherData(); // Refresh history
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -141,117 +190,353 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // --- COORDINATOR VIEW ---
     if (_isKoordinator) {
       return _buildCoordinatorView();
     }
 
-    // --- PENGAMPU VIEW ---
+    return _isInputView ? _buildInputView() : _buildHistoryListView();
+  }
+
+  Widget _buildHistoryListView() {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F8FF),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
-          'Input Penilaian',
+          'Daftar Penilaian',
           style: GoogleFonts.poppins(
-            color: Colors.black87,
+            color: const Color(0xFF1E293B),
             fontWeight: FontWeight.bold,
+            fontSize: 18,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchTeacherData,
+          ),
+        ],
       ),
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
+              : _teacherAssessmentRecords.isEmpty
+              ? _buildEmptyState()
+              : ListView.builder(
                 padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildCard([
-                      _buildLabel('Pilih Siswa'),
-                      const SizedBox(height: 8),
-                      _buildStudentDropdown(),
-                      const SizedBox(height: 20),
-                      _buildLabel('Tanggal Penilaian'),
-                      const SizedBox(height: 8),
-                      _buildDatePicker(),
-                      const SizedBox(height: 20),
-                      _buildLabel('Kategori'),
-                      const SizedBox(height: 8),
-                      _buildCategoryDropdown(),
-                    ]),
-                    const SizedBox(height: 20),
-                    _buildCard([
-                      Text(
-                        "Nilai (0-100)",
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildScoreInput("Tajwid", _tajweedController),
-                      const SizedBox(height: 12),
-                      _buildScoreInput("Kelancaran", _fluencyController),
-                      const SizedBox(height: 12),
-                      _buildScoreInput("Makhraj", _makhrajController),
-                    ]),
-                    const SizedBox(height: 20),
-                    _buildCard([
-                      _buildLabel("Catatan / Komentar"),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _commentsController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          hintText: "Tulis catatan perkembangan...",
-                        ),
-                      ),
-                    ]),
-                    const SizedBox(height: 30),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isSubmitting ? null : _submitPenilaian,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          _isSubmitting ? "Menyimpan..." : "Simpan Penilaian",
+                itemCount: _teacherAssessmentRecords.length,
+                itemBuilder: (context, index) {
+                  final record = _teacherAssessmentRecords[index];
+                  return _buildAssessmentCard(record);
+                },
+              ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => setState(() => _isInputView = true),
+        backgroundColor: const Color(0xFF3B82F6),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: Text(
+          "Tambah Penilaian",
+          style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.assignment_outlined, size: 80, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            "Belum ada data penilaian.",
+            style: GoogleFonts.poppins(color: Colors.grey[500], fontSize: 16),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => setState(() => _isInputView = true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF3B82F6),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text("Buat Penilaian Pertama"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssessmentCard(Map<String, dynamic> record) {
+    // Similar to coordinator card but maybe simplified
+    final studentName = record['student_name'] ?? record['nama_siswa'] ?? '-';
+    final category = record['category'] ?? '-';
+    final date = record['assessment_date'] ?? '-';
+    final total = record['total_score']?.toString() ?? '-';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Center(
+              child: Text(
+                studentName.isNotEmpty ? studentName[0].toUpperCase() : '?',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: const Color(0xFF3B82F6),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  studentName,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: const Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "$category • $date",
+                  style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              total,
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: const Color(0xFF10B981),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputView() {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => setState(() => _isInputView = false),
+        ),
+        title: Text(
+          'Input Penilaian',
+          style: GoogleFonts.poppins(
+            color: const Color(0xFF1E293B),
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildCard([
+                    Row(
+                      children: [
+                        const Icon(Icons.person_pin_rounded,
+                            size: 18, color: Color(0xFF3B82F6)),
+                        const SizedBox(width: 8),
+                        _buildLabel('Pilih Siswa'),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildStudentDropdown(),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        const Icon(Icons.calendar_month_rounded,
+                            size: 18, color: Color(0xFF3B82F6)),
+                        const SizedBox(width: 8),
+                        _buildLabel('Tanggal Penilaian'),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDatePicker(),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        const Icon(Icons.category_rounded,
+                            size: 18, color: Color(0xFF3B82F6)),
+                        const SizedBox(width: 8),
+                        _buildLabel('Jenis Penilaian'),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildCategoryDropdown(),
+                  ]),
+                  const SizedBox(height: 20),
+                  _buildCard([
+                    Row(
+                      children: [
+                        const Icon(Icons.stars_rounded,
+                            size: 18, color: Color(0xFFF59E0B)),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Input Nilai (0-100)",
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
                             fontSize: 16,
+                            color: const Color(0xFF1E293B),
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _buildScoreInput("Tajwid", _tajweedController,
+                        Icons.menu_book_rounded),
+                    const SizedBox(height: 14),
+                    _buildScoreInput("Kelancaran", _fluencyController,
+                        Icons.record_voice_over_rounded),
+                    const SizedBox(height: 14),
+                    _buildScoreInput("Makhraj", _makhrajController,
+                        Icons.record_voice_over_rounded),
+                  ]),
+                  const SizedBox(height: 20),
+                  _buildCard([
+                    Row(
+                      children: [
+                        const Icon(Icons.comment_rounded,
+                            size: 18, color: Color(0xFF6366F1)),
+                        const SizedBox(width: 8),
+                        _buildLabel("Catatan / Komentar"),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _commentsController,
+                      maxLines: 4,
+                      style: GoogleFonts.poppins(fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: "Tulis catatan perkembangan...",
+                        hintStyle: GoogleFonts.poppins(
+                            color: const Color(0xFF94A3B8), fontSize: 13),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE2E8F0)),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ]),
+                  const SizedBox(height: 30),
+                  Container(
+                    width: double.infinity,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: _isSubmitting ? null : _submitPenilaian,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: Text(
+                        _isSubmitting ? "Sedang Menyimpan..." : "Simpan Penilaian",
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            ),
     );
   }
 
   Widget _buildCard(List<Widget> children) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFFE2E8F0).withValues(alpha: 0.5),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -266,9 +551,9 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
     return Text(
       text,
       style: GoogleFonts.poppins(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xFF374151),
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: const Color(0xFF475569),
       ),
     );
   }
@@ -298,9 +583,9 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
                   value: id,
                   child: Text(
                     "${s['nama_siswa'] ?? s['nama_santri'] ?? s['nama_lengkap'] ?? s['full_name'] ?? s['name'] ?? '-'}${s['kelas'] != null
-                        ? ' - Kelas ${s['kelas']}'
+                        ? ' - ${s['kelas']}'
                         : s['nama_kelas'] != null
-                        ? ' - Kelas ${s['nama_kelas']}'
+                        ? ' - ${s['nama_kelas']}'
                         : ''}",
                   ),
                 );
@@ -312,21 +597,42 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
   }
 
   Widget _buildCategoryDropdown() {
+    List<String> categories = ["Bulanan", "Ujian", "Harian"];
+    if (_assessmentTypes.isNotEmpty) {
+      categories =
+          _assessmentTypes
+              .map((t) => (t['name'] ?? t['jenis'] ?? '').toString())
+              .where((name) => name.isNotEmpty)
+              .toList();
+    }
+
+    // Ensure _category is still valid for the current list
+    if (categories.isNotEmpty && !categories.contains(_category)) {
+      _category = categories.first;
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
+        color: Colors.white,
         border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _category,
           isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded),
           items:
-              ["Bulanan", "Ujian", "Harian"].map((c) {
-                return DropdownMenuItem<String>(value: c, child: Text(c));
+              categories.map((c) {
+                return DropdownMenuItem<String>(
+                  value: c,
+                  child: Text(c, style: GoogleFonts.poppins(fontSize: 14)),
+                );
               }).toList(),
-          onChanged: (val) => setState(() => _category = val!),
+          onChanged: (val) {
+            if (val != null) setState(() => _category = val);
+          },
         ),
       ),
     );
@@ -360,20 +666,50 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
     );
   }
 
-  Widget _buildScoreInput(String label, TextEditingController controller) {
+  Widget _buildScoreInput(
+    String label,
+    TextEditingController controller,
+    IconData icon,
+  ) {
     return Row(
       children: [
-        Expanded(child: Text(label, style: GoogleFonts.poppins())),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 16, color: const Color(0xFF64748B)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1E293B),
+            ),
+          ),
+        ),
         SizedBox(
           width: 80,
           child: TextField(
             controller: controller,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
             decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
             ),
           ),
@@ -385,20 +721,21 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
   // ====== COORDINATOR VIEW ======
   Widget _buildCoordinatorView() {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: Text(
           'Monitoring Penilaian',
           style: GoogleFonts.poppins(
-            color: Colors.black87,
+            color: const Color(0xFF1E293B),
             fontWeight: FontWeight.w600,
+            fontSize: 18,
           ),
         ),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        scrolledUnderElevation: 0,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -601,7 +938,7 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                'Kategori: $category',
+                'Jenis: $category',
                 style: GoogleFonts.poppins(
                   fontSize: 11,
                   color: Colors.purple,

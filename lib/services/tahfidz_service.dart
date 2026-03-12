@@ -367,4 +367,23 @@ class TahfidzService {
     }
     return [];
   }
+
+  Future<List<dynamic>> getAssessmentTypes() async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/tahfidz/get_assessment_types.php"),
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching tahfidz assessment types: $e");
+    }
+    return [];
+  }
 }

@@ -100,7 +100,7 @@ class _RppDetailScreenState extends State<RppDetailScreen> {
                           (context) => CreateRppScreen(initialRppData: rppData),
                     ),
                   );
-                  if (result != null) {
+                  if (result != null && context.mounted) {
                     // refresh or pop with result
                     Navigator.pop(context, result);
                   }

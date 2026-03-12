@@ -85,4 +85,7 @@ class ApiConstants {
   static const String gradingGetHistory = '${baseUrl}grading/get_history.php';
   static const String gradingGetDetail = '${baseUrl}grading/get_detail.php';
   static const String gradingSubmit = '${baseUrl}grading/submit.php';
+  
+  // Tahfidz Endpoints
+  static const String tahfidzGetAssessmentTypes = '${baseUrl}tahfidz/get_assessment_types.php';
 }

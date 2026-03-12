@@ -5,6 +5,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_constants.dart';
 
 class GradingService {
+  Future<String> _getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.get('user_id') ?? prefs.get('userId');
+    return userId?.toString() ?? '0';
+  }
+
+  bool _isSuccess(dynamic result) {
+    if (result == null) return false;
+    return result['success'] == true || result['status'] == 'success';
+  }
+
   Future<List<Map<String, dynamic>>> getTeachingInfo(String employeeId) async {
     try {
       final response = await http.get(
@@ -14,9 +25,9 @@ class GradingService {
         headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
-      if (response.statusCode == 200) {
+        if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
-        if (result['status'] == 'success' && result['data'] != null) {
+        if (_isSuccess(result) && result['data'] != null) {
           return List<Map<String, dynamic>>.from(result['data']);
         }
       }
@@ -29,17 +40,22 @@ class GradingService {
 
   Future<List<Map<String, dynamic>>> getAssessmentHistory() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id') ?? prefs.getInt('userId');
+      final userId = await _getUserId();
+
+      final url = '${ApiConstants.gradingGetHistory}?teacher_id=$userId';
+      debugPrint('GradingService: Fetching history from $url');
 
       final response = await http.get(
-        Uri.parse('${ApiConstants.gradingGetHistory}?teacher_id=$userId'),
+        Uri.parse(url),
         headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
+      debugPrint('GradingService: History Response Status: ${response.statusCode}');
+      debugPrint('GradingService: History Response Body: ${response.body}');
+
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
-        if (result['success'] == true && result['data'] != null) {
+        if (_isSuccess(result) && result['data'] != null) {
           return List<Map<String, dynamic>>.from(result['data']);
         }
       }
@@ -51,19 +67,33 @@ class GradingService {
   }
 
   Future<Map<String, dynamic>?> getAssessmentDetail(String assessmentId) async {
+    if (assessmentId.isEmpty || assessmentId == 'null') {
+      debugPrint('GradingService: assessmentId is empty');
+      return null;
+    }
     try {
+      // Use manual concatenation for the simplest possible URL construction
+      final url = '${ApiConstants.gradingGetDetail}?id=$assessmentId';
+      debugPrint('GradingService: Fetching detail from $url');
+
       final response = await http.get(
-        Uri.parse(
-          '${ApiConstants.gradingGetDetail}?assessment_id=$assessmentId',
-        ),
+        Uri.parse(url),
         headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
+      debugPrint(
+        'GradingService: Detail Response Status: ${response.statusCode}',
+      );
+      debugPrint('GradingService: Detail Response Body: ${response.body}');
+
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
-        if (result['success'] == true && result['data'] != null) {
+        if (_isSuccess(result) && result['data'] != null) {
           return result['data'];
         }
+      } else if (response.statusCode == 400) {
+        // Log the exact error from the server if it's a 400
+        debugPrint('GradingService: 400 Error Response: ${response.body}');
       }
       return null;
     } catch (e) {
@@ -81,7 +111,7 @@ class GradingService {
 
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
-        if (result['success'] == true && result['data'] != null) {
+        if (_isSuccess(result) && result['data'] != null) {
           return List<Map<String, dynamic>>.from(result['data']);
         }
       }
@@ -103,7 +133,7 @@ class GradingService {
 
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
-        if (result['success'] == true &&
+        if (_isSuccess(result) &&
             result['data'] != null &&
             result['data']['students'] != null) {
           return List<Map<String, dynamic>>.from(result['data']['students']);

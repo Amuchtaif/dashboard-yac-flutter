@@ -30,7 +30,7 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
   List<Map<String, dynamic>> _typeList = [];
   List<Map<String, dynamic>> _students = [];
 
-  Map<String, TextEditingController> _scoreControllers = {};
+  final Map<String, TextEditingController> _scoreControllers = {};
 
   bool _isLoading = true;
   bool _isFetchingStudents = false;
@@ -176,7 +176,10 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
         setState(() => _isSubmitting = false);
         if (result['success'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Penilaian berhasil disimpan')),
+            const SnackBar(
+              content: Text('Penilaian berhasil disimpan'),
+              backgroundColor: Colors.green,
+            ),
           );
           Navigator.pop(context, true); // Return true to refresh history
         } else {
