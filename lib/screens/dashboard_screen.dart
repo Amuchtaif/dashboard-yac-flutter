@@ -2274,24 +2274,11 @@ class HomeTab extends StatelessWidget {
       {'title': 'Kepulangan', 'icon': Icons.home_rounded, 'color': Colors.teal},
     ];
 
-    return Column(
-      children: [
-        Row(
-          children:
-              menus
-                  .sublist(0, 2)
-                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
-                  .toList(),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children:
-              menus
-                  .sublist(2, 4)
-                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
-                  .toList(),
-        ),
-      ],
+    return Row(
+      children:
+          menus
+              .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+              .toList(),
     );
   }
 
