@@ -18,24 +18,8 @@ class PayrollDetailScreen extends StatelessWidget {
       symbol: 'Rp ',
       decimalDigits: 0,
     );
-    final monthNames = [
-      '',
-      'Januari',
-      'Februari',
-      'Maret',
-      'April',
-      'Mei',
-      'Juni',
-      'Juli',
-      'Agustus',
-      'September',
-      'Oktober',
-      'November',
-      'Desember',
-    ];
-
     final periodName =
-        "${monthNames[int.parse(payrollData['periode_bulan'].toString())]} ${payrollData['periode_tahun']}";
+        "${payrollData['nama_bulan']} ${payrollData['periode_tahun']}";
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -707,26 +691,7 @@ class PayrollDetailScreen extends StatelessWidget {
         return currencyFormat.format(double.tryParse(value.toString()) ?? 0);
       }
 
-      final monthNames = [
-        '',
-        'Januari',
-        'Februari',
-        'Maret',
-        'April',
-        'Mei',
-        'Juni',
-        'Juli',
-        'Agustus',
-        'September',
-        'Oktober',
-        'November',
-        'Desember',
-      ];
-
-      final monthIndex =
-          int.tryParse(payrollData['periode_bulan']?.toString() ?? '0') ?? 0;
-      final periodMonth =
-          monthIndex > 0 && monthIndex <= 12 ? monthNames[monthIndex] : '-';
+      final periodMonth = payrollData['nama_bulan'] ?? '-';
       final periodYear = payrollData['periode_tahun'] ?? '-';
 
       pdf.addPage(

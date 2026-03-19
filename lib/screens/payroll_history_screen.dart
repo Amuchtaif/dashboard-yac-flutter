@@ -53,11 +53,28 @@ class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
     if (mounted) setState(() => _isLoading = true);
 
     try {
-      final results = await _payrollService.getPayrollHistory(
+      final rawResults = await _payrollService.getPayrollHistory(
         userId: int.parse(_userId!),
         tahun: _selectedYear.toString(),
         limit: 50,
       );
+
+      // Filter lokal untuk memastikan data sesuai dengan tahun yang dipilih
+      // Kita mengizinkan data jika tahunnya cocok, ATAU jika tahunnya bukan format Masehi
+      // (misalnya tahun Hijriah 1447 untuk THR) atau jika data tahunnya kosong.
+      final results =
+          rawResults.where((p) {
+            final yearStr = p['periode_tahun']?.toString() ?? '';
+            final yearInt = int.tryParse(yearStr);
+
+            // Jika periode_tahun adalah tahun Masehi (> 2000), filter ketat
+            if (yearInt != null && yearInt > 2000) {
+              return yearInt == _selectedYear;
+            }
+
+            // Jika bukan tahun Masehi (misal 1447) atau null/kosong, tampilkan saja
+            return true;
+          }).toList();
 
       double total = 0;
       for (var p in results) {
@@ -347,24 +364,8 @@ class _PayrollHistoryScreenState extends State<PayrollHistoryScreen> {
       symbol: 'Rp ',
       decimalDigits: 0,
     );
-    final monthNames = [
-      '',
-      'Januari',
-      'Februari',
-      'Maret',
-      'April',
-      'Mei',
-      'Juni',
-      'Juli',
-      'Agustus',
-      'September',
-      'Oktober',
-      'November',
-      'Desember',
-    ];
-
     final periodStr =
-        "${monthNames[int.parse(data['periode_bulan'])]} ${data['periode_tahun']}";
+        "${data['nama_bulan']} ${data['periode_tahun']}";
     final amount = double.tryParse(data['gaji_netto'].toString()) ?? 0;
 
     return InkWell(

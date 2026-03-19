@@ -93,4 +93,12 @@ class ApiConstants {
   static const String boardingGetRooms = '${baseUrl}boarding/get_rooms.php';
   static const String boardingGetStudents = '${baseUrl}boarding/get_students.php';
   static const String boardingSubmitAttendance = '${baseUrl}boarding/submit_attendance.php';
+
+  // Perpulangan (Permits) Endpoints
+  static const String perpulanganGetStats = '${baseUrl}perpulangan/get_stats.php';
+  static const String perpulanganGetActive = '${baseUrl}perpulangan/get_active.php';
+  static const String perpulanganGetStudents = '${baseUrl}perpulangan/get_students.php';
+  static const String perpulanganSubmit = '${baseUrl}perpulangan/submit.php';
+  static const String perpulanganUpdateStatus = '${baseUrl}perpulangan/update_status.php';
+  static const String boardingGetHolidays = '${baseUrl}boarding/get_holidays.php';
 }

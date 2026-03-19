@@ -35,6 +35,7 @@ import 'kesantrian/absensi_asrama_screen.dart';
 import 'kesantrian/absensi_makan_screen.dart';
 import 'kesantrian/pelanggaran_screen.dart';
 import 'kesantrian/kepulangan_screen.dart';
+import 'kesantrian/izin_santri_screen.dart';
 import 'class_list_screen.dart';
 import '../services/attendance_service.dart';
 import '../models/location_model.dart';
@@ -2255,7 +2256,7 @@ class HomeTab extends StatelessWidget {
   }
 
   Widget _buildKesantrianMenuGrid(BuildContext context) {
-    final menus = [
+    final row1 = [
       {
         'title': 'Absensi Asrama',
         'icon': Icons.night_shelter_rounded,
@@ -2271,14 +2272,34 @@ class HomeTab extends StatelessWidget {
         'icon': Icons.gavel_rounded,
         'color': Colors.redAccent,
       },
+    ];
+    final row2 = [
       {'title': 'Kepulangan', 'icon': Icons.home_rounded, 'color': Colors.teal},
+      {
+        'title': 'Izin Santri',
+        'icon': Icons.fact_check_rounded,
+        'color': Colors.green,
+      },
     ];
 
-    return Row(
-      children:
-          menus
-              .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
-              .toList(),
+    return Column(
+      children: [
+        Row(
+          children:
+              row1
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            ...row2.map(
+              (menu) => Expanded(child: _buildMenuCard(context, menu)),
+            ),
+            const Expanded(child: SizedBox()),
+          ],
+        ),
+      ],
     );
   }
 
@@ -2631,6 +2652,11 @@ class HomeTab extends StatelessWidget {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const KepulanganScreen()),
+      );
+    } else if (navTitle == 'Izin Santri') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const IzinSantriScreen()),
       );
     } else {
       ScaffoldMessenger.of(

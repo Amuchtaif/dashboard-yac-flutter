@@ -21,11 +21,11 @@ class Asrama {
     int filled = int.tryParse(json['attended_count']?.toString() ?? 
                   json['hadir']?.toString() ?? '0') ?? 0;
     
-    // Prioritas flag dari server, fallback ke jumlah hitung
-    bool isCompleted = json['is_filled'] == 1 || 
-                       json['is_filled'] == '1' || 
+    // Fix logic is_filled: Selesai jika flag=1 ATAU jumlah santri terabsen > 0
+    int isFilledVal = int.tryParse(json['is_filled']?.toString() ?? '0') ?? 0;
+    bool isCompleted = isFilledVal == 1 || 
                        json['sudah_absen'] == true ||
-                       (json['is_filled'] != null && json['is_filled'] != 0);
+                       (filled > 0); // Jika 3/3, maka filled=3, maka otomatis Selesai
 
     return Asrama(
       id: int.tryParse(json['room_id']?.toString() ?? 

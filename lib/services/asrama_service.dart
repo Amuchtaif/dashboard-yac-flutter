@@ -7,12 +7,13 @@ import '../models/asrama_model.dart';
 import '../core/api_constants.dart';
 
 class AsramaService {
-  Future<List<Asrama>> getDaftarAsrama() async {
+  Future<List<Asrama>> getDaftarAsrama({String? date}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt('userId');
+      final targetDate = date ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
       
-      final url = Uri.parse('${ApiConstants.boardingGetRooms}?supervisor_id=$userId');
+      final url = Uri.parse('${ApiConstants.boardingGetRooms}?supervisor_id=$userId&date=$targetDate');
       final response = await http.get(
         url,
         headers: {'ngrok-skip-browser-warning': 'true'},
@@ -31,10 +32,10 @@ class AsramaService {
     return [];
   }
 
-  Future<List<SantriAsrama>> getSantriByAsrama(int asramaId) async {
+  Future<List<SantriAsrama>> getSantriByAsrama(int asramaId, {String? date}) async {
     try {
-      final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final url = Uri.parse('${ApiConstants.boardingGetStudents}?room_id=$asramaId&date=$date');
+      final targetDate = date ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final url = Uri.parse('${ApiConstants.boardingGetStudents}?room_id=$asramaId&date=$targetDate');
       
       final response = await http.get(
         url,
@@ -58,15 +59,15 @@ class AsramaService {
     return [];
   }
 
-  Future<Map<String, dynamic>> submitAbsensi(int asramaId, List<SantriAsrama> absensi) async {
+  Future<Map<String, dynamic>> submitAbsensi(int asramaId, List<SantriAsrama> absensi, {String? date}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt('userId');
-      final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final targetDate = date ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
 
       final payload = {
         "room_id": asramaId,
-        "date": date,
+        "date": targetDate,
         "created_by": userId,
         "attendance": absensi.map((s) => {
           "student_id": s.id,
