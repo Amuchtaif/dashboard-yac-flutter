@@ -55,13 +55,20 @@ class ApiConstants {
       '${baseUrl}assignment/get_subordinates.php';
   static const String getEmployees = '${baseUrl}get_employees.php';
 
-  // Helper for Profile Photo
-  static String getProfilePhotoUrl(String? filename) {
-    if (filename == null || filename.isEmpty) return '';
-    // ApiConfig.baseUrl is like "https://.../dashboard-yac/api"
-    // We want "https://.../dashboard-yac/uploads/profile_photos/filename"
+  // Helpers for Photos
+  static String? getProfilePhotoUrl(String? filename) {
+    if (filename == null || filename.isEmpty || filename == 'null') return null;
+    if (filename.startsWith('http')) return filename;
     final rootUrl = ApiConfig.baseUrl.replaceAll('/api', '');
     return "$rootUrl/uploads/profile_photos/$filename";
+  }
+
+  static String? getInventoryPhotoUrl(String? filename) {
+    if (filename == null || filename.isEmpty || filename == 'null') return null;
+    if (filename.startsWith('http')) return filename;
+    final rootUrl = ApiConfig.baseUrl.replaceAll('/api', '');
+    // Common path for inventory is /uploads/inventory/
+    return "$rootUrl/uploads/inventory/$filename";
   }
 
   // Shift Exchange Endpoints
@@ -85,20 +92,44 @@ class ApiConstants {
   static const String gradingGetHistory = '${baseUrl}grading/get_history.php';
   static const String gradingGetDetail = '${baseUrl}grading/get_detail.php';
   static const String gradingSubmit = '${baseUrl}grading/submit.php';
-  
+
   // Tahfidz Endpoints
-  static const String tahfidzGetAssessmentTypes = '${baseUrl}tahfidz/get_assessment_types.php';
+  static const String tahfidzGetAssessmentTypes =
+      '${baseUrl}tahfidz/get_assessment_types.php';
 
   // Boarding Endpoints
   static const String boardingGetRooms = '${baseUrl}boarding/get_rooms.php';
-  static const String boardingGetStudents = '${baseUrl}boarding/get_students.php';
-  static const String boardingSubmitAttendance = '${baseUrl}boarding/submit_attendance.php';
+  static const String boardingGetStudents =
+      '${baseUrl}boarding/get_students.php';
+  static const String boardingSubmitAttendance =
+      '${baseUrl}boarding/submit_attendance.php';
 
   // Perpulangan (Permits) Endpoints
-  static const String perpulanganGetStats = '${baseUrl}perpulangan/get_stats.php';
-  static const String perpulanganGetActive = '${baseUrl}perpulangan/get_active.php';
-  static const String perpulanganGetStudents = '${baseUrl}perpulangan/get_students.php';
+  static const String perpulanganGetStats =
+      '${baseUrl}perpulangan/get_stats.php';
+  static const String perpulanganGetActive =
+      '${baseUrl}perpulangan/get_active.php';
+  static const String perpulanganGetStudents =
+      '${baseUrl}perpulangan/get_students.php';
   static const String perpulanganSubmit = '${baseUrl}perpulangan/submit.php';
-  static const String perpulanganUpdateStatus = '${baseUrl}perpulangan/update_status.php';
-  static const String boardingGetHolidays = '${baseUrl}boarding/get_holidays.php';
+  static const String perpulanganUpdateStatus =
+      '${baseUrl}perpulangan/update_status.php';
+  static const String boardingGetHolidays =
+      '${baseUrl}boarding/get_holidays.php';
+
+  // Inventory Endpoints
+  static const String inventoryGetItems = '${baseUrl}inventory/items/get.php';
+  static const String inventorySaveItem = '${baseUrl}inventory/items/save.php';
+  static const String inventoryDeleteItem = '${baseUrl}inventory/items/delete.php';
+  static const String inventoryGetLocations =
+      '${baseUrl}inventory/locations/get.php';
+  static const String inventorySaveLocation =
+      '${baseUrl}inventory/locations/save.php';
+  static const String inventoryDeleteLocation =
+      '${baseUrl}inventory/locations/delete.php';
+
+  // Kabid Endpoints
+  static const String kabidStaffAttendance = '${baseUrl}kabid/staff_attendance/get.php';
+  static const String kabidStaffAttendanceRecap = '${baseUrl}kabid/staff_attendance/recap.php';
+  static const String kabidStaffAttendanceMonthDetail = '${baseUrl}kabid/staff_attendance/month_detail.php';
 }

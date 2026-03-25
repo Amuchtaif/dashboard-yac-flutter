@@ -189,25 +189,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: ClipOval(
                             child:
-                                _profilePhoto.isNotEmpty
-                                    ? Image.network(
-                                      ApiConstants.getProfilePhotoUrl(
-                                        _profilePhoto,
-                                      ),
-                                      width: 48,
-                                      height: 48,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) =>
-                                              const Icon(
-                                                Icons.person,
-                                                color: Colors.white,
-                                              ),
-                                    )
-                                    : const Icon(
-                                      Icons.person,
-                                      color: Colors.white,
-                                    ),
+                                () {
+                                  final photoUrl = ApiConstants.getProfilePhotoUrl(_profilePhoto);
+                                  return (photoUrl != null && photoUrl.isNotEmpty)
+                                      ? Image.network(
+                                        photoUrl,
+                                        width: 48,
+                                        height: 48,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                const Icon(
+                                                  Icons.person,
+                                                  color: Colors.white,
+                                                ),
+                                      )
+                                      : const Icon(
+                                        Icons.person,
+                                        color: Colors.white,
+                                      );
+                                }(),
                           ),
                         ),
                       ],
@@ -376,7 +377,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Created with ❤ by Abu Aufar',
+                      'Made with ❤ by Abu Aufar',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: Colors.grey[400],

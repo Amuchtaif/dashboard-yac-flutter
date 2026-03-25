@@ -109,11 +109,7 @@ class _AbsensiAsramaScreenState extends State<AbsensiAsramaScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
+        color: Color(0xFFF8FAFC),
       ),
       child: Row(
         children: [
@@ -466,7 +462,7 @@ class _DetailAsramaScreenState extends State<DetailAsramaScreen> {
           style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
         foregroundColor: Colors.black,
         actions: [

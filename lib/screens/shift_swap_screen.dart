@@ -427,19 +427,12 @@ class _ShiftSwapScreenState extends State<ShiftSwapScreen>
                     CircleAvatar(
                       radius: 12,
                       backgroundColor: const Color(0xFFF1F5F9),
-                      backgroundImage:
-                          (isHistory
-                                      ? req['substitute_photo']
-                                      : req['requester_photo']) !=
-                                  null
-                              ? NetworkImage(
-                                ApiConstants.getProfilePhotoUrl(
-                                  isHistory
-                                      ? req['substitute_photo']
-                                      : req['requester_photo'],
-                                ),
-                              )
-                              : null,
+                      backgroundImage: () {
+                        final String? url = ApiConstants.getProfilePhotoUrl(
+                          isHistory ? req['substitute_photo'] : req['requester_photo'],
+                        );
+                        return url != null && url.isNotEmpty ? NetworkImage(url) : null;
+                      }(),
                       child:
                           (isHistory
                                       ? req['substitute_photo']

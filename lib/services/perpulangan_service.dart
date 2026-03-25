@@ -18,7 +18,7 @@ class PerpulanganService {
       }
 
       final url = Uri.parse(
-        '${ApiConstants.perpulanganGetActive}?search=$search&supervisor_id=${finalSupervisorId ?? ""}',
+        '${ApiConstants.perpulanganGetActive}?search=$search&user_id=${finalSupervisorId ?? ""}',
       );
       final response = await http.get(
         url,
@@ -47,7 +47,7 @@ class PerpulanganService {
       }
 
       final url = Uri.parse(
-        '${ApiConstants.perpulanganGetStats}?supervisor_id=${finalSupervisorId ?? ""}',
+        '${ApiConstants.perpulanganGetStats}?user_id=${finalSupervisorId ?? ""}',
       );
       final response = await http.get(
         url,
@@ -109,14 +109,22 @@ class PerpulanganService {
     required String reason,
     required String startDate,
     required String endDate,
+    int? musrifId,
   }) async {
     try {
+      int? finalMusrifId = musrifId;
+      if (finalMusrifId == null) {
+        final prefs = await SharedPreferences.getInstance();
+        finalMusrifId = prefs.getInt('userId');
+      }
+
       final payload = {
         "student_id": studentId,
+        "musrif_id": finalMusrifId,
         "category": category,
         "reason": reason,
         "start_date": startDate,
-        "end_date": endDate
+        "end_date": endDate,
       };
 
       final response = await http.post(

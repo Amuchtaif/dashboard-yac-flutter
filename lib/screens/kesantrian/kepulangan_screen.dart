@@ -16,19 +16,19 @@ class KepulanganScreen extends StatefulWidget {
 class _KepulanganScreenState extends State<KepulanganScreen> {
   final PerpulanganService _service = PerpulanganService();
   final AsramaService _asramaService = AsramaService();
-  
+
   bool _isLoading = true;
   bool _isSubmitting = false;
   List<BoardingHoliday> _holidays = [];
   BoardingHoliday? _selectedHoliday;
-  
+
   List<PerpulanganStudent> _allStudents = [];
   List<PerpulanganStudent> _filteredStudents = [];
   List<PerpulanganPermit> _activeLiburPermits = [];
   final Set<int> _selectedStudentIds = {};
-  
-  DateTime _tanggalKeluar = DateTime.now();
-  DateTime _tanggalKembali = DateTime.now().add(const Duration(days: 14));
+
+  DateTime? _tanggalKeluar;
+  DateTime? _tanggalKembali;
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _listSearchController = TextEditingController();
   int? _supervisorId;
@@ -55,7 +55,7 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       _supervisorId = prefs.getInt('userId');
-      
+
       final asramas = await _asramaService.getDaftarAsrama();
       if (asramas.isNotEmpty) {
         final students = await _service.getStudents(
@@ -64,23 +64,38 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
         );
         _allStudents = students;
       }
-      
-      final activePermits = await _service.getActivePermits(supervisorId: _supervisorId);
-      _activeLiburPermits = activePermits.where((p) => p.category == 'Libur').toList();
-      
+
+      final activePermits = await _service.getActivePermits(
+        supervisorId: _supervisorId,
+      );
+      _activeLiburPermits =
+          activePermits.where((p) => p.category == 'Libur').toList();
+
       _holidays = await _service.getHolidays();
-      if (_holidays.isNotEmpty) {
-        _selectedHoliday = _holidays.first;
-        _tanggalKeluar = DateTime.parse(_selectedHoliday!.startDate);
-        _tanggalKembali = DateTime.parse(_selectedHoliday!.endDate);
-      }
-      
+      _selectedHoliday = null;
+
       if (_allStudents.isEmpty) {
         _allStudents = [
-          PerpulanganStudent(id: 1, name: 'Ahmad Zulkarnain', className: 'Kelas XII - Al-Azhar'),
-          PerpulanganStudent(id: 2, name: 'Fatimah Az-Zahra', className: 'Kelas XI - Khadijah'),
-          PerpulanganStudent(id: 3, name: 'Budi Santoso', className: 'Kelas X - Madinah'),
-          PerpulanganStudent(id: 4, name: 'Siti Aminah', className: 'Kelas X - Makkah'),
+          PerpulanganStudent(
+            id: 1,
+            name: 'Ahmad Zulkarnain',
+            className: 'Kelas XII - Al-Azhar',
+          ),
+          PerpulanganStudent(
+            id: 2,
+            name: 'Fatimah Az-Zahra',
+            className: 'Kelas XI - Khadijah',
+          ),
+          PerpulanganStudent(
+            id: 3,
+            name: 'Budi Santoso',
+            className: 'Kelas X - Madinah',
+          ),
+          PerpulanganStudent(
+            id: 4,
+            name: 'Siti Aminah',
+            className: 'Kelas X - Makkah',
+          ),
         ];
       }
 
@@ -96,16 +111,20 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
       if (query.isEmpty) {
         _filteredStudents = _allStudents;
       } else {
-        _filteredStudents = _allStudents
-            .where((s) => s.name.toLowerCase().contains(query.toLowerCase()))
-            .toList();
+        _filteredStudents =
+            _allStudents
+                .where(
+                  (s) => s.name.toLowerCase().contains(query.toLowerCase()),
+                )
+                .toList();
       }
     });
   }
 
   void _toggleSelectAll() {
     setState(() {
-      final sendableStudents = _filteredStudents.where((s) => !_isStudentOnLibur(s.id)).toList();
+      final sendableStudents =
+          _filteredStudents.where((s) => !_isStudentOnLibur(s.id)).toList();
       if (_selectedStudentIds.length == sendableStudents.length) {
         _selectedStudentIds.clear();
       } else {
@@ -132,37 +151,45 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
       length: 2,
       child: Scaffold(
         backgroundColor: const Color(0xFFFAFAFA),
-        body: _isLoading 
-          ? Center(child: CircularProgressIndicator(color: primaryColor))
-          : Column(
-              children: [
-                SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    child: _buildHeader(context),
-                  ),
-                ),
-                TabBar(
-                  labelColor: primaryColor,
-                  unselectedLabelColor: Colors.grey,
-                  indicatorColor: primaryColor,
-                  labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13),
-                  tabs: const [
-                    Tab(text: 'Input Masa Libur'),
-                    Tab(text: 'Monitoring Santri'),
+        body:
+            _isLoading
+                ? Center(child: CircularProgressIndicator(color: primaryColor))
+                : Column(
+                  children: [
+                    SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        child: _buildHeader(context),
+                      ),
+                    ),
+                    TabBar(
+                      dividerColor: Colors.transparent,
+                      labelColor: primaryColor,
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: primaryColor,
+                      labelStyle: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                      tabs: const [
+                        Tab(text: 'Input Masa Libur'),
+                        Tab(text: 'Monitoring Santri'),
+                      ],
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          _buildInputTab(context),
+                          _buildMonitoringTab(context),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _buildInputTab(context),
-                      _buildMonitoringTab(context),
-                    ],
-                  ),
-                ),
-              ],
-            ),
       ),
     );
   }
@@ -175,19 +202,23 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildTitleSection('Pulangkan Santri Massal'),
-              const SizedBox(height: 20),
-              _buildHeaderCard('Gunakan tab ini untuk mengirim santri pulang dalam rangka libur resmi terjadwal.'),
+              _buildHeaderCard(
+                'Gunakan tab ini untuk mengirim santri pulang dalam rangka libur resmi terjadwal.',
+              ),
               const SizedBox(height: 24),
-              _buildSectionLabel('KONFIGURASI LIBUR'),
+              _buildSectionLabel('Pilih Jadwal Libur'),
               const SizedBox(height: 12),
               _buildHolidayDropdown(),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: _buildDateInfoCard('MULAI LIBUR', _tanggalKeluar)),
+                  Expanded(
+                    child: _buildDateInfoCard('MULAI LIBUR', _tanggalKeluar),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildDateInfoCard('SELESAI LIBUR', _tanggalKembali)),
+                  Expanded(
+                    child: _buildDateInfoCard('SELESAI LIBUR', _tanggalKembali),
+                  ),
                 ],
               ),
               const SizedBox(height: 32),
@@ -199,7 +230,11 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
                     onPressed: _toggleSelectAll,
                     child: Text(
                       'Pilih Semua',
-                      style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: primaryColor),
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
                     ),
                   ),
                 ],
@@ -217,8 +252,14 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
   }
 
   Widget _buildMonitoringTab(BuildContext context) {
-    final filteredMonitor = _allStudents.where((s) => 
-      s.name.toLowerCase().contains(_listSearchController.text.toLowerCase())).toList();
+    final filteredMonitor =
+        _allStudents
+            .where(
+              (s) => s.name.toLowerCase().contains(
+                _listSearchController.text.toLowerCase(),
+              ),
+            )
+            .toList();
 
     return RefreshIndicator(
       onRefresh: _fetchInitialData,
@@ -234,7 +275,10 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
               ),
             ),
@@ -255,15 +299,24 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4)),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
                     ],
                   ),
                   child: Row(
                     children: [
                       CircleAvatar(
-                        backgroundColor: isOnLibur ? Colors.orange.shade50 : Colors.blue.shade50,
+                        backgroundColor:
+                            isOnLibur
+                                ? Colors.orange.shade50
+                                : Colors.blue.shade50,
                         child: Icon(
-                          isOnLibur ? Icons.mode_night_rounded : Icons.school_rounded,
+                          isOnLibur
+                              ? Icons.mode_night_rounded
+                              : Icons.school_rounded,
                           color: isOnLibur ? Colors.orange : primaryColor,
                           size: 20,
                         ),
@@ -273,25 +326,45 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(student.name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14)),
                             Text(
-                              isOnLibur ? 'Status: Sedang Libur' : 'Status: Di Pondok',
-                              style: GoogleFonts.poppins(fontSize: 11, color: isOnLibur ? Colors.orange : Colors.green),
+                              student.name,
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              isOnLibur
+                                  ? 'Status: Sedang Libur'
+                                  : 'Status: Di Pondok',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: isOnLibur ? Colors.orange : Colors.green,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       if (isOnLibur)
                         ElevatedButton(
-                          onPressed: () => _confirmReturn(listContext, activePermit),
+                          onPressed:
+                              () => _confirmReturn(listContext, activePermit),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green.shade50,
                             foregroundColor: Colors.green.shade700,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(horizontal: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          child: Text('Kembali', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold)),
+                          child: Text(
+                            'Kembali',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         )
                       else
                         IconButton(
@@ -304,7 +377,10 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
                               _filterStudents('');
                             });
                           },
-                          icon: Icon(Icons.edit_note_rounded, color: primaryColor),
+                          icon: Icon(
+                            Icons.edit_note_rounded,
+                            color: primaryColor,
+                          ),
                         ),
                     ],
                   ),
@@ -331,34 +407,26 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.grey.shade200),
             ),
-            child: const Icon(Icons.arrow_back_ios_new, size: 18, color: Colors.black87),
+            child: const Icon(
+              Icons.arrow_back_ios_new,
+              size: 18,
+              color: Colors.black87,
+            ),
           ),
         ),
         Text(
           'Kepulangan Santri',
-          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
         ),
         const SizedBox(width: 42),
       ],
     );
   }
 
-  Widget _buildTitleSection(String title) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Kordinasi libur resmi asrama',
-          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade500),
-        ),
-      ],
-    );
-  }
 
   Widget _buildHeaderCard(String text) {
     return Container(
@@ -374,7 +442,13 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
           Icon(Icons.tips_and_updates_outlined, color: primaryColor, size: 24),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(text, style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
+            child: Text(
+              text,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
           ),
         ],
       ),
@@ -384,7 +458,12 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
   Widget _buildSectionLabel(String text) {
     return Text(
       text,
-      style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade400, letterSpacing: 0.5),
+      style: GoogleFonts.poppins(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        color: Colors.grey.shade400,
+        letterSpacing: 0.5,
+      ),
     );
   }
 
@@ -400,14 +479,27 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
         child: DropdownButton<BoardingHoliday>(
           value: _selectedHoliday,
           isExpanded: true,
-          icon: Icon(Icons.arrow_drop_down_circle_outlined, color: primaryColor),
-          hint: Text('Pilih Jadwal Libur', style: GoogleFonts.poppins(fontSize: 14)),
-          items: _holidays.map((e) {
-            return DropdownMenuItem(
-              value: e,
-              child: Text(e.name, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
-            );
-          }).toList(),
+          icon: Icon(
+            Icons.arrow_drop_down_circle_outlined,
+            color: primaryColor,
+          ),
+          hint: Text(
+            '--PILIH DATA--',
+            style: GoogleFonts.poppins(fontSize: 14),
+          ),
+          items:
+              _holidays.map((e) {
+                return DropdownMenuItem(
+                  value: e,
+                  child: Text(
+                    e.name,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              }).toList(),
           onChanged: (val) {
             if (val != null) {
               setState(() {
@@ -422,7 +514,7 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
     );
   }
 
-  Widget _buildDateInfoCard(String label, DateTime date) {
+  Widget _buildDateInfoCard(String label, DateTime? date) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -433,15 +525,29 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey.shade400)),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade400,
+            ),
+          ),
           const SizedBox(height: 4),
           Row(
             children: [
-              Icon(Icons.calendar_month_rounded, size: 12, color: primaryColor.withValues(alpha: 0.5)),
+              Icon(
+                Icons.calendar_month_rounded,
+                size: 12,
+                color: primaryColor.withValues(alpha: 0.5),
+              ),
               const SizedBox(width: 6),
               Text(
-                DateFormat('dd MMM yyyy').format(date),
-                style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold),
+                date != null ? DateFormat('dd MMM yyyy').format(date) : '-',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -456,7 +562,11 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 15, offset: const Offset(0, 5)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
         ],
       ),
       child: Column(
@@ -470,7 +580,10 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
                 hintText: 'Cari nama santri...',
                 prefixIcon: const Icon(Icons.search, size: 18),
                 border: InputBorder.none,
-                hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade400),
+                hintStyle: GoogleFonts.poppins(
+                  fontSize: 13,
+                  color: Colors.grey.shade400,
+                ),
               ),
             ),
           ),
@@ -484,32 +597,66 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
               final student = _filteredStudents[index];
               final isSelected = _selectedStudentIds.contains(student.id);
               final isOnLibur = _isStudentOnLibur(student.id);
-              
+
               return ListTile(
-                onTap: isOnLibur ? null : () {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedStudentIds.remove(student.id);
-                    } else {
-                      _selectedStudentIds.add(student.id);
-                    }
-                  });
-                },
+                onTap:
+                    isOnLibur
+                        ? null
+                        : () {
+                          setState(() {
+                            if (isSelected) {
+                              _selectedStudentIds.remove(student.id);
+                            } else {
+                              _selectedStudentIds.add(student.id);
+                            }
+                          });
+                        },
                 leading: CircleAvatar(
                   radius: 18,
-                  backgroundColor: isOnLibur ? Colors.orange.shade50 : (isSelected ? primaryColor : Colors.grey.shade100),
+                  backgroundColor:
+                      isOnLibur
+                          ? Colors.orange.shade50
+                          : (isSelected ? primaryColor : Colors.grey.shade100),
                   child: Text(
                     student.name.substring(0, 1).toUpperCase(),
-                    style: GoogleFonts.poppins(color: isSelected ? Colors.white : (isOnLibur ? Colors.orange : Colors.black87), fontWeight: FontWeight.bold),
+                    style: GoogleFonts.poppins(
+                      color:
+                          isSelected
+                              ? Colors.white
+                              : (isOnLibur ? Colors.orange : Colors.black87),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                title: Text(student.name, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, 
-                  color: isOnLibur ? Colors.grey : Colors.black87)),
-                subtitle: Text(isOnLibur ? 'Sedang Libur' : student.className, style: GoogleFonts.poppins(fontSize: 11, color: isOnLibur ? Colors.orange : Colors.grey)),
-                trailing: isOnLibur ? const Icon(Icons.lock_clock_outlined, size: 20, color: Colors.orange) : Icon(
-                  isSelected ? Icons.check_circle_rounded : Icons.radio_button_off_rounded,
-                  color: isSelected ? primaryColor : Colors.grey.shade200,
+                title: Text(
+                  student.name,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isOnLibur ? Colors.grey : Colors.black87,
+                  ),
                 ),
+                subtitle: Text(
+                  isOnLibur ? 'Sedang Libur' : student.className,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: isOnLibur ? Colors.orange : Colors.grey,
+                  ),
+                ),
+                trailing:
+                    isOnLibur
+                        ? const Icon(
+                          Icons.lock_clock_outlined,
+                          size: 20,
+                          color: Colors.orange,
+                        )
+                        : Icon(
+                          isSelected
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_off_rounded,
+                          color:
+                              isSelected ? primaryColor : Colors.grey.shade200,
+                        ),
               );
             },
           ),
@@ -521,22 +668,47 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
   Widget _buildFloatingSubmitButton() {
     bool hasSelection = _selectedStudentIds.isNotEmpty;
     return Positioned(
-      bottom: 24, left: 20, right: 20,
+      bottom: 24,
+      left: 20,
+      right: 20,
       child: AnimatedScale(
         duration: const Duration(milliseconds: 200),
         scale: hasSelection ? 1.0 : 0,
         child: Container(
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), boxShadow: [
-            BoxShadow(color: primaryColor.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8))
-          ]),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: primaryColor.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
           child: ElevatedButton(
             onPressed: _isSubmitting ? null : _handleSubmit,
-            style: ElevatedButton.styleFrom(backgroundColor: primaryColor, padding: const EdgeInsets.symmetric(vertical: 18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24))),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 12),
-              Text('PULANGKAN SANTRI (${_selectedStudentIds.length})', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
-            ]),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Text(
+                  'PULANGKAN SANTRI (${_selectedStudentIds.length})',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -548,14 +720,22 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
       color: Colors.black26,
       child: Center(
         child: Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(32),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              CircularProgressIndicator(color: primaryColor),
-              const SizedBox(height: 20),
-              Text('Memproses Perizinan...', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-            ]),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: primaryColor),
+                const SizedBox(height: 20),
+                Text(
+                  'Memproses Perizinan...',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -565,14 +745,27 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
   Future<void> _confirmReturn(BuildContext context, PerpulanganPermit p) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Konfirmasi Kembali', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-        content: Text('Apakah santri ${p.studentName} sudah kembali ke pondok?', style: GoogleFonts.poppins()),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Batal')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Ya, Sudah')),
-        ],
-      ),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text(
+              'Konfirmasi Kembali',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+            ),
+            content: Text(
+              'Apakah santri ${p.studentName} sudah kembali ke pondok?',
+              style: GoogleFonts.poppins(),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text('Ya, Sudah'),
+              ),
+            ],
+          ),
     );
     if (confirm == true) {
       setState(() => _isLoading = true);
@@ -581,7 +774,12 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
         _fetchInitialData();
       } else {
         if (mounted && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message'] ?? 'Gagal update'), backgroundColor: Colors.red));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(res['message'] ?? 'Gagal update'),
+              backgroundColor: Colors.red,
+            ),
+          );
           setState(() => _isLoading = false);
         }
       }
@@ -589,27 +787,46 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
   }
 
   Future<void> _handleSubmit() async {
+    if (_tanggalKeluar == null || _tanggalKembali == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tentukan jadwal libur terlebih dahulu.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     try {
       String reason = _selectedHoliday?.name ?? 'Libur Resmi';
-      String startStr = DateFormat('yyyy-MM-dd').format(_tanggalKeluar);
-      String endStr = DateFormat('yyyy-MM-dd').format(_tanggalKembali);
-      
+      String startStr = DateFormat('yyyy-MM-dd').format(_tanggalKeluar!);
+      String endStr = DateFormat('yyyy-MM-dd').format(_tanggalKembali!);
+
       int successCount = 0;
       for (int id in _selectedStudentIds) {
         final res = await _service.submitPermit(
-          studentId: id, category: 'Libur', reason: reason,
-          startDate: startStr, endDate: endStr,
+          studentId: id,
+          category: 'Libur',
+          reason: reason,
+          startDate: startStr,
+          endDate: endStr,
+          musrifId: _supervisorId,
         );
         if (res['success'] == true) successCount++;
       }
-      
+
       if (mounted) {
         setState(() {
           _isSubmitting = false;
           _selectedStudentIds.clear();
         });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$successCount santri berhasil dipulangkan'), backgroundColor: primaryColor));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$successCount santri berhasil dipulangkan'),
+            backgroundColor: primaryColor,
+          ),
+        );
         _fetchInitialData();
       }
     } catch (e) {

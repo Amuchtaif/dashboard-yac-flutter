@@ -13,6 +13,7 @@ import 'quran_list_screen.dart';
 import 'dzikir_doa_screen.dart';
 import 'assunnah_tv_screen.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'meeting_list_screen.dart'; // import meeting list screen
 
 import '../services/notification_service.dart';
@@ -125,6 +126,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoadingActivity = false;
   bool _isSwapped = false;
   String? _swapPartnerName;
+  bool _canApprovePermits = false;
 
   final String baseUrl = ApiConfig.baseUrl;
   List<LocationModel> _locations = [];
@@ -168,19 +170,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         // Tampilkan Notifikasi Sistem (Floating / Heads Up)
         debugPrint("🔔 Showing local notification for FCM message...");
-        NotificationService().showLocalNotification(
-          id: message.messageId ?? message.hashCode.toString(),
-          title: message.notification!.title ?? 'Notifikasi Baru',
-          body: message.notification!.body ?? '',
+        FlutterLocalNotificationsPlugin().show(
+          message.notification.hashCode,
+          message.notification!.title ?? 'Notifikasi Baru',
+          message.notification!.body ?? '',
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'high_importance_channel', // Id unik ini harus sama antara konfigurasi dan pemanggilan
+              'High Importance Notifications',
+              channelDescription:
+                  'Dipakai untuk notifikasi penting agar melayang/bisa bunyi.',
+              importance: Importance.max,
+              priority: Priority.high,
+              icon: '@mipmap/ic_launcher',
+            ),
+          ),
           payload: jsonEncode(payloadData),
         );
       } else {
         // Fallback jika notifikasi null tapi ada data (kadang terjadi)
         debugPrint("🔔 FCM notification is null, using data fields...");
-        NotificationService().showLocalNotification(
-          id: message.messageId ?? message.hashCode.toString(),
-          title: message.data['title'] ?? 'Notifikasi Baru',
-          body: message.data['body'] ?? 'Anda memiliki notifikasi baru',
+        FlutterLocalNotificationsPlugin().show(
+          message.hashCode,
+          message.data['title'] ?? 'Notifikasi Baru',
+          message.data['body'] ?? 'Anda memiliki notifikasi baru',
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'high_importance_channel',
+              'High Importance Notifications',
+              channelDescription:
+                  'Dipakai untuk notifikasi penting agar melayang/bisa bunyi.',
+              importance: Importance.max,
+              priority: Priority.high,
+              icon: '@mipmap/ic_launcher',
+            ),
+          ),
           payload: jsonEncode(payloadData),
         );
       }
@@ -239,12 +263,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (!mounted) return;
 
-    // Case 1: Approval (Manager)
-    if (screen == 'approval') {
+    // Case 1: Approval Santri (Manager/Mudir)
+    if (screen == 'approval' || screen == 'izin_santri') {
+      final String? id = data['id']?.toString();
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => const MainPermitScreen(initialIndex: 1),
+          builder: (context) => IzinSantriScreen(initialPermitId: id),
         ),
       );
     }
@@ -307,7 +332,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_userId != "0") {
       // 1. Refresh Permissions agar menu sesuai hak akses terbaru
       await PermissionService().fetchPermissions(int.parse(_userId));
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {
+          _canApprovePermits = PermissionService().canApprovePermits;
+        });
+      }
 
       // 2. Fetch Data Dashboard
       _fetchDashboardData();
@@ -815,6 +844,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         isLoadingNews: _isLoadingNews,
         isSwapped: _isSwapped,
         swapPartnerName: _swapPartnerName,
+        canApprovePermits: _canApprovePermits,
         onRefresh: () async {
           await _fetchDashboardData();
           await _fetchNewsData();
@@ -945,6 +975,7 @@ class HomeTab extends StatelessWidget {
   final bool isKoordinator;
   final bool isSwapped;
   final String? swapPartnerName;
+  final bool canApprovePermits;
   final Future<void> Function() onRefresh;
 
   const HomeTab({
@@ -966,6 +997,7 @@ class HomeTab extends StatelessWidget {
     required this.isLoadingNews,
     required this.isSwapped,
     this.swapPartnerName,
+    required this.canApprovePermits,
     required this.onRefresh,
   });
 
@@ -1043,17 +1075,20 @@ class HomeTab extends StatelessWidget {
           backgroundColor: Colors.blueAccent,
           child: ClipOval(
             child:
-                profilePhoto.isNotEmpty
-                    ? Image.network(
-                      ApiConstants.getProfilePhotoUrl(profilePhoto),
-                      width: 48,
-                      height: 48,
-                      fit: BoxFit.cover,
-                      errorBuilder:
-                          (context, error, stackTrace) =>
-                              const Icon(Icons.person, color: Colors.white),
-                    )
-                    : const Icon(Icons.person, color: Colors.white),
+                () {
+                  final String? photoUrl = ApiConstants.getProfilePhotoUrl(profilePhoto);
+                  return (photoUrl != null && photoUrl.isNotEmpty)
+                      ? Image.network(
+                        photoUrl,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder:
+                            (context, error, stackTrace) =>
+                                const Icon(Icons.person, color: Colors.white),
+                      )
+                      : const Icon(Icons.person, color: Colors.white);
+                }(),
           ),
         ),
         const SizedBox(width: 12),
@@ -2256,12 +2291,7 @@ class HomeTab extends StatelessWidget {
   }
 
   Widget _buildKesantrianMenuGrid(BuildContext context) {
-    final row1 = [
-      {
-        'title': 'Absensi Asrama',
-        'icon': Icons.night_shelter_rounded,
-        'color': Colors.blueGrey,
-      },
+    final otherMenus = [
       {
         'title': 'Absensi Makan',
         'icon': Icons.restaurant_rounded,
@@ -2272,8 +2302,6 @@ class HomeTab extends StatelessWidget {
         'icon': Icons.gavel_rounded,
         'color': Colors.redAccent,
       },
-    ];
-    final row2 = [
       {'title': 'Kepulangan', 'icon': Icons.home_rounded, 'color': Colors.teal},
       {
         'title': 'Izin Santri',
@@ -2284,20 +2312,18 @@ class HomeTab extends StatelessWidget {
 
     return Column(
       children: [
-        Row(
-          children:
-              row1
-                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
-                  .toList(),
-        ),
+        _buildFullWidthMenuCard(context, {
+          'title': 'Absensi Asrama',
+          'subtitle': 'Input absensi asrama santri',
+          'icon': Icons.night_shelter_rounded,
+          'color': Colors.blueGrey,
+        }),
         const SizedBox(height: 12),
         Row(
-          children: [
-            ...row2.map(
-              (menu) => Expanded(child: _buildMenuCard(context, menu)),
-            ),
-            const Expanded(child: SizedBox()),
-          ],
+          children:
+              otherMenus
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
         ),
       ],
     );
@@ -2327,73 +2353,68 @@ class HomeTab extends StatelessWidget {
       },
     ];
 
-    return Column(
-      children: [
-        Row(
-          children:
-              menus
-                  .sublist(0, 2)
-                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
-                  .toList(),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children:
-              menus
-                  .sublist(2, 4)
-                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
-                  .toList(),
-        ),
-      ],
+    return Row(
+      children:
+          menus
+              .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+              .toList(),
     );
   }
 
   Widget _buildMenuCard(BuildContext context, Map<String, dynamic> menu) {
     return Container(
-      height: 100,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      height: 110,
+      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
       decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
+            blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Material(
-        color: Colors.white,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () => _handleMenuNavigation(context, menu['title'] as String),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: (menu['color'] as Color).withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: (menu['color'] as Color).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    menu['icon'] as IconData,
+                    color: menu['color'] as Color,
+                    size: 20,
+                  ),
                 ),
-                child: Icon(
-                  menu['icon'] as IconData,
-                  color: menu['color'] as Color,
-                  size: 20,
+                const SizedBox(height: 8),
+                Text(
+                  menu['title'] as String,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
+                  style: GoogleFonts.poppins(
+                    fontSize: 9,
+                    height: 1.2,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                menu['title'] as String,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                style: GoogleFonts.poppins(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

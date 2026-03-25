@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dashboard_yac/screens/inventory_list_screen.dart';
+import '../models/inventory_location_model.dart';
+import '../services/inventory_service.dart';
 
 class InventoryCategoryScreen extends StatefulWidget {
-  const InventoryCategoryScreen({super.key});
+  final List<InventoryLocationModel>? locations;
+  final String title;
+
+  const InventoryCategoryScreen({super.key, this.locations, String? title})
+    : title = title ?? 'Lokasi Inventaris';
 
   @override
   State<InventoryCategoryScreen> createState() =>
@@ -11,32 +17,54 @@ class InventoryCategoryScreen extends StatefulWidget {
 }
 
 class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
-  // Data Dummy untuk Kategori (Sesuai gambar)
-  final List<Map<String, dynamic>> _categories = [
-    {'title': 'Bidang Pendidikan', 'count': 0, 'icon': Icons.school_rounded},
-    {
-      'title': 'Bidang Dakwah & Sosial',
-      'count': 0,
-      'icon': Icons.volunteer_activism_rounded,
-    },
-    {
-      'title': 'Bidang Ekonomi',
-      'count': 0,
-      'icon': Icons.account_balance_rounded,
-    },
-    {'title': 'Bidang Umum', 'count': 0, 'icon': Icons.inventory_2_rounded},
-    {
-      'title': 'Bendahara',
-      'count': 0,
-      'icon': Icons.account_balance_wallet_rounded,
-    },
-    {'title': 'Personalia', 'count': 0, 'icon': Icons.badge_rounded},
-  ];
+  final InventoryService _inventoryService = InventoryService();
+  List<InventoryLocationModel> _locations = [];
+  bool _isLoading = false;
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.locations != null) {
+      _locations = widget.locations!;
+    } else {
+      _fetchRootLocations();
+    }
+  }
+
+  Future<void> _fetchRootLocations() async {
+    setState(() => _isLoading = true);
+    try {
+      final allLocations = await _inventoryService.getLocations();
+      if (mounted) {
+        setState(() {
+          // Filter root locations (where parentId is null or not found in children of others)
+          // In this implementation, the API returns the full tree starting with root nodes.
+          _locations = allLocations;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal mengambil data: $e')));
+      }
+    }
+  }
+
+  List<InventoryLocationModel> get _filteredLocations {
+    if (_searchQuery.isEmpty) return _locations;
+    return _locations.where((loc) {
+      return loc.name.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Background bersih sesuai desain
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -44,7 +72,14 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
             const SizedBox(height: 20),
             _buildSearchBar(),
             const SizedBox(height: 10),
-            Expanded(child: _buildCategoryGrid()),
+            Expanded(
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _filteredLocations.isEmpty
+                      ? _buildEmptyState()
+                      : _buildCategoryGrid(),
+            ),
           ],
         ),
       ),
@@ -57,7 +92,6 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Tombol Kembali (Circle border subtle)
           InkWell(
             onTap: () => Navigator.pop(context),
             borderRadius: BorderRadius.circular(50),
@@ -74,18 +108,14 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
               ),
             ),
           ),
-
-          // Judul Tengah
           Text(
-            'Kategori Inventaris',
+            widget.title,
             style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
-
-          // Spacer kosong agar judul di tengah (bisa diganti icon filter/add jika perlu)
           const SizedBox(width: 40),
         ],
       ),
@@ -109,8 +139,13 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
           border: Border.all(color: Colors.grey.shade100),
         ),
         child: TextField(
+          onChanged: (value) {
+            setState(() {
+              _searchQuery = value;
+            });
+          },
           decoration: InputDecoration(
-            hintText: 'Cari bidang atau departemen...',
+            hintText: 'Cari lokasi...',
             hintStyle: GoogleFonts.poppins(
               color: Colors.grey.shade400,
               fontSize: 14,
@@ -135,24 +170,24 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 0.85, // Ratio untuk membuat kartu agak tinggi
+        childAspectRatio: 0.85,
       ),
-      itemCount: _categories.length,
+      itemCount: _filteredLocations.length,
       itemBuilder: (context, index) {
-        final category = _categories[index];
-        return _buildCategoryCard(category);
+        final location = _filteredLocations[index];
+        return _buildCategoryCard(location);
       },
     );
   }
 
-  Widget _buildCategoryCard(Map<String, dynamic> category) {
+  Widget _buildCategoryCard(InventoryLocationModel location) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04), // Shadow sangat halus
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -163,15 +198,31 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // Navigate to detail list
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder:
-                    (context) =>
-                        InventoryListScreen(categoryTitle: category['title']),
-              ),
-            );
+            if (location.children.isNotEmpty) {
+              // Navigate to sub-locations
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (context) => InventoryCategoryScreen(
+                        locations: location.children,
+                        title: location.name,
+                      ),
+                ),
+              );
+            } else {
+              // Leaf location: Navigate to items list
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (context) => InventoryListScreen(
+                        categoryTitle: location.name,
+                        locationId: location.id,
+                      ),
+                ),
+              );
+            }
           },
           borderRadius: BorderRadius.circular(24),
           child: Padding(
@@ -179,35 +230,34 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Icon Bulat Besar
                 Container(
                   width: 60,
                   height: 60,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEAF5FF), // Biru sangat muda
+                    color: const Color(0xFFEAF5FF),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
-                    category['icon'],
-                    color: const Color(0xFF0085FF), // Corporate Blue
+                    location.children.isNotEmpty
+                        ? Icons.folder_rounded
+                        : Icons.inventory_2_rounded,
+                    color: const Color(0xFF0085FF),
                     size: 28,
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                // Judul
                 Text(
-                  category['title'],
+                  location.name,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
-
-                // Badge Count
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -218,7 +268,9 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${category['count']} ITEM',
+                    location.children.isNotEmpty
+                        ? '${location.children.length} SUB'
+                        : 'LIHAT ITEM',
                     style: GoogleFonts.poppins(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -230,6 +282,30 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.location_off_outlined,
+            size: 80,
+            color: Colors.grey.shade300,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Lokasi tidak ditemukan',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: Colors.grey.shade500,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

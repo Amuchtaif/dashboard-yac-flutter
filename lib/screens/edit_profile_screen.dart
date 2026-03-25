@@ -169,30 +169,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       fit: BoxFit.cover,
                                     ),
                                   )
-                                  : widget.profilePhoto.isNotEmpty
-                                  ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(60),
-                                    child: Image.network(
-                                      ApiConstants.getProfilePhotoUrl(
-                                        widget.profilePhoto,
-                                      ),
-                                      width: 120,
-                                      height: 120,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) =>
-                                              const Icon(
-                                                Icons.person,
-                                                size: 60,
-                                                color: Colors.white,
-                                              ),
-                                    ),
-                                  )
-                                  : const Icon(
-                                    Icons.person,
-                                    size: 60,
-                                    color: Colors.white,
-                                  ),
+                                  : () {
+                                      final photoUrl = ApiConstants.getProfilePhotoUrl(widget.profilePhoto);
+                                      return (photoUrl != null && photoUrl.isNotEmpty)
+                                          ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(60),
+                                            child: Image.network(
+                                              photoUrl,
+                                              width: 120,
+                                              height: 120,
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) =>
+                                                      const Icon(
+                                                        Icons.person,
+                                                        size: 60,
+                                                        color: Colors.white,
+                                                      ),
+                                            ),
+                                          )
+                                          : const Icon(
+                                            Icons.person,
+                                            size: 60,
+                                            color: Colors.white,
+                                          );
+                                    }(),
                         ),
                         Positioned(
                           bottom: 0,

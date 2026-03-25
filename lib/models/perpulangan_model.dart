@@ -30,6 +30,7 @@ class PerpulanganPermit {
   final String startDate;
   final String endDate;
   final String status;
+  final String? asrama;
 
   PerpulanganPermit({
     required this.id,
@@ -40,6 +41,7 @@ class PerpulanganPermit {
     required this.startDate,
     required this.endDate,
     required this.status,
+    this.asrama,
   });
 
   factory PerpulanganPermit.fromJson(Map<String, dynamic> json) {
@@ -53,6 +55,7 @@ class PerpulanganPermit {
       startDate: json['start_date'] ?? '',
       endDate: json['end_date'] ?? '',
       status: json['status'] ?? 'Disetujui',
+      asrama: json['asrama'] ?? json['room_name'],
     );
   }
 }

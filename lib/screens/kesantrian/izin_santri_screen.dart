@@ -6,9 +6,11 @@ import '../../models/perpulangan_model.dart';
 import '../../services/perpulangan_service.dart';
 import '../../models/asrama_model.dart';
 import '../../services/asrama_service.dart';
+import '../../services/permission_service.dart';
 
 class IzinSantriScreen extends StatefulWidget {
-  const IzinSantriScreen({super.key});
+  final String? initialPermitId;
+  const IzinSantriScreen({super.key, this.initialPermitId});
 
   @override
   State<IzinSantriScreen> createState() => _IzinSantriScreenState();
@@ -22,6 +24,7 @@ class _IzinSantriScreenState extends State<IzinSantriScreen> {
   List<PerpulanganPermit> _filteredActivePermits = [];
   final TextEditingController _searchController = TextEditingController();
   int? _supervisorId;
+  bool _canApprovePermits = false;
 
   @override
   void initState() {
@@ -37,15 +40,23 @@ class _IzinSantriScreenState extends State<IzinSantriScreen> {
         _supervisorId = prefs.getInt('userId');
       }
 
-      final statsResult = await _service.getStats(supervisorId: _supervisorId);
+      // Check permission
+      _canApprovePermits = PermissionService().canApprovePermits;
+
+      final supervisorIdToFetch = _canApprovePermits ? 0 : _supervisorId;
+
+      final statsResult = await _service.getStats(supervisorId: supervisorIdToFetch);
       final permitsResult = await _service.getActivePermits(
-        supervisorId: _supervisorId,
+        supervisorId: supervisorIdToFetch,
       );
 
       if (mounted) {
         setState(() {
           _stats = statsResult;
-          _allActivePermits = permitsResult;
+          // Filter out 'Libur' as requested
+          _allActivePermits = permitsResult
+              .where((p) => p.category != 'Libur')
+              .toList();
           _filterPermits(_searchController.text);
           _isLoading = false;
         });
@@ -58,7 +69,12 @@ class _IzinSantriScreenState extends State<IzinSantriScreen> {
 
   void _filterPermits(String query) {
     setState(() {
-      if (query.isEmpty) {
+      if (widget.initialPermitId != null && query.isEmpty) {
+        // Mode detail dari notifikasi
+        _filteredActivePermits = _allActivePermits
+            .where((p) => p.id.toString() == widget.initialPermitId)
+            .toList();
+      } else if (query.isEmpty) {
         _filteredActivePermits = _allActivePermits;
       } else {
         _filteredActivePermits = _allActivePermits
@@ -99,18 +115,20 @@ class _IzinSantriScreenState extends State<IzinSantriScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddPermitModal(),
-        backgroundColor: const Color(0xFF0D9488),
-        icon: const Icon(Icons.add_task_rounded, color: Colors.white),
-        label: Text(
-          'Buat Izin',
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
+      floatingActionButton: _canApprovePermits
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _showAddPermitModal(),
+              backgroundColor: const Color(0xFF0D9488),
+              icon: const Icon(Icons.add_task_rounded, color: Colors.white),
+              label: Text(
+                'Buat Izin',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
     );
   }
 
@@ -279,85 +297,237 @@ class _IzinSantriScreenState extends State<IzinSantriScreen> {
     } catch (_) {}
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                backgroundColor: categoryColor.withValues(alpha: 0.1),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: categoryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 child: Icon(
-                  p.category == 'Sakit' ? Icons.medical_services_rounded : Icons.person,
+                  p.category == 'Sakit'
+                      ? Icons.medical_services_rounded
+                      : Icons.person_rounded,
                   color: categoryColor,
-                  size: 20,
+                  size: 24,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       p.studentName,
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: const Color(0xFF1E293B),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    if (p.asrama != null)
+                      Text(
+                        'Asrama ${p.asrama!}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: const Color(0xFF0D9488),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    const SizedBox(height: 4),
                     Text(
                       '${p.category}: ${p.reason}',
-                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
-                      maxLines: 1,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: const Color(0xFF94A3B8),
+                        height: 1.4,
+                      ),
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              InkWell(
-                onTap: () => _showUpdateStatusDialog(p),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'Konfirmasi Kembali',
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF166534),
+              const SizedBox(width: 12),
+              _buildStatusBadge(p.status),
+            ],
+          ),
+          if (_canApprovePermits && (p.status.toUpperCase() == 'PENDING' || p.status.toUpperCase() == 'MENUNGGU')) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _handleStatusUpdate(p.id, 'Ditolak'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
+                    child: Text('Tolak', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
                   ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _handleStatusUpdate(p.id, 'Disetujui'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D9488),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text('Setujui', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ] else if (!_canApprovePermits && p.status.toUpperCase() == 'DISETUJUI') ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _showUpdateStatusDialog(p),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D9488),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Konfirmasi Kembali',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const Divider(height: 32, color: Color(0xFFF1F5F9)),
+          Row(
+            children: [
+              const Icon(
+                Icons.event_repeat_rounded,
+                size: 14,
+                color: Color(0xFF94A3B8),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Estimasi Kembali:',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                returnDate,
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF475569),
                 ),
               ),
             ],
           ),
-          const Divider(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.event_repeat_rounded, size: 14, color: Colors.grey),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Estimasi Kembali: $returnDate',
-                    style: GoogleFonts.poppins(
-                      fontSize: 11,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey),
-            ],
-          ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _handleStatusUpdate(int id, String status) async {
+    setState(() => _isLoading = true);
+    final res = await _service.updateStatus(id, status);
+    if (!mounted) return;
+    if (res['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Status berhasil diubah menjadi $status'),
+          backgroundColor: Colors.green, // Selalu hijau karena operasinya berhasil
+        ),
+      );
+      _fetchData();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['message'] ?? 'Gagal memperbarui status'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color bgColor;
+    Color textColor;
+    String label = status.toUpperCase();
+    final s = status.toUpperCase();
+
+    switch (s) {
+      case 'DISETUJUI':
+        bgColor = const Color(0xFFD1FAE5); // Emerald-100
+        textColor = const Color(0xFF065F46); // Emerald-800
+        break;
+      case 'DITOLAK':
+        bgColor = const Color(0xFFFFE4E6); // Rose-100
+        textColor = const Color(0xFF9F1239); // Rose-800
+        break;
+      case 'MENUNGGU':
+      case 'PENDING':
+        bgColor = const Color(0xFFFEF3C7); // Amber-100
+        textColor = const Color(0xFF92400E); // Amber-800
+        label = 'PENDING';
+        break;
+      case 'KEMBALI':
+        bgColor = const Color(0xFFF1F5F9); // Slate-100
+        textColor = const Color(0xFF334155); // Slate-700
+        break;
+      default:
+        bgColor = const Color(0xFFF1F5F9);
+        textColor = const Color(0xFF475569);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.poppins(
+          fontSize: 8,
+          fontWeight: FontWeight.bold,
+          color: textColor,
+        ),
       ),
     );
   }
@@ -636,9 +806,12 @@ class _AddPermitBottomSheetState extends State<AddPermitBottomSheet> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
     final res = await _service.submitPermit(
-      studentId: _selectedStudent!.id, category: _category, reason: _reasonController.text,
+      studentId: _selectedStudent!.id,
+      category: _category,
+      reason: _reasonController.text,
       startDate: DateFormat('yyyy-MM-dd HH:mm:ss').format(_startDate),
       endDate: DateFormat('yyyy-MM-dd HH:mm:ss').format(_endDate),
+      musrifId: widget.supervisorId,
     );
     if (mounted) {
       setState(() => _isSubmitting = false);

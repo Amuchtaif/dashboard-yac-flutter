@@ -140,7 +140,9 @@ class PermissionService {
       _canCreateMeeting = true;
       _activePermissions.add('can_create_meeting');
     }
-    if (positionLevel <= 3) {
+    if (positionLevel <= 3 ||
+        positionName.toLowerCase().contains('mudir') ||
+        positionName.toLowerCase().contains('kepala bidang')) {
       _canApprovePermits = true;
       _activePermissions.add('can_approve_permits');
     }

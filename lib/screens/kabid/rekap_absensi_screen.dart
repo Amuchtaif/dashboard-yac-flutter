@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../models/staff_attendance_recap_model.dart';
+import '../../services/kabid_service.dart';
+import 'detail_rekap_absensi_screen.dart';
 
 class RekapAbsensiScreen extends StatefulWidget {
   const RekapAbsensiScreen({super.key});
@@ -9,6 +13,38 @@ class RekapAbsensiScreen extends StatefulWidget {
 }
 
 class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
+  final KabidService _kabidService = KabidService();
+  StaffAttendanceRecap? _recap;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRecap();
+  }
+
+  Future<void> _fetchRecap() async {
+    setState(() => _isLoading = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id') ?? 0;
+
+      final result = await _kabidService.getStaffAttendanceRecap(userId);
+
+      setState(() {
+        _recap = result;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memuat rekap: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -18,21 +54,50 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
           children: [
             _buildAppBar(),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    _buildMainStatCard(),
-                    const SizedBox(height: 24),
-                    _buildSubStatsGrid(),
-                    const SizedBox(height: 32),
-                    _buildMonthlyList(),
-                  ],
-                ),
-              ),
+              child: _isLoading ? _buildLoadingState() : _buildContent(),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(child: CircularProgressIndicator());
+  }
+
+  Widget _buildContent() {
+    if (_recap == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.analytics_outlined, size: 64, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            Text(
+              'Gagal memuat rekapitulasi',
+              style: GoogleFonts.poppins(color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _fetchRecap,
+              child: const Text('Coba Lagi'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          _buildMainStatCard(),
+          const SizedBox(height: 24),
+          _buildSubStatsGrid(),
+          const SizedBox(height: 32),
+          _buildMonthlyList(),
+        ],
       ),
     );
   }
@@ -93,7 +158,7 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
           Row(
             children: [
               Text(
-                '94.5%',
+                _recap?.averagePercentage ?? '0%',
                 style: GoogleFonts.poppins(
                   color: Colors.white,
                   fontSize: 36,
@@ -106,7 +171,7 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Bulan Maret 2026',
+            _recap?.currentMonthLabel ?? '-',
             style: GoogleFonts.poppins(
               color: Colors.white.withValues(alpha: 0.6),
               fontSize: 11,
@@ -121,15 +186,27 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
     return Row(
       children: [
         Expanded(
-          child: _buildStatItem('Tepat Waktu', '82', const Color(0xFF10B981)),
+          child: _buildStatItem(
+            'Tepat Waktu',
+            '${_recap?.exactCount ?? 0}',
+            const Color(0xFF10B981),
+          ),
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: _buildStatItem('Terlambat', '14', const Color(0xFFF59E0B)),
+          child: _buildStatItem(
+            'Terlambat',
+            '${_recap?.lateCount ?? 0}',
+            const Color(0xFFF59E0B),
+          ),
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: _buildStatItem('Izin/Sakit', '8', const Color(0xFF3B82F6)),
+          child: _buildStatItem(
+            'Izin/Sakit',
+            '${_recap?.permitCount ?? 0}',
+            const Color(0xFF3B82F6),
+          ),
         ),
       ],
     );
@@ -180,9 +257,25 @@ class _RekapAbsensiScreenState extends State<RekapAbsensiScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        _buildMonthItem('Februari 2026', '92%'),
-        _buildMonthItem('Januari 2026', '95%'),
-        _buildMonthItem('Desember 2025', '89%'),
+        ...(_recap?.history ?? [])
+            .where((h) => h.percentage != '0%' && h.percentage != '0')
+            .map(
+              (h) => GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) => DetailRekapAbsensiScreen(
+                            month: h.month,
+                            percentage: h.percentage,
+                          ),
+                    ),
+                  );
+                },
+                child: _buildMonthItem(h.month, h.percentage),
+              ),
+            ),
       ],
     );
   }
