@@ -31,7 +31,7 @@ import 'rpp_screen.dart';
 import 'kabid/data_presensi_screen.dart';
 import 'kabid/rekap_absensi_screen.dart';
 import 'kabid/absensi_manual_screen.dart';
-import 'kabid/daftar_kehadiran_screen.dart';
+
 import 'kesantrian/absensi_asrama_screen.dart';
 import 'kesantrian/absensi_makan_screen.dart';
 import 'kesantrian/pelanggaran_screen.dart';
@@ -2347,8 +2347,8 @@ class HomeTab extends StatelessWidget {
         'color': Colors.teal,
       },
       {
-        'title': 'Daftar Kehadiran',
-        'icon': Icons.fact_check_rounded,
+        'title': 'Approve Kas',
+        'icon': Icons.payments_outlined,
         'color': Colors.indigo,
       },
     ];
@@ -2649,10 +2649,12 @@ class HomeTab extends StatelessWidget {
         context,
         MaterialPageRoute(builder: (context) => const AbsensiManualScreen()),
       );
-    } else if (navTitle == 'Daftar Kehadiran') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const DaftarKehadiranScreen()),
+    } else if (navTitle == 'Approve Kas') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Menu Approve Kas masih dalam pengembangan"),
+          backgroundColor: Colors.blue,
+        ),
       );
     } else if (navTitle == 'Absensi Asrama') {
       Navigator.push(

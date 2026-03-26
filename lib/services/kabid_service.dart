@@ -10,19 +10,14 @@ class KabidService {
     String? date,
   }) async {
     try {
-      final queryParams = {
-        'user_id': userId.toString(),
-      };
-      if (date != null) {
-        queryParams['date'] = date;
-      }
+      final queryParams = {'user_id': userId.toString()};
+      if (date != null) queryParams['date'] = date;
 
       final uri = Uri.parse(ApiConstants.kabidStaffAttendance).replace(
         queryParameters: queryParams,
       );
 
       final response = await http.get(uri);
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
@@ -32,7 +27,7 @@ class KabidService {
       }
       return [];
     } catch (e) {
-      print('Error fetching staff attendance: $e');
+      // Error fetching staff attendance
       return [];
     }
   }
@@ -44,7 +39,6 @@ class KabidService {
       );
 
       final response = await http.get(uri);
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
@@ -53,7 +47,7 @@ class KabidService {
       }
       return null;
     } catch (e) {
-      print('Error fetching staff attendance recap: $e');
+      // Error fetching attendance recap
       return null;
     }
   }
@@ -71,18 +65,49 @@ class KabidService {
       );
 
       final response = await http.get(uri);
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
-          final List list = data['data'] ?? [];
-          return List<Map<String, dynamic>>.from(list);
+          return List<Map<String, dynamic>>.from(data['data'] ?? []);
         }
       }
       return [];
     } catch (e) {
-      print('Error fetching staff month detail: $e');
+      // Error fetching month detail
       return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getStaffList(int userId) async {
+    try {
+      final uri = Uri.parse(ApiConstants.kabidStaffList).replace(
+        queryParameters: {'user_id': userId.toString()},
+      );
+
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['data'] ?? []);
+        }
+      }
+      return [];
+    } catch (e) {
+      // Error fetching staff list
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> saveManualAttendance(Map<String, dynamic> data) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.kabidManualSave),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(data),
+      );
+      return json.decode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
     }
   }
 }

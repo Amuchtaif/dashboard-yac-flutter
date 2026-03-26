@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/kabid_service.dart';
 
 class AbsensiManualScreen extends StatefulWidget {
   const AbsensiManualScreen({super.key});
@@ -9,8 +12,101 @@ class AbsensiManualScreen extends StatefulWidget {
 }
 
 class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
-  String? _selectedStaff;
-  String? _selectedType = 'Masuk';
+  final KabidService _kabidService = KabidService();
+  final TextEditingController _noteController = TextEditingController();
+  
+  List<Map<String, dynamic>> _staffList = [];
+  String? _selectedStaffId;
+  String _selectedType = 'Masuk';
+  DateTime _selectedDate = DateTime.now();
+  TimeOfDay _selectedTime = TimeOfDay.now();
+  bool _isLoadingStaff = true;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStaff();
+  }
+
+  Future<void> _fetchStaff() async {
+    setState(() => _isLoadingStaff = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id') ?? 0;
+      final results = await _kabidService.getStaffList(userId);
+      setState(() {
+        _staffList = results;
+        _isLoadingStaff = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingStaff = false);
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      locale: const Locale('id', 'ID'),
+    );
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  Future<void> _pickTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+    );
+    if (picked != null) setState(() => _selectedTime = picked);
+  }
+
+  Future<void> _submit() async {
+    if (_selectedStaffId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Silakan pilih staf terlebih dahulu')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final kabidId = prefs.getInt('user_id') ?? 0;
+
+      final data = {
+        'kabid_id': kabidId,
+        'staff_id': int.parse(_selectedStaffId!),
+        'type': _selectedType.toUpperCase(),
+        'date': DateFormat('yyyy-MM-dd').format(_selectedDate),
+        'time': '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+        'note': _noteController.text,
+      };
+
+      final result = await _kabidService.saveManualAttendance(data);
+
+      setState(() => _isSaving = false);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Berhasil simpan presensi'),
+            backgroundColor: result['success'] ? Colors.green : Colors.red,
+          ),
+        );
+        if (result['success']) Navigator.pop(context);
+      }
+    } catch (e) {
+      setState(() => _isSaving = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,16 +185,21 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
   }
 
   Widget _buildForm() {
+    // Find the currently selected staff name
+    final selectedStaffName = _staffList.firstWhere(
+      (s) => s['id'].toString() == _selectedStaffId,
+      orElse: () => {'name': 'Cari nama staf...'},
+    )['name'];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildLabel('Pilih Staf'),
         const SizedBox(height: 8),
-        _buildDropdown(
-          value: _selectedStaff,
-          items: ['Abdulsallam, Lc', 'Ahmad Ridwan', 'Siti Aminah'],
-          onChanged: (v) => setState(() => _selectedStaff = v),
-          hint: 'Cari nama staf...',
+        _buildPickerTile(
+          icon: Icons.person_search_rounded,
+          value: _isLoadingStaff ? 'Memuat staf...' : selectedStaffName,
+          onTap: _isLoadingStaff ? () {} : _showStaffSearch,
         ),
         const SizedBox(height: 20),
         _buildLabel('Jenis Presensi'),
@@ -121,8 +222,8 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
                   const SizedBox(height: 8),
                   _buildPickerTile(
                     icon: Icons.calendar_today_rounded,
-                    value: '16/03/2026',
-                    onTap: () {},
+                    value: DateFormat('dd/MM/yyyy').format(_selectedDate),
+                    onTap: _pickDate,
                   ),
                 ],
               ),
@@ -136,8 +237,8 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
                   const SizedBox(height: 8),
                   _buildPickerTile(
                     icon: Icons.access_time_rounded,
-                    value: '07:30',
-                    onTap: () {},
+                    value: _selectedTime.format(context),
+                    onTap: _pickTime,
                   ),
                 ],
               ),
@@ -148,7 +249,9 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
         _buildLabel('Alasan Manual'),
         const SizedBox(height: 8),
         TextField(
+          controller: _noteController,
           maxLines: 3,
+          style: GoogleFonts.poppins(fontSize: 14),
           decoration: InputDecoration(
             hintText: 'Contoh: Lupa scan, Kendala perangkat...',
             hintStyle: GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
@@ -168,52 +271,91 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
     );
   }
 
-  Widget _buildLabel(String text) {
-    return Text(
-      text,
-      style: GoogleFonts.poppins(
-        fontSize: 12,
-        fontWeight: FontWeight.bold,
-        color: const Color(0xFF64748B),
-      ),
+  void _showStaffSearch() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final List<Map<String, dynamic>> filteredList =
+                _staffList
+                    .where(
+                      (s) => s['name'].toLowerCase().contains(
+                        _searchQuery.toLowerCase(),
+                      ),
+                    )
+                    .toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: TextField(
+                      autofocus: true,
+                      onChanged: (v) => setModalState(() => _searchQuery = v),
+                      style: GoogleFonts.poppins(fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Cari nama staf...',
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: const Color(0xFFF1F5F9),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: filteredList.length,
+                      itemBuilder: (context, index) {
+                        final staff = filteredList[index];
+                        return ListTile(
+                          title: Text(
+                            staff['name'],
+                            style: GoogleFonts.poppins(fontSize: 14),
+                          ),
+                          onTap: () {
+                            setState(() {
+                              _selectedStaffId = staff['id'].toString();
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
-  Widget _buildDropdown({
-    required String? value,
-    required List<String> items,
-    required Function(String?) onChanged,
-    required String hint,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          isExpanded: true,
-          value: value,
-          hint: Text(
-            hint,
-            style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
-          ),
-          items:
-              items
-                  .map(
-                    (e) => DropdownMenuItem(
-                      value: e,
-                      child: Text(e, style: GoogleFonts.poppins(fontSize: 14)),
-                    ),
-                  )
-                  .toList(),
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
+  String _searchQuery = '';
 
   Widget _buildTypeOption(String type) {
     bool isSelected = _selectedType == type;
@@ -227,10 +369,7 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
             color: isSelected ? const Color(0xFF0D9488) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color:
-                  isSelected
-                      ? const Color(0xFF0D9488)
-                      : const Color(0xFFE2E8F0),
+              color: isSelected ? const Color(0xFF0D9488) : const Color(0xFFE2E8F0),
             ),
           ),
           child: Center(
@@ -283,7 +422,7 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: (_isSaving || _isLoadingStaff) ? null : _submit,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF0D9488),
           minimumSize: const Size(double.infinity, 56),
@@ -293,14 +432,31 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
           elevation: 4,
           shadowColor: const Color(0xFF0D9488).withValues(alpha: 0.3),
         ),
-        child: Text(
-          'Simpan Presensi',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
+        child: _isSaving
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
+            : Text(
+                'Simpan Presensi',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Text(
+      text,
+      style: GoogleFonts.poppins(
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        color: const Color(0xFF64748B),
       ),
     );
   }

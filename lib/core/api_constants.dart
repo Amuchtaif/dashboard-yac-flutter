@@ -132,4 +132,6 @@ class ApiConstants {
   static const String kabidStaffAttendance = '${baseUrl}kabid/staff_attendance/get.php';
   static const String kabidStaffAttendanceRecap = '${baseUrl}kabid/staff_attendance/recap.php';
   static const String kabidStaffAttendanceMonthDetail = '${baseUrl}kabid/staff_attendance/month_detail.php';
+  static const String kabidStaffList = '${baseUrl}kabid/staff_attendance/list_staff.php';
+  static const String kabidManualSave = '${baseUrl}kabid/staff_attendance/manual_save.php';
 }
