@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/meal_attendance_model.dart';
 import '../../services/meal_attendance_service.dart';
 
@@ -39,10 +40,27 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
     setState(() => _isLoading = true);
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-      
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+      final positionName = prefs.getString('positionName') ?? '';
+      final isMusyrif = positionName.toLowerCase().contains('musyrif');
+
       final results = await Future.wait([
-        MealAttendanceService.getStudents(date: dateStr, mealType: _selectedMeal),
-        MealAttendanceService.getStats(date: dateStr, mealType: _selectedMeal),
+        isMusyrif && userId != null
+            ? MealAttendanceService.getStudentsByMusyrif(
+                musyrifId: userId,
+                date: dateStr,
+                mealType: _selectedMeal,
+              )
+            : MealAttendanceService.getStudents(
+                date: dateStr,
+                mealType: _selectedMeal,
+              ),
+        MealAttendanceService.getStats(
+          date: dateStr,
+          mealType: _selectedMeal,
+          musyrifId: isMusyrif ? userId : null,
+        ),
       ]);
 
       setState(() {

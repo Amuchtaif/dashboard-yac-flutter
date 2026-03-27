@@ -33,6 +33,31 @@ class MealAttendanceService {
     }
   }
 
+  static Future<List<MealStudent>> getStudentsByMusyrif({
+    required int musyrifId,
+    required String date,
+    required String mealType,
+  }) async {
+    final url = Uri.parse("$endpoint/get_students_by_musyrif.php").replace(queryParameters: {
+      'musyrif_id': musyrifId.toString(),
+      'date': date,
+      'meal_type': mealType,
+    });
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return (data['data'] as List).map((item) => MealStudent.fromJson(item)).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
   static Future<bool> markAsEaten({required int studentId, required String mealType}) async {
     try {
       final response = await http.post(
@@ -95,10 +120,17 @@ class MealAttendanceService {
     }
   }
 
-  static Future<MealStats?> getStats({required String date, required String mealType}) async {
+  static Future<MealStats?> getStats({
+    required String date,
+    required String mealType,
+    int? musyrifId,
+    int? roomId,
+  }) async {
     final url = Uri.parse("$endpoint/get_stats.php").replace(queryParameters: {
       'date': date,
       'meal_type': mealType,
+      if (musyrifId != null) 'musyrif_id': musyrifId.toString(),
+      if (roomId != null) 'room_id': roomId.toString(),
     });
 
     try {
