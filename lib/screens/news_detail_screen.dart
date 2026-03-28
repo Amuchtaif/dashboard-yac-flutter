@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/news_model.dart';
@@ -146,7 +147,20 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
         ),
       ),
       flexibleSpace: FlexibleSpaceBar(
-        background: Image.network(widget.news.coverPhoto, fit: BoxFit.cover),
+        background: CachedNetworkImage(
+          imageUrl: widget.news.coverPhoto,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: Colors.grey[100],
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+          errorWidget: (context, url, error) => Container(
+            color: Colors.grey[200],
+            child: const Icon(Icons.image_not_supported_rounded),
+          ),
+        ),
       ),
     );
   }

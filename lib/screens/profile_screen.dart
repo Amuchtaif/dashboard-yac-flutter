@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
@@ -35,6 +36,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
     setState(() {
       _fullName = prefs.getString('fullName') ?? 'User Name';
       _email = prefs.getString('email') ?? 'user@email.com';
@@ -192,17 +194,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 () {
                                   final photoUrl = ApiConstants.getProfilePhotoUrl(_profilePhoto);
                                   return (photoUrl != null && photoUrl.isNotEmpty)
-                                      ? Image.network(
-                                        photoUrl,
+                                      ? CachedNetworkImage(
+                                        key: ValueKey(photoUrl),
+                                        imageUrl: photoUrl,
                                         width: 48,
                                         height: 48,
                                         fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) =>
-                                                const Icon(
-                                                  Icons.person,
-                                                  color: Colors.white,
-                                                ),
+                                        placeholder: (context, url) =>
+                                            const SizedBox(
+                                              width: 48,
+                                              height: 48,
+                                              child:
+                                                  CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                  ),
+                                            ),
+                                        errorWidget: (context, url, error) =>
+                                            const Icon(
+                                              Icons.person,
+                                              color: Colors.white,
+                                            ),
                                       )
                                       : const Icon(
                                         Icons.person,

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -410,8 +411,10 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF8F9FA),
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(
@@ -509,7 +512,7 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
                       controller: _descriptionController,
                       maxLines: 3,
                     ),
-                    const SizedBox(height: 100), // Extra space for scroll
+                    const SizedBox(height: 24), // Reduced spacing
                   ],
                 ),
               ),
@@ -607,9 +610,16 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
                     widget.item!.imageUrl!.isNotEmpty)
                 ? ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Image.network(
-                    widget.item!.imageUrl!,
+                  child: CachedNetworkImage(
+                    imageUrl: widget.item!.imageUrl!,
                     fit: BoxFit.cover,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    errorWidget: (context, url, error) => const Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.grey,
+                    ),
                   ),
                 )
                 : Column(

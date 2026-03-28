@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/inventory_item_model.dart';
 import '../services/inventory_service.dart';
@@ -280,11 +281,17 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                   child: (item.imageUrl != null && item.imageUrl!.isNotEmpty)
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            item.imageUrl!, 
+                          child: CachedNetworkImage(
+                            imageUrl: item.imageUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => 
-                                const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 20),
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            errorWidget: (context, url, error) => const Icon(
+                              Icons.broken_image_outlined,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
                           ),
                         )
                       : const Icon(Icons.inventory_2, color: Colors.grey),

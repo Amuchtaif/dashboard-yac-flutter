@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'dart:io';
@@ -187,27 +188,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ? ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
                                 child: InteractiveViewer(
-                                  child: Image.network(
-                                    url,
-                                    loadingBuilder: (
-                                      context,
-                                      child,
-                                      loadingProgress,
-                                    ) {
-                                      if (loadingProgress == null) return child;
-                                      return const Center(
-                                        child: CircularProgressIndicator(),
-                                      );
-                                    },
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            const Center(
-                                              child: Icon(
-                                                Icons.error_outline,
-                                                size: 48,
-                                                color: Colors.red,
-                                              ),
-                                            ),
+                                  child: CachedNetworkImage(
+                                    imageUrl: url,
+                                    placeholder: (context, url) => const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                    errorWidget: (context, url, error) =>
+                                        const Center(
+                                          child: Icon(
+                                            Icons.error_outline,
+                                            size: 48,
+                                            color: Colors.red,
+                                          ),
+                                        ),
                                   ),
                                 ),
                               )

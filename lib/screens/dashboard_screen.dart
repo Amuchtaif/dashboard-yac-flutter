@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
 import 'dart:ui';
@@ -311,6 +312,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // --- LOGIC 1: LOAD USER DATA ---
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload(); // Force sync with disk to get latest update
     if (!mounted) return;
 
     setState(() {
@@ -827,6 +829,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // List Halaman untuk Bottom Navigation
     final List<Widget> pages = [
       HomeTab(
+        key: ValueKey('home_tab_$_profilePhoto'),
         fullName: _fullName,
         unitName: _unitName,
         deptName: _divisionName,
@@ -848,6 +851,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onRefresh: () async {
           await _fetchDashboardData();
           await _fetchNewsData();
+        },
+        onSeeAllNews: () {
+          setState(() {
+            _currentIndex = 1;
+          });
         },
       ),
       const NewsScreen(),
@@ -999,10 +1007,12 @@ class HomeTab extends StatelessWidget {
     this.swapPartnerName,
     required this.canApprovePermits,
     required this.onRefresh,
+    required this.onSeeAllNews,
   });
 
   final List<News> newsList;
   final bool isLoadingNews;
+  final VoidCallback onSeeAllNews;
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -1078,14 +1088,19 @@ class HomeTab extends StatelessWidget {
                 () {
                   final String? photoUrl = ApiConstants.getProfilePhotoUrl(profilePhoto);
                   return (photoUrl != null && photoUrl.isNotEmpty)
-                      ? Image.network(
-                        photoUrl,
+                      ? CachedNetworkImage(
+                        key: ValueKey(photoUrl),
+                        imageUrl: photoUrl,
                         width: 48,
                         height: 48,
                         fit: BoxFit.cover,
-                        errorBuilder:
-                            (context, error, stackTrace) =>
-                                const Icon(Icons.person, color: Colors.white),
+                        placeholder: (context, url) => const SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        errorWidget: (context, url, error) =>
+                            const Icon(Icons.person, color: Colors.white),
                       )
                       : const Icon(Icons.person, color: Colors.white);
                 }(),
@@ -2105,7 +2120,7 @@ class HomeTab extends StatelessWidget {
         ),
         if (action != null)
           TextButton(
-            onPressed: () {},
+            onPressed: action == 'Lihat Semua' ? onSeeAllNews : () {},
             child: Text(
               action,
               style: GoogleFonts.poppins(

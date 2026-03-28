@@ -67,7 +67,7 @@ class _OfficerManagementScreenState extends State<OfficerManagementScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.shield_outlined, size: 80, color: Colors.grey.withOpacity(0.5)),
+          Icon(Icons.shield_outlined, size: 80, color: Colors.grey.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
           Text('Belum ada petugas ditunjuk', style: GoogleFonts.poppins(color: Colors.grey, fontSize: 16)),
         ],
@@ -83,13 +83,13 @@ class _OfficerManagementScreenState extends State<OfficerManagementScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: const Color(0xFFE11D48).withOpacity(0.1),
+            backgroundColor: const Color(0xFFE11D48).withValues(alpha: 0.1),
             child: Text(officer.nama[0].toUpperCase(), style: const TextStyle(color: Color(0xFFE11D48), fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 16),
@@ -235,10 +235,12 @@ class _AddOfficerSheetState extends State<_AddOfficerSheet> {
   void _addOfficer(Map<String, dynamic> employee) async {
     final employeeId = int.tryParse(employee['id'].toString()) ?? 0;
     final success = await ViolationService.addOfficer(employeeId);
-    if (success && mounted) {
-      Navigator.pop(context, true);
+    if (success) {
+      if (mounted) Navigator.pop(context, true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal menambah petugas atau petugas sudah ada')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal menambah petugas atau petugas sudah ada')));
+      }
     }
   }
 }

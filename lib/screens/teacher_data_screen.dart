@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/teacher_service.dart';
 
@@ -239,11 +239,13 @@ class _TeacherDataScreenState extends State<TeacherDataScreen> {
       child: ClipOval(
         child:
             foto != null && foto.isNotEmpty
-                ? Image.network(
-                  foto,
+                ? CachedNetworkImage(
+                  imageUrl: foto,
                   fit: BoxFit.cover,
-                  errorBuilder:
-                      (context, error, stackTrace) => _fallbackAvatar(name),
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  errorWidget: (context, url, error) => _fallbackAvatar(name),
                 )
                 : _fallbackAvatar(name),
       ),

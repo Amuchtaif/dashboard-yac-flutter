@@ -51,6 +51,7 @@ void main() async {
 
   // --- CEK SESI LOGIN (24 JAM) ---
   final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
   final int? loginTimestamp = prefs.getInt('login_timestamp');
   final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 

@@ -59,8 +59,19 @@ class ApiConstants {
   static String? getProfilePhotoUrl(String? filename) {
     if (filename == null || filename.isEmpty || filename == 'null') return null;
     if (filename.startsWith('http')) return filename;
-    final rootUrl = ApiConfig.baseUrl.replaceAll('/api', '');
-    return "$rootUrl/uploads/profile_photos/$filename";
+    
+    // Clean up base URL to ensure no trailing slash before appending path
+    String rootUrl = ApiConfig.baseUrl.replaceAll('/api', '');
+    if (rootUrl.endsWith('/')) {
+      rootUrl = rootUrl.substring(0, rootUrl.length - 1);
+    }
+    
+    // Construct base path correctly
+    final baseUrl = "$rootUrl/uploads/profile_photos/";
+    
+    // Add timestamp for cache busting if the internal cache gets stuck 
+    // This helps in case filename didn't change (though it should in our PHP)
+    return "$baseUrl$filename?v=${DateTime.now().minute}";
   }
 
   static String? getInventoryPhotoUrl(String? filename) {

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -173,14 +174,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                       final photoUrl = ApiConstants.getProfilePhotoUrl(widget.profilePhoto);
                                       return (photoUrl != null && photoUrl.isNotEmpty)
                                           ? ClipRRect(
-                                            borderRadius: BorderRadius.circular(60),
-                                            child: Image.network(
-                                              photoUrl,
+                                            borderRadius: BorderRadius.circular(
+                                              60,
+                                            ),
+                                            child: CachedNetworkImage(
+                                              imageUrl: photoUrl,
                                               width: 120,
                                               height: 120,
                                               fit: BoxFit.cover,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) =>
+                                              placeholder: (context, url) =>
+                                                  const Center(
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                        ),
+                                                  ),
+                                              errorWidget:
+                                                  (context, url, error) =>
                                                       const Icon(
                                                         Icons.person,
                                                         size: 60,

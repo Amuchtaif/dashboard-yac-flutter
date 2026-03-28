@@ -375,13 +375,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                 : const Color(0xFF1E293B),
                       ),
                     ),
-                    Text(
-                      'ID: ${item['id']}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: const Color(0xFF94A3B8),
-                      ),
-                    ),
                   ],
                 ),
               ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/news_model.dart';
@@ -262,33 +263,23 @@ class _NewsScreenState extends State<NewsScreen> {
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(16),
               ),
-              child: Image.network(
-                news.coverPhoto,
+              child: CachedNetworkImage(
+                imageUrl: news.coverPhoto,
                 fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    height: 150,
-                    color: Colors.grey[100],
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        value:
-                            loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
-                        strokeWidth: 2,
-                      ),
+                placeholder: (context, url) => Container(
+                  height: 150,
+                  color: Colors.grey[100],
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
                     ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 150,
-                    color: Colors.grey[200],
-                    child: const Icon(Icons.image_not_supported_rounded),
-                  );
-                },
+                  ),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  height: 150,
+                  color: Colors.grey[200],
+                  child: const Icon(Icons.image_not_supported_rounded),
+                ),
               ),
             ),
             Padding(
