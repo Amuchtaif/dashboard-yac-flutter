@@ -332,16 +332,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _fetchNewsData();
 
     if (_userId != "0") {
-      // 1. Refresh Permissions agar menu sesuai hak akses terbaru
-      await PermissionService().fetchPermissions(int.parse(_userId));
-      if (mounted) {
-        setState(() {
-          _canApprovePermits = PermissionService().canApprovePermits;
-        });
-      }
-
-      // 2. Fetch Data Dashboard
-      _fetchDashboardData();
+      // Parallel requests for permissions and dashboard data
+      Future.wait([
+        PermissionService().fetchPermissions(int.parse(_userId)).then((_) {
+          if (mounted) {
+            setState(() {
+              _canApprovePermits = PermissionService().canApprovePermits;
+            });
+          }
+        }),
+        _fetchDashboardData(),
+      ]);
     }
   }
 
@@ -1898,7 +1899,7 @@ class HomeTab extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           image: DecorationImage(
-            image: NetworkImage(news.coverPhoto),
+            image: CachedNetworkImageProvider(news.coverPhoto),
             fit: BoxFit.cover,
           ),
           boxShadow: [

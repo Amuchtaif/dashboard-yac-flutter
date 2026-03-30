@@ -31,6 +31,30 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
     try {
       final data = await _teacherService.getAttendanceRecap();
       if (mounted) {
+        // Sort units based on user requirement
+        const order = [
+          'mahad aly',
+          'ma',
+          'idad lughoh',
+          'mts',
+          'sdit',
+          'tkit',
+          'playgroup',
+        ];
+
+        data.sort((a, b) {
+          final aName = a['unit_name']?.toString().toLowerCase().replaceAll("'", "").replaceAll("`", "").trim() ?? '';
+          final bName = b['unit_name']?.toString().toLowerCase().replaceAll("'", "").replaceAll("`", "").trim() ?? '';
+
+          int aIndex = order.indexOf(aName);
+          int bIndex = order.indexOf(bName);
+
+          if (aIndex == -1) aIndex = 99;
+          if (bIndex == -1) bIndex = 99;
+
+          return aIndex.compareTo(bIndex);
+        });
+
         setState(() {
           _units = data;
           _isLoading = false;
@@ -128,8 +152,10 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFF8FAFC),
           elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
           leading: IconButton(
             icon: const Icon(
               Icons.arrow_back_ios_new,

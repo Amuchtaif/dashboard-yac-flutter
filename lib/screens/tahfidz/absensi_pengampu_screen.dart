@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../services/tahfidz_service.dart';
 
 class AbsensiPengampuScreen extends StatefulWidget {
@@ -28,8 +29,8 @@ class _AbsensiPengampuScreenState extends State<AbsensiPengampuScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _fetchKehadiranData();
-    _fetchPendingAttendance();
+    _tabController = TabController(length: 2, vsync: this);
+    _fetchAllData();
   }
 
   @override
@@ -38,45 +39,44 @@ class _AbsensiPengampuScreenState extends State<AbsensiPengampuScreen>
     super.dispose();
   }
 
-  // ========= TAB 1: Kehadiran =========
-  Future<void> _fetchKehadiranData() async {
-    setState(() => _isLoadingKehadiran = true);
+  // Combined data fetching
+  Future<void> _fetchAllData() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingKehadiran = true;
+      _isLoadingApproval = true;
+    });
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final history = await _service.getTeacherAttendanceHistory(date: dateStr);
       if (mounted) {
-        setState(() => _attendanceList = history);
+        setState(() {
+          _attendanceList = history;
+          _pendingList = history.where((record) {
+            final isVerified = record['is_verified'].toString() == '1';
+            final statusApproval =
+                record['status_approval']?.toString().toLowerCase() ??
+                'pending';
+            return !isVerified && statusApproval == 'pending';
+          }).toList();
+        });
       }
     } catch (e) {
-      debugPrint("Error fetching attendance: $e");
+      debugPrint("Error fetching data: $e");
     } finally {
-      if (mounted) setState(() => _isLoadingKehadiran = false);
+      if (mounted) {
+        setState(() {
+          _isLoadingKehadiran = false;
+          _isLoadingApproval = false;
+        });
+      }
     }
   }
 
-  // ========= TAB 2: Approval =========
-  Future<void> _fetchPendingAttendance() async {
-    setState(() => _isLoadingApproval = true);
-    try {
-      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-      final history = await _service.getTeacherAttendanceHistory(date: dateStr);
+  // Keep these for individual refresh if needed, but updated to call _fetchAllData or be simplified
+  Future<void> _fetchKehadiranData() async => _fetchAllData();
+  Future<void> _fetchPendingAttendance() async => _fetchAllData();
 
-      setState(() {
-        _pendingList =
-            history.where((record) {
-              final isVerified = record['is_verified'].toString() == '1';
-              final statusApproval =
-                  record['status_approval']?.toString().toLowerCase() ??
-                  'pending';
-              return !isVerified && statusApproval == 'pending';
-            }).toList();
-      });
-    } catch (e) {
-      debugPrint("Error fetching pending attendance: $e");
-    } finally {
-      if (mounted) setState(() => _isLoadingApproval = false);
-    }
-  }
 
   Future<void> _handleVerification(int id, String action, String name) async {
     final index = _pendingList.indexWhere(
@@ -657,7 +657,7 @@ class _AbsensiPengampuScreenState extends State<AbsensiPengampuScreen>
                     image:
                         (photoUrl != null && photoUrl != '')
                             ? DecorationImage(
-                              image: NetworkImage(photoUrl),
+                              image: CachedNetworkImageProvider(photoUrl),
                               fit: BoxFit.cover,
                             )
                             : null,

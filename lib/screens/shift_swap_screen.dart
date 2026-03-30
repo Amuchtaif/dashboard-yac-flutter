@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/shift_exchange_service.dart';
 import '../core/api_constants.dart';
 
@@ -431,7 +432,7 @@ class _ShiftSwapScreenState extends State<ShiftSwapScreen>
                         final String? url = ApiConstants.getProfilePhotoUrl(
                           isHistory ? req['substitute_photo'] : req['requester_photo'],
                         );
-                        return url != null && url.isNotEmpty ? NetworkImage(url) : null;
+                        return url != null && url.isNotEmpty ? CachedNetworkImageProvider(url) : null;
                       }(),
                       child:
                           (isHistory

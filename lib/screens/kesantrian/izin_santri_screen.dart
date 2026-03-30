@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/perpulangan_model.dart';
 import '../../services/perpulangan_service.dart';
 import '../../models/asrama_model.dart';
@@ -45,10 +46,13 @@ class _IzinSantriScreenState extends State<IzinSantriScreen> {
 
       final supervisorIdToFetch = _canApprovePermits ? 0 : _supervisorId;
 
-      final statsResult = await _service.getStats(supervisorId: supervisorIdToFetch);
-      final permitsResult = await _service.getActivePermits(
-        supervisorId: supervisorIdToFetch,
-      );
+      final results = await Future.wait([
+        _service.getStats(supervisorId: supervisorIdToFetch),
+        _service.getActivePermits(supervisorId: supervisorIdToFetch),
+      ]);
+
+      final statsResult = results[0] as PerpulanganStats?;
+      final permitsResult = results[1] as List<PerpulanganPermit>;
 
       if (mounted) {
         setState(() {
@@ -168,8 +172,8 @@ class _IzinSantriScreenState extends State<IzinSantriScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF0D9488),
         borderRadius: BorderRadius.circular(24),
-        image: const DecorationImage(
-          image: NetworkImage('https://www.transparenttextures.com/patterns/cubes.png'),
+        image: DecorationImage(
+          image: CachedNetworkImageProvider('https://www.transparenttextures.com/patterns/cubes.png'),
           opacity: 0.1,
         ),
       ),

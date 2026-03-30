@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_constants.dart';
@@ -227,7 +228,7 @@ class _DetailRekapAbsensiScreenState extends State<DetailRekapAbsensiScreen> {
                     radius: 18,
                     backgroundColor: const Color(0xFFF1F5F9),
                     backgroundImage:
-                        (photoUrl != null) ? NetworkImage(photoUrl) : null,
+                        (photoUrl != null) ? CachedNetworkImageProvider(photoUrl) : null,
                     child:
                         (photoUrl == null)
                             ? Text(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api_constants.dart';
 import '../../models/staff_attendance_model.dart';
@@ -315,7 +316,7 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
                 backgroundImage: () {
                   final url = ApiConstants.getProfilePhotoUrl(item.photo);
                   return (url != null && url.isNotEmpty)
-                      ? NetworkImage(url)
+                      ? CachedNetworkImageProvider(url)
                       : null;
                 }(),
                 child:

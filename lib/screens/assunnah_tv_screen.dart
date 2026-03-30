@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/youtube_service.dart';
 import '../models/video_model.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -127,6 +128,9 @@ class _AssunnahTvScreenState extends State<AssunnahTvScreen> {
                 ),
               ),
 
+              if (!_isLoading && _errorMessage == null)
+                _buildVideoFrame(),
+
               Expanded(
                 child:
                     _isLoading
@@ -139,51 +143,10 @@ class _AssunnahTvScreenState extends State<AssunnahTvScreen> {
                           ),
                         )
                         : SingleChildScrollView(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Video Player or Placeholder
-                              if (_controller != null)
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(24),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.1,
-                                        ),
-                                        blurRadius: 20,
-                                        offset: const Offset(0, 10),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: YoutubePlayer(
-                                      controller: _controller!,
-                                      showVideoProgressIndicator: true,
-                                      progressIndicatorColor: Colors.blueAccent,
-                                    ),
-                                  ),
-                                )
-                              else
-                                Container(
-                                  height: 200,
-                                  decoration: BoxDecoration(
-                                    color: Colors.black,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: const Center(
-                                    child: Text(
-                                      "Video tidak tersedia",
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-
-                              const SizedBox(height: 16),
-
                               // Channel Info
                               Container(
                                 padding: const EdgeInsets.all(16),
@@ -308,6 +271,51 @@ class _AssunnahTvScreenState extends State<AssunnahTvScreen> {
     );
   }
 
+  Widget _buildVideoFrame() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Column(
+        children: [
+          if (_controller != null)
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: YoutubePlayer(
+                  controller: _controller!,
+                  showVideoProgressIndicator: true,
+                  progressIndicatorColor: Colors.blueAccent,
+                ),
+              ),
+            )
+          else
+            Container(
+              height: 200,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Center(
+                child: Text(
+                  "Video tidak tersedia",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildVideoItem(VideoModel video) {
     return InkWell(
       onTap: () {
@@ -332,7 +340,7 @@ class _AssunnahTvScreenState extends State<AssunnahTvScreen> {
                     decoration: BoxDecoration(
                       color: Colors.grey[200],
                       image: DecorationImage(
-                        image: NetworkImage(video.thumbnailUrl),
+                        image: CachedNetworkImageProvider(video.thumbnailUrl),
                         fit: BoxFit.cover,
                         onError:
                             (exception, stackTrace) => const AssetImage(

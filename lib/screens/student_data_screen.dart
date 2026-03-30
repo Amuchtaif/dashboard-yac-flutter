@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/student_service.dart';
 
 class StudentDataScreen extends StatefulWidget {
@@ -397,7 +398,7 @@ class _StudentDataScreenState extends State<StudentDataScreen> {
         image:
             student['foto'] != null && student['foto'].toString().isNotEmpty
                 ? DecorationImage(
-                  image: NetworkImage(student['foto']),
+                  image: CachedNetworkImageProvider(student['foto']),
                   fit: BoxFit.cover,
                 )
                 : null,

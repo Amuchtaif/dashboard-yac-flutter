@@ -16,6 +16,7 @@ class PermissionService {
   bool _canCreateMeeting = false;
   bool _canApprovePermits = false;
   bool _isLoaded = false;
+  bool _usingFallback = false;
 
   /// Getter untuk mengecek apakah user bisa membuat rapat
   bool get canCreateMeeting => _canCreateMeeting;
@@ -25,6 +26,9 @@ class PermissionService {
 
   /// Getter untuk mengecek apakah permission sudah di-load
   bool get isLoaded => _isLoaded;
+
+  /// Getter untuk mengecek apakah data saat ini dari fallback
+  bool get usingFallback => _usingFallback;
 
   /// List permission aktif (string)
   List<String> _activePermissions = [];
@@ -36,9 +40,10 @@ class PermissionService {
     _canCreateMeeting = prefs.getBool('can_create_meeting') ?? false;
     _canApprovePermits = prefs.getBool('can_approve_permits') ?? false;
     _activePermissions = prefs.getStringList('user_permissions') ?? [];
+    _usingFallback = prefs.getBool('using_fallback') ?? false;
     _isLoaded = true;
     debugPrint(
-      "📋 Permission Loaded from Cache: canCreateMeeting=$_canCreateMeeting, canApprovePermits=$_canApprovePermits",
+      "📋 Permission Loaded from Cache: canCreateMeeting=$_canCreateMeeting, canApprovePermits=$_canApprovePermits, usingFallback=$_usingFallback",
     );
     debugPrint("📋 Active Permissions from Cache: $_activePermissions");
   }
@@ -59,47 +64,33 @@ class PermissionService {
       );
 
       debugPrint("🌐 Permission API Status: ${response.statusCode}");
-      debugPrint("🌐 Permission API Raw Body: ${response.body}");
+      // debugPrint("🌐 Permission API Raw Body: ${response.body}");
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
         if (data['success'] == true) {
           final responseData = data['data'];
-          debugPrint("🔍 Response data keys: ${responseData?.keys?.toList()}");
-          debugPrint("🔍 Response data: $responseData");
-
           final permissions =
               responseData['permissions'] as Map<String, dynamic>;
-          debugPrint("🔍 Permissions map: $permissions");
-          debugPrint("🔍 Permissions keys: ${permissions.keys.toList()}");
 
-          // Parse permission values (handle both int and string)
+          // Parse permission values
           _canCreateMeeting = _parseBool(permissions['can_create_meeting']);
           _canApprovePermits = _parseBool(permissions['can_approve_permits']);
 
           // Populate active permissions list
           _activePermissions.clear();
           permissions.forEach((key, value) {
-            debugPrint(
-              "   📌 Permission '$key' = '$value' → parseBool: ${_parseBool(value)}",
-            );
             if (_parseBool(value)) {
               _activePermissions.add(key);
             }
           });
 
-          // Simpan ke SharedPreferences untuk cache
+          _usingFallback = false;
           await _saveToCache();
 
           _isLoaded = true;
-          debugPrint(
-            "✅ Permissions Fetched: canCreateMeeting=$_canCreateMeeting, canApprovePermits=$_canApprovePermits",
-          );
-          debugPrint("✅ Active Permissions List: $_activePermissions");
-          debugPrint(
-            "✅ Has can_access_tahfidz? ${_activePermissions.contains('can_access_tahfidz')}",
-          );
+          debugPrint("✅ Permissions Fetched from API: $_activePermissions");
           return true;
         } else {
           debugPrint("❌ Fetch Permissions Failed: ${data['message']}");
@@ -112,84 +103,79 @@ class PermissionService {
     }
 
     // ============================================
-    // FALLBACK: Jika API gagal (404/error), gunakan
-    // data posisi dari login untuk menentukan permission
-    // Berdasarkan tabel positions di database:
-    //   Level 1 (Mudir):        create_meeting=1, approve=1, tahfidz=0
-    //   Level 2 (Kepala Bidang): create_meeting=1, approve=1, tahfidz=0
-    //   Level 3 (Kepala Unit):   create_meeting=1, approve=1, tahfidz=0
-    //   Level 4 (Guru):          create_meeting=0, approve=0, tahfidz=0
-    //   Level 5 (Staf):          create_meeting=0, approve=0, tahfidz=1
-    //   Level 3 (Kepala Sub):    create_meeting=1, approve=0, tahfidz=0
+    // FALLBACK strictly division-based
     // ============================================
-    debugPrint("⚠️ API failed, using position-based fallback...");
+    debugPrint("⚠️ API unavailable or failed, using strict fallback...");
 
     final prefs = await SharedPreferences.getInstance();
     final int positionLevel = prefs.getInt('positionLevel') ?? 99;
     final String positionName = prefs.getString('positionName') ?? '';
+    final String divisionName = prefs.getString('divisionName') ?? '';
 
     debugPrint(
-      "⚠️ Fallback - positionLevel: $positionLevel, positionName: $positionName",
+      "⚠️ Fallback Context - Level: $positionLevel, Pos: $positionName, Div: $divisionName",
     );
 
     _activePermissions.clear();
+    _usingFallback = true;
 
-    // Permission berdasarkan level posisi
+    // 1. Create Meeting - Tetap untuk struktural (Level 1-3)
     if (positionLevel <= 3) {
-      // Mudir, Kepala Bidang, Kepala Unit, Koordinator, Kepala Sub
       _canCreateMeeting = true;
       _activePermissions.add('can_create_meeting');
     }
-    if (positionLevel <= 3 ||
+
+    // 2. Approve Permits - Khusus Kesantrian atau Level 1-2
+    if ((positionLevel <= 2 &&
+            divisionName.toLowerCase().contains('kesantrian')) ||
         positionName.toLowerCase().contains('mudir') ||
-        positionName.toLowerCase().contains('kepala bidang')) {
+        positionName.toLowerCase().contains('kepala bidang kesantrian') ||
+        (positionLevel == 3 &&
+            divisionName.toLowerCase().contains('kesantrian'))) {
       _canApprovePermits = true;
       _activePermissions.add('can_approve_permits');
     }
 
-    // Mudir dan Kabid (Level 1 & 2) punya akses menu Kepala Bidang
-    if (positionLevel <= 2) {
+    // 3. Kabid Menu - Hanya untuk Mudir atau Kabid ASLI
+    if (positionLevel == 1 ||
+        positionName.toLowerCase().contains('mudir') ||
+        (positionLevel == 2 &&
+            positionName.toLowerCase().contains('kepala bidang'))) {
       _activePermissions.add('can_access_kabid');
     }
 
-    // Menu Kesantrian untuk level <= 3 atau jabatan spesifik
-    if (positionLevel <= 3 ||
+    // 4. Kesantrian Menu - Ketat berdasarkan divisi
+    if (divisionName.toLowerCase().contains('kesantrian') ||
         positionName.toLowerCase().contains('musyrif') ||
         positionName.toLowerCase().contains('kesantrian')) {
       _activePermissions.add('can_access_kesantrian');
     }
 
-    // Staf (level 5) punya akses Tahfidz
-    if (positionName.toLowerCase().contains('staf') ||
-        positionName.toLowerCase().contains('staff') ||
-        positionName.toLowerCase().contains('koordinator')) {
+    // 5. Tahfidz Menu - Ketat berdasarkan divisi
+    if (divisionName.toLowerCase().contains('tahfidz') ||
+        positionName.toLowerCase().contains('tahfidz')) {
       _activePermissions.add('can_access_tahfidz');
     }
 
-    // Guru, Kepala, Koordinator → akses Pendidikan
-    if (positionLevel <= 4) {
+    // 6. Pendidikan Menu - Ketat berdasarkan divisi atau guru
+    if (divisionName.toLowerCase().contains('pendidikan') ||
+        positionLevel == 4 ||
+        positionName.toLowerCase().contains('guru') ||
+        positionName.toLowerCase().contains('akademik')) {
       _activePermissions.add('can_access_education');
     }
 
+    // 7. Penugasan/Coordinator
     if (positionName.toLowerCase().contains('koordinator')) {
       _activePermissions.add('is_koordinator');
-    }
-
-    // Kepala Sub (level 3) punya create meeting tapi tidak approve
-    if (positionName.toLowerCase() == 'kepala sub') {
-      _canApprovePermits = false;
-      _activePermissions.remove('can_approve_permits');
     }
 
     await _saveToCache();
     _isLoaded = true;
 
-    debugPrint("⚠️ Fallback Permissions Applied: $_activePermissions");
-    debugPrint(
-      "⚠️ Has can_access_tahfidz? ${_activePermissions.contains('can_access_tahfidz')}",
-    );
+    debugPrint("⚠️ Strict Fallback Applied: $_activePermissions");
 
-    return false; // Indicate we used fallback, not API
+    return false;
   }
 
   Future<void> _saveToCache() async {
@@ -197,12 +183,14 @@ class PermissionService {
     await prefs.setBool('can_create_meeting', _canCreateMeeting);
     await prefs.setBool('can_approve_permits', _canApprovePermits);
     await prefs.setStringList('user_permissions', _activePermissions);
+    await prefs.setBool('using_fallback', _usingFallback);
     debugPrint("💾 Permissions saved to cache");
   }
 
-  /// Update permission secara manual (misal untuk testing)
+  /// Update permission secara manual
   Future<void> setPermission({required bool canCreateMeeting}) async {
     _canCreateMeeting = canCreateMeeting;
+    _usingFallback = true;
     await _saveToCache();
     _isLoaded = true;
   }
