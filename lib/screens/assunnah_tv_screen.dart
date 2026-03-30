@@ -51,7 +51,7 @@ class _AssunnahTvScreenState extends State<AssunnahTvScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = "Gagal memuat video. Periksa koneksi internet.";
+          _errorMessage = "$e";
         });
       }
     }
@@ -65,254 +65,285 @@ class _AssunnahTvScreenState extends State<AssunnahTvScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
+    if (_controller == null && !_isLoading && _errorMessage == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return YoutubePlayerBuilder(
+      onExitFullScreen: () {
+        SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+      },
+      player: YoutubePlayer(
+        controller: _controller ??
+            YoutubePlayerController(
+              initialVideoId: _videos.isNotEmpty ? _videos.first.id : '',
+              flags: const YoutubePlayerFlags(autoPlay: false),
+            ),
+        showVideoProgressIndicator: true,
+        progressIndicatorColor: Colors.blueAccent,
+        topActions: [
+          const SizedBox(width: 8.0),
+          Expanded(
+            child: Text(
+              _controller?.metadata.title ?? '',
+              style: const TextStyle(color: Colors.white, fontSize: 18.0),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+        ],
+        onReady: () {
+          debugPrint('YoutubePlayer is ready.');
+        },
       ),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FD),
-        body: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              // Header
-              Container(
-                padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top + 20,
-                  bottom: 20,
-                  left: 20,
-                  right: 20,
-                ),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFE3EEFF), Color(0xFFF3F6FF)],
-                  ),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
-                        Icons.arrow_back_ios,
-                        color: Color(0xFF1F2937),
-                        size: 24,
+      builder: (context, player) {
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+          ),
+          child: Scaffold(
+            backgroundColor: const Color(0xFFF8F9FD),
+            body: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  // Header (Hanya tampil jika tidak fullscreen)
+                  Container(
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top + 20,
+                      bottom: 20,
+                      left: 20,
+                      right: 20,
+                    ),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFFE3EEFF), Color(0xFFF3F6FF)],
+                      ),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(30),
+                        bottomRight: Radius.circular(30),
                       ),
                     ),
-                    Text(
-                      "TV Sunnah",
-                      style: GoogleFonts.poppins(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF1F2937),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        // show info
-                      },
-                      icon: const Icon(
-                        Icons.info_outline,
-                        color: Color(0xFF1F2937),
-                        size: 28,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              if (!_isLoading && _errorMessage == null)
-                _buildVideoFrame(),
-
-              Expanded(
-                child:
-                    _isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : _errorMessage != null
-                        ? Center(
-                          child: Text(
-                            _errorMessage!,
-                            style: GoogleFonts.poppins(color: Colors.red),
-                          ),
-                        )
-                        : SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Channel Info
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.05,
-                                      ),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 8,
-                                          height: 8,
-                                          decoration: const BoxDecoration(
-                                            color: Colors.redAccent,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          "TV Sunnah Channel",
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF1F2937),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      "Streaming dakwah Islam Ahlussunnah wal Jama'ah dari Radio & TV Sunnah Cirebon.",
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 13,
-                                        color: const Color(0xFF6B7280),
-                                        height: 1.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(height: 16),
-
-                              Container(
-                                padding: const EdgeInsets.fromLTRB(
-                                  20,
-                                  20,
-                                  20,
-                                  10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(24),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.05,
-                                      ),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 10),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-                                    // Header inside card
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          "Video Terbaru",
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF1F2937),
-                                          ),
-                                        ),
-                                        const Icon(
-                                          Icons.sort_rounded,
-                                          color: Colors.blueAccent,
-                                          size: 24,
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-
-                                    // List inside card
-                                    ListView.builder(
-                                      shrinkWrap: true,
-                                      padding: EdgeInsets.zero,
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      itemCount: _videos.length,
-                                      itemBuilder: (context, index) {
-                                        return _buildVideoItem(_videos[index]);
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(
+                            Icons.arrow_back_ios,
+                            color: Color(0xFF1F2937),
+                            size: 24,
                           ),
                         ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+                        Text(
+                          "TV Sunnah",
+                          style: GoogleFonts.poppins(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF1F2937),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () {},
+                          icon: const Icon(
+                            Icons.info_outline,
+                            color: Color(0xFF1F2937),
+                            size: 28,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
-  Widget _buildVideoFrame() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Column(
-        children: [
-          if (_controller != null)
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
+                  if (!_isLoading && _errorMessage == null && _videos.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: player,
+                        ),
+                      ),
+                    ),
+
+                  Expanded(
+                    child:
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _errorMessage != null
+                            ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(20.0),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: Colors.red,
+                                      size: 48,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _errorMessage!,
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    ElevatedButton(
+                                      onPressed: () => _loadVideos(),
+                                      child: const Text("Coba Lagi"),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                            : SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Channel Info
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.05,
+                                          ),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(
+                                              width: 8,
+                                              height: 8,
+                                              decoration: const BoxDecoration(
+                                                color: Colors.redAccent,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              "TV Sunnah Channel",
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color: const Color(0xFF1F2937),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          "Streaming dakwah Islam Ahlussunnah wal Jama'ah dari Radio & TV Sunnah Cirebon.",
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 13,
+                                            color: const Color(0xFF6B7280),
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 16),
+
+                                  Container(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      20,
+                                      20,
+                                      20,
+                                      10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(24),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.05,
+                                          ),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 10),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              "Video Terbaru",
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                                color: const Color(0xFF1F2937),
+                                              ),
+                                            ),
+                                            const Icon(
+                                              Icons.sort_rounded,
+                                              color: Colors.blueAccent,
+                                              size: 24,
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 16),
+
+                                        ListView.builder(
+                                          shrinkWrap: true,
+                                          padding: EdgeInsets.zero,
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          itemCount: _videos.length,
+                                          itemBuilder: (context, index) {
+                                            return _buildVideoItem(
+                                              _videos[index],
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: YoutubePlayer(
-                  controller: _controller!,
-                  showVideoProgressIndicator: true,
-                  progressIndicatorColor: Colors.blueAccent,
-                ),
-              ),
-            )
-          else
-            Container(
-              height: 200,
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Center(
-                child: Text(
-                  "Video tidak tersedia",
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
             ),
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -320,7 +351,11 @@ class _AssunnahTvScreenState extends State<AssunnahTvScreen> {
     return InkWell(
       onTap: () {
         if (_controller != null) {
-          _controller!.load(video.id);
+          try {
+            _controller!.load(video.id);
+          } catch (e) {
+            debugPrint('Error loading video: $e');
+          }
         }
       },
       child: Padding(
