@@ -107,6 +107,12 @@ class ApiConstants {
   // Tahfidz Endpoints
   static const String tahfidzGetAssessmentTypes =
       '${baseUrl}tahfidz/get_assessment_types.php';
+  static const String tahfidzGetMyStudents =
+      '${baseUrl}tahfidz/get_my_students.php';
+  static const String tahfidzAddMember =
+      '${baseUrl}tahfidz/add_halaqah_member.php';
+  static const String tahfidzRemoveMember =
+      '${baseUrl}tahfidz/remove_halaqah_member.php';
 
   // Boarding Endpoints
   static const String boardingGetRooms = '${baseUrl}boarding/get_rooms.php';

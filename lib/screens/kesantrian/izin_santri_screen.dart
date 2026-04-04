@@ -679,14 +679,40 @@ class _AddPermitBottomSheetState extends State<AddPermitBottomSheet> {
                   ? const LinearProgressIndicator()
                   : DropdownButtonFormField<Asrama>(
                       value: _selectedAsrama,
+                      isExpanded: true,
                       decoration: InputDecoration(
-                        filled: true, fillColor: Colors.grey.shade50,
-                        hintText: _asramaList.isEmpty ? 'Data asrama tidak ditemukan' : 'Pilih asrama...',
-                        hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                        prefixIcon: const Icon(Icons.home_work_rounded, size: 20, color: Color(0xFF0D9488)),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        hintText: _asramaList.isEmpty
+                            ? 'Data asrama tidak ditemukan'
+                            : 'Pilih asrama...',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.home_work_rounded,
+                          size: 20,
+                          color: Color(0xFF0D9488),
+                        ),
                       ),
-                      items: _asramaList.map((a) => DropdownMenuItem(value: a, child: Text(a.nama, style: GoogleFonts.poppins(fontSize: 13)))).toList(),
+                      items:
+                          _asramaList
+                              .map(
+                                (a) => DropdownMenuItem(
+                                  value: a,
+                                  child: Text(
+                                    a.nama,
+                                    style: GoogleFonts.poppins(fontSize: 13),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
                       onChanged: (val) {
                         setState(() => _selectedAsrama = val);
                         if (val != null) _loadStudents(val.id);
@@ -701,15 +727,42 @@ class _AddPermitBottomSheetState extends State<AddPermitBottomSheet> {
                     ? const LinearProgressIndicator()
                     : DropdownButtonFormField<PerpulanganStudent>(
                         value: _selectedStudent,
+                        isExpanded: true,
                         decoration: InputDecoration(
-                          filled: true, fillColor: Colors.grey.shade50,
-                          hintText: _students.isEmpty ? 'Data santri tidak ditemukan' : 'Pilih santri...',
-                          hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                          prefixIcon: const Icon(Icons.person_search_rounded, size: 20, color: Color(0xFF0D9488)),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                          hintText: _students.isEmpty
+                              ? 'Data santri tidak ditemukan'
+                              : 'Pilih santri...',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.person_search_rounded,
+                            size: 20,
+                            color: Color(0xFF0D9488),
+                          ),
                         ),
-                        items: _students.map((s) => DropdownMenuItem(value: s, child: Text('${s.name} (${s.className})', style: GoogleFonts.poppins(fontSize: 13)))).toList(),
-                        onChanged: (val) => setState(() => _selectedStudent = val),
+                        items:
+                            _students
+                                .map(
+                                  (s) => DropdownMenuItem(
+                                    value: s,
+                                    child: Text(
+                                      '${s.name} (${s.className})',
+                                      style: GoogleFonts.poppins(fontSize: 13),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged:
+                            (val) => setState(() => _selectedStudent = val),
                         validator: (v) => v == null ? 'Pilih santri' : null,
                       ),
                 const SizedBox(height: 16),

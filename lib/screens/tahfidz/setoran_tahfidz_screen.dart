@@ -8,6 +8,7 @@ import '../../services/quran_service.dart';
 import '../../models/surah_model.dart';
 import '../../providers/tahfidz_provider.dart';
 import '../../utils/access_control.dart';
+import './riwayat_setoran_screen.dart';
 
 class SetoranTahfidzScreen extends StatefulWidget {
   const SetoranTahfidzScreen({super.key});
@@ -364,11 +365,15 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Setoran Tersimpan'),
+          content: Text('Setoran Berhasil Disimpan'),
           backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
         ),
       );
-      Navigator.pop(context);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const RiwayatSetoranScreen()),
+      );
     } else {
       _showError('Gagal: ${result['message']}');
     }
@@ -400,16 +405,57 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeader(context),
-                      const SizedBox(height: 30),
-                      Text(
-                        'Input Hafalan Baru',
-                        style: GoogleFonts.poppins(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1F2937),
-                        ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Input Hafalan',
+                            style: GoogleFonts.poppins(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF1F2937),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => const RiwayatSetoranScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.history_rounded,
+                              size: 18,
+                              color: Colors.blueAccent,
+                            ),
+                            label: Text(
+                              'Riwayat',
+                              style: GoogleFonts.poppins(
+                                color: Colors.blueAccent,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              backgroundColor: Colors.blueAccent.withValues(
+                                alpha: 0.1,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 20),
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(

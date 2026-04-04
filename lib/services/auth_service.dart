@@ -80,13 +80,13 @@ class AuthService {
 
             return AuthResult(
               success: true,
-              message: responseData['message'] ?? 'Login Successful',
+              message: responseData['message'] ?? 'Login Berhasil',
               user: user,
             );
           } else {
             return AuthResult(
               success: false,
-              message: responseData['message'] ?? 'Login Failed',
+              message: responseData['message'] ?? 'Login Gagal',
             );
           }
         } catch (e) {
@@ -96,17 +96,17 @@ class AuthService {
                   : response.body;
           return AuthResult(
             success: false,
-            message: 'Server Error (Invalid JSON): $snippet',
+            message: 'Kesalahan Server (JSON Tidak Valid): $snippet',
           );
         }
       } else {
         return AuthResult(
           success: false,
-          message: 'Server Error: ${response.statusCode}',
+          message: 'Kesalahan Server: ${response.statusCode}',
         );
       }
     } catch (e) {
-      return AuthResult(success: false, message: 'Connection Error: $e');
+      return AuthResult(success: false, message: 'Kesalahan Koneksi: $e');
     }
   }
 
@@ -161,11 +161,11 @@ class AuthService {
       } else {
         return AuthResult(
           success: false,
-          message: 'Server Error: ${response.statusCode}',
+          message: 'Kesalahan Server: ${response.statusCode}',
         );
       }
     } catch (e) {
-      return AuthResult(success: false, message: 'Connection Error: $e');
+      return AuthResult(success: false, message: 'Kesalahan Koneksi: $e');
     }
   }
 }

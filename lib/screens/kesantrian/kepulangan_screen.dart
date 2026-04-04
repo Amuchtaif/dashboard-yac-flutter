@@ -69,40 +69,25 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
         supervisorId: _supervisorId,
       );
       _activeLiburPermits =
-          activePermits.where((p) => p.category == 'Libur').toList();
+          activePermits
+              .where((p) => p.category == 'Libur' && p.status != 'Kembali')
+              .toList();
 
       _holidays = await _service.getHolidays();
       _selectedHoliday = null;
 
-      if (_allStudents.isEmpty) {
-        _allStudents = [
-          PerpulanganStudent(
-            id: 1,
-            name: 'Ahmad Zulkarnain',
-            className: 'Kelas XII - Al-Azhar',
-          ),
-          PerpulanganStudent(
-            id: 2,
-            name: 'Fatimah Az-Zahra',
-            className: 'Kelas XI - Khadijah',
-          ),
-          PerpulanganStudent(
-            id: 3,
-            name: 'Budi Santoso',
-            className: 'Kelas X - Madinah',
-          ),
-          PerpulanganStudent(
-            id: 4,
-            name: 'Siti Aminah',
-            className: 'Kelas X - Makkah',
-          ),
-        ];
-      }
-
+      // Removed mock data to ensure only dynamic data is used
+      
       _filteredStudents = _allStudents;
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      debugPrint('Error in _fetchInitialData: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal mengambil data: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -347,8 +332,7 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
                       ),
                       if (isOnLibur)
                         ElevatedButton(
-                          onPressed:
-                              () => _confirmReturn(listContext, activePermit),
+                          onPressed: () => _confirmReturn(activePermit),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green.shade50,
                             foregroundColor: Colors.green.shade700,
@@ -588,78 +572,114 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
             ),
           ),
           const Divider(height: 1),
-          ListView.builder(
-            padding: EdgeInsets.zero,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _filteredStudents.length,
-            itemBuilder: (context, index) {
-              final student = _filteredStudents[index];
-              final isSelected = _selectedStudentIds.contains(student.id);
-              final isOnLibur = _isStudentOnLibur(student.id);
-
-              return ListTile(
-                onTap:
-                    isOnLibur
-                        ? null
-                        : () {
-                          setState(() {
-                            if (isSelected) {
-                              _selectedStudentIds.remove(student.id);
-                            } else {
-                              _selectedStudentIds.add(student.id);
-                            }
-                          });
-                        },
-                leading: CircleAvatar(
-                  radius: 18,
-                  backgroundColor:
-                      isOnLibur
-                          ? Colors.orange.shade50
-                          : (isSelected ? primaryColor : Colors.grey.shade100),
-                  child: Text(
-                    student.name.substring(0, 1).toUpperCase(),
-                    style: GoogleFonts.poppins(
-                      color:
-                          isSelected
-                              ? Colors.white
-                              : (isOnLibur ? Colors.orange : Colors.black87),
-                      fontWeight: FontWeight.bold,
+          _filteredStudents.isEmpty
+              ? Padding(
+                padding: const EdgeInsets.all(40),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.person_off_rounded,
+                      size: 48,
+                      color: Colors.grey.shade200,
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Tidak ada data santri ditemukan',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey.shade400,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Pastikan Anda memiliki daftar asrama dan santri yang tervalidasi.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey.shade300,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
-                title: Text(
-                  student.name,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: isOnLibur ? Colors.grey : Colors.black87,
-                  ),
-                ),
-                subtitle: Text(
-                  isOnLibur ? 'Sedang Libur' : student.className,
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    color: isOnLibur ? Colors.orange : Colors.grey,
-                  ),
-                ),
-                trailing:
-                    isOnLibur
-                        ? const Icon(
-                          Icons.lock_clock_outlined,
-                          size: 20,
-                          color: Colors.orange,
-                        )
-                        : Icon(
-                          isSelected
-                              ? Icons.check_circle_rounded
-                              : Icons.radio_button_off_rounded,
+              )
+              : ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _filteredStudents.length,
+                itemBuilder: (context, index) {
+                  final student = _filteredStudents[index];
+                  final isSelected = _selectedStudentIds.contains(student.id);
+                  final isOnLibur = _isStudentOnLibur(student.id);
+
+                  return ListTile(
+                    onTap:
+                        isOnLibur
+                            ? null
+                            : () {
+                              setState(() {
+                                if (isSelected) {
+                                  _selectedStudentIds.remove(student.id);
+                                } else {
+                                  _selectedStudentIds.add(student.id);
+                                }
+                              });
+                            },
+                    leading: CircleAvatar(
+                      radius: 18,
+                      backgroundColor:
+                          isOnLibur
+                              ? Colors.orange.shade50
+                              : (isSelected
+                                  ? primaryColor
+                                  : Colors.grey.shade100),
+                      child: Text(
+                        student.name.substring(0, 1).toUpperCase(),
+                        style: GoogleFonts.poppins(
                           color:
-                              isSelected ? primaryColor : Colors.grey.shade200,
+                              isSelected
+                                  ? Colors.white
+                                  : (isOnLibur
+                                      ? Colors.orange
+                                      : Colors.black87),
+                          fontWeight: FontWeight.bold,
                         ),
-              );
-            },
-          ),
+                      ),
+                    ),
+                    title: Text(
+                      student.name,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: isOnLibur ? Colors.grey : Colors.black87,
+                      ),
+                    ),
+                    subtitle: Text(
+                      isOnLibur ? 'Sedang Libur' : student.className,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: isOnLibur ? Colors.orange : Colors.grey,
+                      ),
+                    ),
+                    trailing:
+                        isOnLibur
+                            ? const Icon(
+                              Icons.lock_clock_outlined,
+                              size: 20,
+                              color: Colors.orange,
+                            )
+                            : Icon(
+                              isSelected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_off_rounded,
+                              color:
+                                  isSelected
+                                      ? primaryColor
+                                      : Colors.grey.shade200,
+                            ),
+                  );
+                },
+              ),
         ],
       ),
     );
@@ -742,7 +762,7 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
     );
   }
 
-  Future<void> _confirmReturn(BuildContext context, PerpulanganPermit p) async {
+  Future<void> _confirmReturn(PerpulanganPermit p) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder:
@@ -768,20 +788,42 @@ class _KepulanganScreenState extends State<KepulanganScreen> {
           ),
     );
     if (confirm == true) {
+      if (!mounted) return;
       setState(() => _isLoading = true);
-      final res = await _service.updateStatus(p.id, 'Kembali');
-      if (res['success'] == true) {
-        _fetchInitialData();
-      } else {
-        if (mounted && context.mounted) {
+      try {
+        final res = await _service.updateStatus(p.id, 'Kembali');
+
+        if (!mounted) return;
+
+        if (res['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Santri berhasil dikonfirmasi kembali.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // After success, reload data and clear selection
+          _selectedStudentIds.remove(p.studentId);
+          await _fetchInitialData();
+        } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(res['message'] ?? 'Gagal update'),
+              content: Text(res['message'] ?? 'Gagal update status'),
               backgroundColor: Colors.red,
             ),
           );
           setState(() => _isLoading = false);
         }
+      } catch (e) {
+        debugPrint('Error in _confirmReturn: $e');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Terjadi kesalahan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isLoading = false);
       }
     }
   }

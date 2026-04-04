@@ -50,6 +50,7 @@ class _ClassListScreenState extends State<ClassListScreen> {
         return (a['class_name'] ?? '').compareTo(b['class_name'] ?? '');
       });
 
+      if (!mounted) return;
       setState(() {
         _classes = results;
         _isLoading = false;
@@ -201,118 +202,119 @@ class _ClassListScreenState extends State<ClassListScreen> {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
-          children: [
-            // Background design element (optional, to match the circular highlight in image)
-            Positioned(
-              right: -30,
-              top: -10,
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE0F2FE).withValues(alpha: 0.3),
-                  shape: BoxShape.circle,
-                ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ClassDetailScreen(classData: classData),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        classData['class_name'] ?? 'Kelas',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E293B),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF), // Soft Blue
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${classData['student_count'] ?? 0} Siswa',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF3B82F6),
-                          ),
-                        ),
-                      ),
-                    ],
+            );
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              children: [
+                // Background design element
+                Positioned(
+                  right: -30,
+                  top: -10,
+                  child: Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F2FE).withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.school_outlined,
-                        size: 16,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        classData['unit_name'] ?? '-',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const SizedBox(), // Removed avatar stack
-                      InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (context) =>
-                                      ClassDetailScreen(classData: classData),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            classData['class_name'] ?? 'Kelas',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF1E293B),
                             ),
-                          );
-                        },
-                        child: Row(
-                          children: [
-                            Text(
-                              'Lihat Detail',
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF), // Soft Blue
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '${classData['student_count'] ?? 0} Siswa',
                               style: GoogleFonts.poppins(
-                                fontSize: 13,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xFF3B82F6),
                               ),
                             ),
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.chevron_right,
-                              size: 16,
-                              color: Color(0xFF3B82F6),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.school_outlined,
+                            size: 16,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            classData['unit_name'] ?? '-',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: Colors.grey[500],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Lihat Detail',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF3B82F6),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                color: Color(0xFF3B82F6),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

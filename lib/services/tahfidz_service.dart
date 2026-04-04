@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
+import '../core/api_constants.dart';
 
 class TahfidzService {
   final String baseUrl = ApiConfig.baseUrl;
@@ -30,7 +31,9 @@ class TahfidzService {
     if (teacherId == null) return [];
     try {
       final response = await http.get(
-        Uri.parse("$baseUrl/tahfidz/get_my_students.php?teacher_id=$teacherId"),
+        Uri.parse(
+          "${ApiConstants.tahfidzGetMyStudents}?teacher_id=$teacherId",
+        ),
         headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
@@ -44,6 +47,58 @@ class TahfidzService {
       debugPrint("Error fetching my students: $e");
     }
     return [];
+  }
+
+  Future<Map<String, dynamic>> addHalaqahMember(
+    int teacherId,
+    int studentId,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.tahfidzAddMember),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({"teacher_id": teacherId, "student_id": studentId}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {
+        "success": false,
+        "message": "Server error ${response.statusCode}",
+      };
+    } catch (e) {
+      return {"success": false, "message": "Error: $e"};
+    }
+  }
+
+  Future<Map<String, dynamic>> removeHalaqahMember(
+    int teacherId,
+    int studentId,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.tahfidzRemoveMember),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({"teacher_id": teacherId, "student_id": studentId}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {
+        "success": false,
+        "message": "Server error ${response.statusCode}",
+      };
+    } catch (e) {
+      return {"success": false, "message": "Error: $e"};
+    }
   }
 
   Future<List<dynamic>> getTeachers() async {

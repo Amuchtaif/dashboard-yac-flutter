@@ -14,7 +14,7 @@ class AbsensiManualScreen extends StatefulWidget {
 class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
   final KabidService _kabidService = KabidService();
   final TextEditingController _noteController = TextEditingController();
-  
+
   List<Map<String, dynamic>> _staffList = [];
   String? _selectedStaffId;
   String _selectedType = 'Masuk';
@@ -30,16 +30,19 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
   }
 
   Future<void> _fetchStaff() async {
+    if (!mounted) return;
     setState(() => _isLoadingStaff = true);
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt('user_id') ?? 0;
       final results = await _kabidService.getStaffList(userId);
+      if (!mounted) return;
       setState(() {
         _staffList = results;
         _isLoadingStaff = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoadingStaff = false);
     }
   }
@@ -52,7 +55,10 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
       lastDate: DateTime.now(),
       locale: const Locale('id', 'ID'),
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+    if (picked != null) {
+      if (!mounted) return;
+      setState(() => _selectedDate = picked);
+    }
   }
 
   Future<void> _pickTime() async {
@@ -60,17 +66,21 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
       context: context,
       initialTime: _selectedTime,
     );
-    if (picked != null) setState(() => _selectedTime = picked);
+    if (picked != null) {
+      if (!mounted) return;
+      setState(() => _selectedTime = picked);
+    }
   }
 
   Future<void> _submit() async {
     if (_selectedStaffId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Silakan pilih staf terlebih dahulu')),
+        const SnackBar(content: Text('Silakan pilih karyawan terlebih dahulu')),
       );
       return;
     }
 
+    if (!mounted) return;
     setState(() => _isSaving = true);
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -81,12 +91,14 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
         'staff_id': int.parse(_selectedStaffId!),
         'type': _selectedType.toUpperCase(),
         'date': DateFormat('yyyy-MM-dd').format(_selectedDate),
-        'time': '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+        'time':
+            '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
         'note': _noteController.text,
       };
 
       final result = await _kabidService.saveManualAttendance(data);
 
+      if (!mounted) return;
       setState(() => _isSaving = false);
 
       if (mounted) {
@@ -99,8 +111,8 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
         if (result['success']) Navigator.pop(context);
       }
     } catch (e) {
-      setState(() => _isSaving = false);
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
         );
@@ -186,19 +198,20 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
 
   Widget _buildForm() {
     // Find the currently selected staff name
-    final selectedStaffName = _staffList.firstWhere(
-      (s) => s['id'].toString() == _selectedStaffId,
-      orElse: () => {'name': 'Cari nama staf...'},
-    )['name'];
+    final selectedStaffName =
+        _staffList.firstWhere(
+          (s) => s['id'].toString() == _selectedStaffId,
+          orElse: () => {'name': 'Cari nama karyawan...'},
+        )['name'];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLabel('Pilih Staf'),
+        _buildLabel('Pilih Karyawan'),
         const SizedBox(height: 8),
         _buildPickerTile(
           icon: Icons.person_search_rounded,
-          value: _isLoadingStaff ? 'Memuat staf...' : selectedStaffName,
+          value: _isLoadingStaff ? 'Memuat karyawan...' : selectedStaffName,
           onTap: _isLoadingStaff ? () {} : _showStaffSearch,
         ),
         const SizedBox(height: 20),
@@ -369,7 +382,10 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
             color: isSelected ? const Color(0xFF0D9488) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? const Color(0xFF0D9488) : const Color(0xFFE2E8F0),
+              color:
+                  isSelected
+                      ? const Color(0xFF0D9488)
+                      : const Color(0xFFE2E8F0),
             ),
           ),
           child: Center(
@@ -432,20 +448,24 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
           elevation: 4,
           shadowColor: const Color(0xFF0D9488).withValues(alpha: 0.3),
         ),
-        child: _isSaving
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-              )
-            : Text(
-                'Simpan Presensi',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+        child:
+            _isSaving
+                ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+                : Text(
+                  'Simpan Presensi',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
       ),
     );
   }

@@ -212,7 +212,6 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
@@ -222,40 +221,59 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
               ),
             ],
           ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 12,
-            ),
-            leading: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(12),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => _fetchClasses(unitName),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.school, color: Color(0xFF3B82F6)),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            unitName,
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: const Color(0xFF1E293B),
+                            ),
+                          ),
+                          Text(
+                            'Ketuk untuk melihat rekap kelas',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      size: 14,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ],
+                ),
               ),
-              child: const Icon(Icons.school, color: Color(0xFF3B82F6)),
             ),
-            title: Text(
-              unitName,
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: const Color(0xFF1E293B),
-              ),
-            ),
-            subtitle: Text(
-              'Ketuk untuk melihat rekap kelas',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: const Color(0xFF64748B),
-              ),
-            ),
-            trailing: const Icon(
-              Icons.arrow_forward_ios,
-              size: 14,
-              color: Color(0xFF94A3B8),
-            ),
-            onTap: () => _fetchClasses(unitName),
           ),
         );
       },
@@ -322,7 +340,6 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
@@ -332,46 +349,65 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
                   ),
                 ],
               ),
-              child: ListTile(
-                onTap:
-                    () => _fetchSubjects(
-                      cls['id'].toString(),
-                      cls['name'].toString(),
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap:
+                      () => _fetchSubjects(
+                        cls['id'].toString(),
+                        cls['name'].toString(),
+                      ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
                     ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                leading: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(12),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.meeting_room_rounded,
+                            color: Color(0xFF3B82F6),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                cls['name']?.toString() ?? 'Unknown Class',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: const Color(0xFF1E293B),
+                                ),
+                              ),
+                              Text(
+                                'Ketuk untuk melihat detail per mapel',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: const Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.arrow_forward_ios,
+                          size: 14,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.meeting_room_rounded,
-                    color: Color(0xFF3B82F6),
-                  ),
-                ),
-                title: Text(
-                  cls['name']?.toString() ?? 'Unknown Class',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: const Color(0xFF1E293B),
-                  ),
-                ),
-                subtitle: Text(
-                  'Ketuk untuk melihat detail per mapel',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: const Color(0xFF64748B),
-                  ),
-                ),
-                trailing: const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 14,
-                  color: Color(0xFF94A3B8),
                 ),
               ),
             );

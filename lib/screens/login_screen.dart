@@ -26,7 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter both email and password')),
+        const SnackBar(content: Text('Silakan masukkan email dan password')),
       );
       return;
     }
@@ -285,7 +285,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                       )
                                       : Text(
-                                        'Sign In',
+                                        'Masuk',
                                         style: GoogleFonts.poppins(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
