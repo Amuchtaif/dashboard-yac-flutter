@@ -85,6 +85,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
     });
   }
 
+  @override
   void dispose() {
     _timer?.cancel();
     super.dispose();
@@ -690,7 +691,9 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               decoration: BoxDecoration(
                                 color:
-                                    isSelected ? Colors.indigo : Colors.grey[50],
+                                    isSelected
+                                        ? Colors.indigo
+                                        : Colors.grey[50],
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
                                   color:

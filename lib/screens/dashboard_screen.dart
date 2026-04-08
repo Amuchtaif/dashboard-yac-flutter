@@ -1085,26 +1085,29 @@ class HomeTab extends StatelessWidget {
           radius: 24,
           backgroundColor: Colors.blueAccent,
           child: ClipOval(
-            child:
-                () {
-                  final String? photoUrl = ApiConstants.getProfilePhotoUrl(profilePhoto);
-                  return (photoUrl != null && photoUrl.isNotEmpty)
-                      ? CachedNetworkImage(
-                        key: ValueKey(photoUrl),
-                        imageUrl: photoUrl,
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => const SizedBox(
+            child: () {
+              final String? photoUrl = ApiConstants.getProfilePhotoUrl(
+                profilePhoto,
+              );
+              return (photoUrl != null && photoUrl.isNotEmpty)
+                  ? CachedNetworkImage(
+                    key: ValueKey(photoUrl),
+                    imageUrl: photoUrl,
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    placeholder:
+                        (context, url) => const SizedBox(
                           width: 48,
                           height: 48,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                        errorWidget: (context, url, error) =>
+                    errorWidget:
+                        (context, url, error) =>
                             const Icon(Icons.person, color: Colors.white),
-                      )
-                      : const Icon(Icons.person, color: Colors.white);
-                }(),
+                  )
+                  : const Icon(Icons.person, color: Colors.white);
+            }(),
           ),
         ),
         const SizedBox(width: 12),

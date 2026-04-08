@@ -240,7 +240,10 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
         icon: const Icon(Icons.add, color: Colors.white),
         label: Text(
           "Tambah Penilaian",
-          style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold),
+          style: GoogleFonts.poppins(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
@@ -258,16 +261,6 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
             style: GoogleFonts.poppins(color: Colors.grey[500], fontSize: 16),
           ),
           const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => setState(() => _isInputView = true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF3B82F6),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: const Text("Buat Penilaian Pertama"),
-          ),
         ],
       ),
     );
@@ -330,7 +323,10 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
                 const SizedBox(height: 4),
                 Text(
                   "$category • $date",
-                  style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF64748B)),
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: const Color(0xFF64748B),
+                  ),
                 ),
               ],
             ),
@@ -377,149 +373,182 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
         centerTitle: true,
         iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildCard([
-                    Row(
-                      children: [
-                        const Icon(Icons.person_pin_rounded,
-                            size: 18, color: Color(0xFF3B82F6)),
-                        const SizedBox(width: 8),
-                        _buildLabel('Pilih Siswa'),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    _buildStudentDropdown(),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_month_rounded,
-                            size: 18, color: Color(0xFF3B82F6)),
-                        const SizedBox(width: 8),
-                        _buildLabel('Tanggal Penilaian'),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    _buildDatePicker(),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        const Icon(Icons.category_rounded,
-                            size: 18, color: Color(0xFF3B82F6)),
-                        const SizedBox(width: 8),
-                        _buildLabel('Jenis Penilaian'),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    _buildCategoryDropdown(),
-                  ]),
-                  const SizedBox(height: 20),
-                  _buildCard([
-                    Row(
-                      children: [
-                        const Icon(Icons.stars_rounded,
-                            size: 18, color: Color(0xFFF59E0B)),
-                        const SizedBox(width: 8),
-                        Text(
-                          "Input Nilai (0-100)",
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: const Color(0xFF1E293B),
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildCard([
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.person_pin_rounded,
+                            size: 18,
+                            color: Color(0xFF3B82F6),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildLabel('Pilih Siswa'),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _buildStudentDropdown(),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_month_rounded,
+                            size: 18,
+                            color: Color(0xFF3B82F6),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildLabel('Tanggal Penilaian'),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _buildDatePicker(),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.category_rounded,
+                            size: 18,
+                            color: Color(0xFF3B82F6),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildLabel('Jenis Penilaian'),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _buildCategoryDropdown(),
+                    ]),
+                    const SizedBox(height: 20),
+                    _buildCard([
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.stars_rounded,
+                            size: 18,
+                            color: Color(0xFFF59E0B),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Input Nilai (0-100)",
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _buildScoreInput(
+                        "Tajwid",
+                        _tajweedController,
+                        Icons.menu_book_rounded,
+                      ),
+                      const SizedBox(height: 14),
+                      _buildScoreInput(
+                        "Kelancaran",
+                        _fluencyController,
+                        Icons.record_voice_over_rounded,
+                      ),
+                      const SizedBox(height: 14),
+                      _buildScoreInput(
+                        "Makhraj",
+                        _makhrajController,
+                        Icons.record_voice_over_rounded,
+                      ),
+                    ]),
+                    const SizedBox(height: 20),
+                    _buildCard([
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.comment_rounded,
+                            size: 18,
+                            color: Color(0xFF6366F1),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildLabel("Catatan / Komentar"),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _commentsController,
+                        maxLines: 4,
+                        style: GoogleFonts.poppins(fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: "Tulis catatan perkembangan...",
+                          hintStyle: GoogleFonts.poppins(
+                            color: const Color(0xFF94A3B8),
+                            fontSize: 13,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    _buildScoreInput("Tajwid", _tajweedController,
-                        Icons.menu_book_rounded),
-                    const SizedBox(height: 14),
-                    _buildScoreInput("Kelancaran", _fluencyController,
-                        Icons.record_voice_over_rounded),
-                    const SizedBox(height: 14),
-                    _buildScoreInput("Makhraj", _makhrajController,
-                        Icons.record_voice_over_rounded),
-                  ]),
-                  const SizedBox(height: 20),
-                  _buildCard([
-                    Row(
-                      children: [
-                        const Icon(Icons.comment_rounded,
-                            size: 18, color: Color(0xFF6366F1)),
-                        const SizedBox(width: 8),
-                        _buildLabel("Catatan / Komentar"),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _commentsController,
-                      maxLines: 4,
-                      style: GoogleFonts.poppins(fontSize: 14),
-                      decoration: InputDecoration(
-                        hintText: "Tulis catatan perkembangan...",
-                        hintStyle: GoogleFonts.poppins(
-                            color: const Color(0xFF94A3B8), fontSize: 13),
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                    ]),
+                    const SizedBox(height: 30),
+                    Container(
+                      width: double.infinity,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide:
-                              const BorderSide(color: Color(0xFFE2E8F0)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFF3B82F6,
+                            ).withValues(alpha: 0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: _isSubmitting ? null : _submitPenilaian,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                        child: Text(
+                          _isSubmitting
+                              ? "Sedang Menyimpan..."
+                              : "Simpan Penilaian",
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ),
-                  ]),
-                  const SizedBox(height: 30),
-                  Container(
-                    width: double.infinity,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
-                          blurRadius: 15,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submitPenilaian,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                      ),
-                      child: Text(
-                        _isSubmitting ? "Sedang Menyimpan..." : "Simpan Penilaian",
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
     );
   }
 
