@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -604,41 +603,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showSmoothDialog({required Widget child}) {
-    showGeneralDialog(
+    showDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: "SmoothDialog",
       barrierColor: Colors.black.withValues(alpha: 0.6),
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, anim1, anim2) => child,
-      transitionBuilder: (context, anim1, anim2, child) {
-        // As requested: easeIn when appearing, easeOut when disappearing
-        final bool isExiting = anim1.status == AnimationStatus.reverse;
-        final curve = isExiting ? Curves.easeOut : Curves.easeIn;
-
-        // Curved animation for smoother interpolation
-        final curvedAnimation = CurvedAnimation(parent: anim1, curve: curve);
-
-        return BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: 4 * anim1.value,
-            sigmaY: 4 * anim1.value,
-          ),
-          child: FadeTransition(
-            opacity: anim1,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.96, end: 1.0).animate(
-                curvedAnimation,
-              ),
-              child: Transform.translate(
-                // Use manual translate for ultra-precise micro-movement
-                offset: Offset(0, 30 * (1 - curvedAnimation.value)),
-                child: child,
-              ),
-            ),
-          ),
-        );
-      },
+      builder: (context) => child,
     );
   }
 
@@ -714,90 +683,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   itemBuilder: (context, index) {
                     final loc = _locations[index];
-                    // Sequential entry animation helper
-                    return TweenAnimationBuilder<double>(
-                      duration: Duration(milliseconds: 400 + (index * 80)),
-                      tween: Tween(begin: 0.0, end: 1.0),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, child) {
-                        return Opacity(
-                          opacity: value,
-                          child: Transform.translate(
-                            offset: Offset(0, 20 * (1 - value)),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              Navigator.pop(context);
-                              _handleAttendanceWithGPS(loc);
-                            },
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: Colors.blue.withValues(alpha: 0.1),
-                                  width: 1.5,
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.pop(context);
+                            _handleAttendanceWithGPS(loc);
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.blue.withValues(alpha: 0.1),
+                                width: 1.5,
+                              ),
+                              color: Colors.blue.withValues(alpha: 0.02),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(
+                                    Icons.business_rounded,
+                                    size: 22,
+                                    color: Colors.blue,
+                                  ),
                                 ),
-                                color: Colors.blue.withValues(alpha: 0.02),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: const Icon(
-                                      Icons.business_rounded,
-                                      size: 22,
-                                      color: Colors.blue,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          loc.name,
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 14,
-                                            color: Colors.black87,
-                                          ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        loc.name,
+                                        style: GoogleFonts.poppins(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                          color: Colors.black87,
                                         ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          loc.address.isNotEmpty
-                                              ? loc.address
-                                              : "Ketuk untuk memilih lokasi ini",
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 11,
-                                            color: Colors.grey.shade500,
-                                          ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        loc.address.isNotEmpty
+                                            ? loc.address
+                                            : "Ketuk untuk memilih lokasi ini",
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade500,
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
-                                  Icon(
-                                    Icons.arrow_forward_ios_rounded,
-                                    size: 14,
-                                    color: Colors.grey.shade300,
-                                  ),
-                                ],
-                              ),
+                                ),
+                                Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  size: 14,
+                                  color: Colors.grey.shade300,
+                                ),
+                              ],
                             ),
                           ),
                         ),

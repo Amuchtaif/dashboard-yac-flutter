@@ -18,7 +18,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _biometricService = BiometricService();
   bool _isLoading = false;
   bool _isObscure = true;
-  bool _canUseBiometrics = false;
+  bool _isBiometricSupported = false;
+  bool _hasSavedCredentials = false;
 
   // Colors based on the logo/blue theme requested
   final Color _primaryBlue = const Color(0xFF1F3C88);
@@ -30,15 +31,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _checkBiometrics() async {
-    final canUse = await _biometricService.canUseBiometrics();
+    final isSupported = await _biometricService.isDeviceSupported();
+    final credentials = await _biometricService.getCredentials();
     if (mounted) {
       setState(() {
-        _canUseBiometrics = canUse;
+        _isBiometricSupported = isSupported;
+        _hasSavedCredentials = credentials != null;
       });
-    }
-    // Optional: Auto trigger if already has credentials
-    if (canUse && _emailController.text.isEmpty) {
-      // Future.delayed(const Duration(milliseconds: 500), _handleBiometricLogin);
     }
   }
 
@@ -83,6 +82,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleBiometricLogin() async {
+    if (!_hasSavedCredentials) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Silakan login manual sekali untuk mengaktifkan Biometrik'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+      return;
+    }
+
     try {
       final authenticated = await _biometricService.authenticate();
       if (authenticated) {
@@ -358,19 +367,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                               ),
-                              if (_canUseBiometrics) ...[
+                              if (_isBiometricSupported) ...[
                                 const SizedBox(width: 12),
                                 Container(
                                   height: 56,
                                   width: 56,
                                   decoration: BoxDecoration(
-                                    color: Colors.blue.withValues(alpha: 0.1),
+                                    color: _hasSavedCredentials
+                                        ? Colors.blue.withValues(alpha: 0.1)
+                                        : Colors.grey.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: IconButton(
                                     icon: Icon(
                                       Icons.fingerprint_rounded,
-                                      color: _primaryBlue,
+                                      color: _hasSavedCredentials
+                                          ? _primaryBlue
+                                          : Colors.grey,
                                       size: 32,
                                     ),
                                     onPressed:

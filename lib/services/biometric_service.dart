@@ -1,6 +1,7 @@
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 class BiometricService {
   final LocalAuthentication _auth = LocalAuthentication();
@@ -22,7 +23,7 @@ class BiometricService {
       final credentials = await getCredentials();
       return credentials != null;
     } catch (e) {
-      print("Error checking biometrics: $e");
+      debugPrint("Error checking biometrics: $e");
       return false;
     }
   }
@@ -54,7 +55,7 @@ class BiometricService {
         ),
       );
     } on PlatformException catch (e) {
-      print("Biometric Auth Error: $e");
+      debugPrint("Biometric Auth Error: $e");
       if (e.code == 'NotAvailable') {
         // This usually means biometrics aren't enrolled
         return false;
