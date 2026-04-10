@@ -61,7 +61,8 @@ void main() async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final diff = now - loginTimestamp;
     // 24 Jam = 24 * 60 * 60 * 1000 = 86,400,000 ms
-    const sessionTimeout = 86400000;
+    // const sessionTimeout = 86400000;
+    const sessionTimeout = 172800000;
 
     if (diff < sessionTimeout) {
       debugPrint(

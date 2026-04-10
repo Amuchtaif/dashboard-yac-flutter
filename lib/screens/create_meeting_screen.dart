@@ -352,7 +352,7 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
       context: context,
       initialDate: _selectedDate ?? now,
       firstDate: now,
-      lastDate: DateTime(now.year + 1),
+      lastDate: DateTime(now.year, now.month + 1, now.day),
       helpText: 'Pilih Tanggal Rapat',
     );
     if (date == null) return;

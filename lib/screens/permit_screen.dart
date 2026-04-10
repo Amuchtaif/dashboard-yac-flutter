@@ -36,15 +36,17 @@ class _PermitScreenState extends State<PermitScreen> {
     final DateTime now = DateTime.now();
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 1),
+      firstDate: now,
+      lastDate: DateTime(now.year, now.month + 1, now.day),
+      helpText: 'Pilih Rentang Tanggal Izin',
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Colors.blueAccent,
+              primary: Color(0xFF1E429F),
               onPrimary: Colors.white,
-              onSurface: Colors.black,
+              onSurface: Color(0xFF1F2937),
+              secondary: Color(0xFF1E429F),
             ),
           ),
           child: child!,
@@ -53,20 +55,6 @@ class _PermitScreenState extends State<PermitScreen> {
     );
 
     if (picked != null) {
-      // Hitung selisih hari
-      final int days = picked.end.difference(picked.start).inDays;
-
-      if (days > 30) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Maksimal durasi izin adalah 30 hari (1 bulan)'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
-
       setState(() {
         _selectedDateRange = picked;
       });
@@ -101,7 +89,7 @@ class _PermitScreenState extends State<PermitScreen> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('userId'); // Assuming userId is int
+      final userId = prefs.getInt('userId');
 
       if (userId == null) {
         throw Exception("User ID not found");
@@ -222,33 +210,40 @@ class _PermitScreenState extends State<PermitScreen> {
               ),
               const SizedBox(height: 16),
 
-              _buildSectionLabel("Tanggal"),
+              _buildSectionLabel("PILIH TANGGAL"),
               InkWell(
                 onTap: _pickDateRange,
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
                   ),
                   child: Row(
                     children: [
                       const Icon(
-                        Icons.calendar_today,
-                        color: Colors.blueAccent,
+                        Icons.calendar_today_outlined,
+                        color: Colors.grey,
+                        size: 20,
                       ),
                       const SizedBox(width: 12),
-                      Text(
-                        _selectedDateRange == null
-                            ? "Pilih Tanggal Mulai - Selesai"
-                            : "${DateFormat('dd MMM yyyy').format(_selectedDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(_selectedDateRange!.end)}",
-                        style: GoogleFonts.poppins(
-                          color:
-                              _selectedDateRange == null
-                                  ? Colors.grey
-                                  : Colors.black,
+                      Expanded(
+                        child: Text(
+                          _selectedDateRange == null
+                              ? "Pilih Tanggal Mulai - Selesai"
+                              : "${DateFormat('dd MMM yyyy').format(_selectedDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(_selectedDateRange!.end)}",
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color:
+                                _selectedDateRange != null
+                                    ? Colors.black
+                                    : Colors.grey,
+                          ),
                         ),
                       ),
                     ],
@@ -328,33 +323,40 @@ class _PermitScreenState extends State<PermitScreen> {
 
               SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: 54,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submitPermit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: const Color(0xFF1E429F), // Deep Blue like image
+                    foregroundColor: Colors.white,
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child:
-                      _isLoading
-                          ? const SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                          : Text(
-                            "Kirim Pengajuan",
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
                           ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.check_circle_outline, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              "Kirim Pengajuan",
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
               ),
             ],
@@ -366,13 +368,14 @@ class _PermitScreenState extends State<PermitScreen> {
 
   Widget _buildSectionLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0, left: 4),
+      padding: const EdgeInsets.only(bottom: 10.0, left: 4),
       child: Text(
         text,
         style: GoogleFonts.poppins(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: Colors.black87,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey[600],
+          letterSpacing: 0.5,
         ),
       ),
     );

@@ -434,7 +434,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _showLoadingSnackBar("Mengambil data lokasi...");
         await _fetchLocations();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).clearSnackBars();
       }
 
       if (_locations.isEmpty) {
@@ -460,7 +460,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _showLoadingSnackBar("Mengambil lokasi GPS...");
       position = await _determinePosition();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).clearSnackBars();
 
       if (position.isMocked) {
         _showInvalidLocationDialog();
@@ -468,34 +468,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       if (_attendanceStatus == "BELUM_ABSEN") {
-        _executeCheckIn(location, position);
+        await _executeCheckIn(location, position);
       } else {
-        _executeCheckOut(position);
+        await _executeCheckOut(position);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).clearSnackBars();
       _showSnackBar(message: "Gagal ambil lokasi: $e", isError: true);
     }
   }
 
   void _showInvalidLocationDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (_) => AlertDialog(
-            title: const Text("Lokasi Tidak Valid"),
-            content: const Text(
-              "Mock location (GPS Palsu) terdeteksi. Silakan matikan aplikasi Fake GPS Anda untuk melanjutkan absensi.",
+    _showSmoothDialog(
+      child: AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          "Lokasi Tidak Valid",
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          "Mock location (GPS Palsu) terdeteksi. Silakan matikan aplikasi Fake GPS Anda untuk melanjutkan absensi.",
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              "OK",
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("OK"),
-              ),
-            ],
           ),
+        ],
+      ),
     );
   }
 
@@ -513,7 +518,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).clearSnackBars();
 
       if (result['success'] == true || result['status'] == true) {
         _showSnackBar(message: result['message'] ?? "Absen masuk berhasil");
@@ -523,7 +528,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).clearSnackBars();
       _showSnackBar(message: "Kesalahan jaringan: $e", isError: true);
     }
   }
@@ -538,7 +543,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).clearSnackBars();
 
       if (result['success'] == true || result['status'] == true) {
         _showSnackBar(message: result['message'] ?? "Absen pulang berhasil");
@@ -548,12 +553,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).clearSnackBars();
       _showSnackBar(message: "Kesalahan jaringan: $e", isError: true);
     }
   }
 
   void _showLoadingSnackBar(String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -576,44 +582,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text("Gagal"),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Tutup"),
-              ),
-            ],
+    _showSmoothDialog(
+      child: AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          "Informasi",
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: Text(message, style: GoogleFonts.poppins()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              "Tutup",
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
           ),
+        ],
+      ),
     );
   }
 
-  void _showLocationPicker() {
+  void _showSmoothDialog({required Widget child}) {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: "LocationPicker",
+      barrierLabel: "SmoothDialog",
       barrierColor: Colors.black.withValues(alpha: 0.6),
-      transitionDuration: const Duration(milliseconds: 400),
-      pageBuilder: (context, anim1, anim2) {
-        return _buildLocationPickerContent(context);
-      },
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) => child,
       transitionBuilder: (context, anim1, anim2, child) {
-        final curve = Curves.easeOutQuart.transform(anim1.value);
+        // As requested: easeIn when appearing, easeOut when disappearing
+        final bool isExiting = anim1.status == AnimationStatus.reverse;
+        final curve = isExiting ? Curves.easeOut : Curves.easeIn;
+
+        // Curved animation for smoother interpolation
+        final curvedAnimation = CurvedAnimation(parent: anim1, curve: curve);
+
         return BackdropFilter(
           filter: ImageFilter.blur(
-            sigmaX: 5 * anim1.value,
-            sigmaY: 5 * anim1.value,
+            sigmaX: 4 * anim1.value,
+            sigmaY: 4 * anim1.value,
           ),
           child: FadeTransition(
             opacity: anim1,
-            child: Transform.translate(
-              offset: Offset(0, 50 * (1 - curve)),
-              child: child,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.96, end: 1.0).animate(
+                curvedAnimation,
+              ),
+              child: Transform.translate(
+                // Use manual translate for ultra-precise micro-movement
+                offset: Offset(0, 30 * (1 - curvedAnimation.value)),
+                child: child,
+              ),
             ),
           ),
         );
@@ -621,22 +642,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void _showLocationPicker() {
+    _showSmoothDialog(child: _buildLocationPickerContent(context));
+  }
+
   Widget _buildLocationPickerContent(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
+      elevation: 0,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Container(
         width: double.infinity,
-        constraints: const BoxConstraints(maxWidth: 450),
-        padding: const EdgeInsets.symmetric(vertical: 24),
+        constraints: const BoxConstraints(maxWidth: 400),
+        padding: const EdgeInsets.symmetric(vertical: 30),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(32),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 30,
+              offset: const Offset(0, 15),
             ),
           ],
         ),
@@ -644,109 +670,136 @@ class _DashboardScreenState extends State<DashboardScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade400, Colors.blue.shade700],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withValues(alpha: 0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               child: const Icon(
-                Icons.business_rounded,
-                size: 40,
-                color: Colors.blue,
+                Icons.location_on_rounded,
+                size: 36,
+                color: Colors.white,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             Text(
               "Pilih Lokasi Kantor",
-              style: GoogleFonts.poppins(
-                fontSize: 20,
+              style: GoogleFonts.outfit(
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
+                letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 8),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 24)),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             Flexible(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.4,
+                  maxHeight: MediaQuery.of(context).size.height * 0.45,
                 ),
                 child: ListView.builder(
                   shrinkWrap: true,
                   itemCount: _locations.length,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   itemBuilder: (context, index) {
                     final loc = _locations[index];
-                    return InkWell(
-                      onTap: () {
-                        Navigator.pop(context);
-                        _handleAttendanceWithGPS(loc);
+                    // Sequential entry animation helper
+                    return TweenAnimationBuilder<double>(
+                      duration: Duration(milliseconds: 400 + (index * 80)),
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, child) {
+                        return Opacity(
+                          opacity: value,
+                          child: Transform.translate(
+                            offset: Offset(0, 20 * (1 - value)),
+                            child: child,
+                          ),
+                        );
                       },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.shade200),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.pop(context);
+                              _handleAttendanceWithGPS(loc);
+                            },
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.blue.withValues(alpha: 0.1),
+                                  width: 1.5,
+                                ),
+                                color: Colors.blue.withValues(alpha: 0.02),
                               ),
-                              child: const Icon(
-                                Icons.location_on,
-                                size: 22,
-                                color: Colors.blue,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
+                              child: Row(
                                 children: [
-                                  Text(
-                                    loc.name,
-                                    style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: Colors.black87,
+                                  Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: const Icon(
+                                      Icons.business_rounded,
+                                      size: 22,
+                                      color: Colors.blue,
                                     ),
                                   ),
-                                  if (loc.address.isNotEmpty)
-                                    Text(
-                                      loc.address,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade500,
-                                      ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          loc.name,
+                                          style: GoogleFonts.poppins(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 14,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          loc.address.isNotEmpty
+                                              ? loc.address
+                                              : "Ketuk untuk memilih lokasi ini",
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
+                                  ),
+                                  Icon(
+                                    Icons.arrow_forward_ios_rounded,
+                                    size: 14,
+                                    color: Colors.grey.shade300,
+                                  ),
                                 ],
                               ),
                             ),
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              color: Colors.grey.shade400,
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     );
@@ -754,14 +807,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             TextButton(
               onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: Text(
-                "Batal",
+                "Kembali",
                 style: GoogleFonts.poppins(
                   color: Colors.grey.shade600,
                   fontWeight: FontWeight.w600,
+                  fontSize: 14,
                 ),
               ),
             ),
@@ -772,6 +835,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showSnackBar({required String message, bool isError = false}) {
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),

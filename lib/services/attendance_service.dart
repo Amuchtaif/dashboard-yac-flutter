@@ -83,6 +83,21 @@ class AttendanceService {
         }),
       );
 
+      if (response.statusCode != 200) {
+        return {
+          'success': false,
+          'message': 'Server error: ${response.statusCode}'
+        };
+      }
+
+      if (response.body.isEmpty) {
+        return {
+          'success': false,
+          'message':
+              'Server mengembalikan respon kosong. Ini biasanya menandakan adanya error pada script server (attendance.php).'
+        };
+      }
+
       return jsonDecode(response.body);
     } catch (e) {
       return {'success': false, 'message': 'Network error: $e'};
@@ -111,6 +126,21 @@ class AttendanceService {
           'timestamp': DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
         }),
       );
+
+      if (response.statusCode != 200) {
+        return {
+          'success': false,
+          'message': 'Server error: ${response.statusCode}'
+        };
+      }
+
+      if (response.body.isEmpty) {
+        return {
+          'success': false,
+          'message':
+              'Server mengembalikan respon kosong pada proses check-out. Harap lapor ke admin.'
+        };
+      }
 
       return jsonDecode(response.body);
     } catch (e) {

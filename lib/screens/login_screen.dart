@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
+import '../services/biometric_service.dart';
 import 'dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -14,11 +15,32 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
+  final _biometricService = BiometricService();
   bool _isLoading = false;
   bool _isObscure = true;
+  bool _canUseBiometrics = false;
 
   // Colors based on the logo/blue theme requested
   final Color _primaryBlue = const Color(0xFF1F3C88);
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometrics();
+  }
+
+  Future<void> _checkBiometrics() async {
+    final canUse = await _biometricService.canUseBiometrics();
+    if (mounted) {
+      setState(() {
+        _canUseBiometrics = canUse;
+      });
+    }
+    // Optional: Auto trigger if already has credentials
+    if (canUse && _emailController.text.isEmpty) {
+      // Future.delayed(const Duration(milliseconds: 500), _handleBiometricLogin);
+    }
+  }
 
   Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
@@ -37,20 +59,62 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final result = await _authService.login(email, password);
 
-    setState(() {
-      _isLoading = false;
-    });
-
     if (result.success) {
+      // Save credentials for future biometric login
+      await _biometricService.saveCredentials(email, password);
+
       if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const DashboardScreen()),
       );
     } else {
       if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result.message), backgroundColor: Colors.red),
       );
+    }
+  }
+
+  Future<void> _handleBiometricLogin() async {
+    try {
+      final authenticated = await _biometricService.authenticate();
+      if (authenticated) {
+        final credentials = await _biometricService.getCredentials();
+        if (credentials != null) {
+          _emailController.text = credentials['email']!;
+          _passwordController.text = credentials['password']!;
+          _handleLogin();
+        }
+      } else {
+        // Authenticate returned false (failed or cancelled)
+        final isSupported = await _biometricService.isDeviceSupported();
+        if (!isSupported && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Biometrik belum didukung atau belum didaftarkan di perangkat ini.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Terjadi kesalahan biometrik: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -258,40 +322,65 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           const SizedBox(height: 32),
 
-                          // SIGN IN BUTTON
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _handleLogin,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _primaryBlue,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                          // SIGN IN & BIOMETRIC BUTTON
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 56,
+                                  child: ElevatedButton(
+                                    onPressed: _isLoading ? null : _handleLogin,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _primaryBlue,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    child:
+                                        _isLoading
+                                            ? const SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                            : Text(
+                                              'Masuk',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                  ),
                                 ),
                               ),
-                              child:
-                                  _isLoading
-                                      ? const SizedBox(
-                                        height: 20,
-                                        width: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                      : Text(
-                                        'Masuk',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                            ),
+                              if (_canUseBiometrics) ...[
+                                const SizedBox(width: 12),
+                                Container(
+                                  height: 56,
+                                  width: 56,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: IconButton(
+                                    icon: Icon(
+                                      Icons.fingerprint_rounded,
+                                      color: _primaryBlue,
+                                      size: 32,
+                                    ),
+                                    onPressed:
+                                        _isLoading
+                                            ? null
+                                            : _handleBiometricLogin,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ],
                       ),
