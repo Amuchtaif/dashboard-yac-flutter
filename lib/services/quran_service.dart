@@ -1,18 +1,18 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../models/surah_model.dart';
 
 class QuranService {
-  static const String _baseUrl = 'https://equran.id/api/v2';
+  static const String _baseUrl = ApiConfig.baseUrl;
 
   Future<List<Surah>> getAllSurahs() async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/surat'));
+      final response = await http.get(Uri.parse('$_baseUrl/quran/list_surat.php'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> decoded = json.decode(response.body);
 
-        // Check if data exists and is a list
         if (decoded.containsKey('data') && decoded['data'] is List) {
           final List<dynamic> data = decoded['data'];
           return data.map((json) => Surah.fromJson(json)).toList();
@@ -29,7 +29,7 @@ class QuranService {
 
   Future<Surah> getSurahDetail(int nomor) async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/surat/$nomor'));
+      final response = await http.get(Uri.parse('$_baseUrl/quran/get_surah.php?nomor=$nomor'));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> decoded = json.decode(response.body);
@@ -47,3 +47,4 @@ class QuranService {
     }
   }
 }
+

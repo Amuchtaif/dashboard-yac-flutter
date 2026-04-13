@@ -15,6 +15,8 @@ import 'assunnah_tv_screen.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'meeting_list_screen.dart'; // import meeting list screen
+import 'package:provider/provider.dart';
+import '../providers/tahfidz_provider.dart';
 
 import '../services/notification_service.dart';
 import '../services/permission_service.dart';
@@ -2561,6 +2563,28 @@ class HomeTab extends StatelessWidget {
     );
   }
 
+  void _proceedToSetoran(BuildContext context, TahfidzProvider provider) {
+    if (!isKoordinator && (!provider.isHalaqohOpened || !provider.isAttendanceSubmitted)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            !provider.isHalaqohOpened
+                ? 'Mohon buka halaqoh dulu'
+                : 'Mohon absen santri dulu',
+          ),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SetoranTahfidzScreen()),
+    );
+  }
+
   void _handleMenuNavigation(BuildContext context, String title) {
     String navTitle = title.trim();
     if (navTitle == 'Absensi Tahfidz') {
@@ -2585,10 +2609,23 @@ class HomeTab extends StatelessWidget {
         );
       }
     } else if (navTitle == 'Setoran') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const SetoranTahfidzScreen()),
-      );
+      final provider = Provider.of<TahfidzProvider>(context, listen: false);
+      
+      // Jika data belum di-load (misal baru login), load dulu sebentar
+      if (provider.teacherId == null) {
+         SharedPreferences.getInstance().then((prefs) {
+           int? tid = prefs.getInt('userId');
+           String? tname = prefs.getString('fullName');
+           provider.fetchMyStudents(tid, teacherName: tname).then((_) {
+              if (context.mounted) {
+                _proceedToSetoran(context, provider);
+              }
+           });
+         });
+         return;
+      }
+
+      _proceedToSetoran(context, provider);
     } else if (navTitle == 'Penilaian') {
       Navigator.push(
         context,

@@ -84,6 +84,7 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
         await provider.fetchMyStudents(teacherId, teacherName: teacherName);
       } else {
         provider.setTeacherInfo(teacherId, teacherName);
+        await provider.checkHalaqohStatus();
       }
 
       final surahs = await _quranService.getAllSurahs();
@@ -93,6 +94,23 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
         _surahList = surahs;
         _filteredSurahs = _surahList;
       });
+
+      // Check restrictions (only for non-coordinator)
+      if (!_isKoordinator && (!provider.isHalaqohOpened || !provider.isAttendanceSubmitted)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              !provider.isHalaqohOpened
+                  ? 'Mohon buka halaqoh dulu'
+                  : 'Mohon absen santri dulu',
+            ),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     } catch (e) {
       debugPrint("Error loading data: $e");
     } finally {
@@ -332,6 +350,16 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
   }
 
   Future<void> _submitSetoran() async {
+    final provider = Provider.of<TahfidzProvider>(context, listen: false);
+    if (!_isKoordinator && (!provider.isHalaqohOpened || !provider.isAttendanceSubmitted)) {
+      _showError(
+        !provider.isHalaqohOpened
+            ? 'Mohon buka halaqoh dulu'
+            : 'Mohon absen santri dulu',
+      );
+      return;
+    }
+
     if (_selectedStudentId == null) {
       _showError('Pilih siswa terlebih dahulu');
       return;
@@ -343,7 +371,6 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
 
     setState(() => _isSubmitting = true);
 
-    final provider = Provider.of<TahfidzProvider>(context, listen: false);
     final int? teacherId = provider.teacherId;
 
     final data = {

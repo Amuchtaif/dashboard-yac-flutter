@@ -199,6 +199,9 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
         _isHalaqohOpened = true;
         _selectedSession = _selectedJadwal!;
       });
+      if (mounted) {
+        Provider.of<TahfidzProvider>(context, listen: false).checkHalaqohStatus();
+      }
       _fetchStudents();
     } else {
       if (!mounted) return;
@@ -268,6 +271,9 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
             true; // Langsung tampilkan layar "Selesai" setelah tutup
         _students = [];
       });
+      if (mounted) {
+        Provider.of<TahfidzProvider>(context, listen: false).checkHalaqohStatus();
+      }
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -478,6 +484,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
           ),
         );
         setState(() => _isAttendanceSubmitted = true);
+        Provider.of<TahfidzProvider>(context, listen: false).checkHalaqohStatus();
       }
     } else {
       if (mounted) {
@@ -535,20 +542,30 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
                           iconTheme: const IconThemeData(color: Colors.black87),
                           actions: [
                             if (_isHalaqohOpened) ...[
-                              IconButton(
-                                icon: const Icon(Icons.edit_note_rounded),
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) =>
-                                              const SetoranTahfidzScreen(),
-                                    ),
-                                  );
-                                },
-                                tooltip: 'Input Setoran',
-                              ),
+                                IconButton(
+                                  icon: const Icon(Icons.edit_note_rounded),
+                                  onPressed: () {
+                                    if (!_isAttendanceSubmitted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Mohon absen santri dulu'),
+                                          backgroundColor: Colors.orange,
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) =>
+                                                const SetoranTahfidzScreen(),
+                                      ),
+                                    );
+                                  },
+                                  tooltip: 'Input Setoran',
+                                ),
                               IconButton(
                                 icon: const Icon(Icons.calendar_month_rounded),
                                 onPressed: () async {
