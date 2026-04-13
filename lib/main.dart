@@ -11,6 +11,7 @@ import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'services/permission_service.dart';
 import 'providers/tahfidz_provider.dart';
+import 'providers/quran_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 @pragma('vm:entry-point')
@@ -94,11 +95,15 @@ void main() async {
 
   runApp(
     MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => TahfidzProvider())],
+      providers: [
+        ChangeNotifierProvider(create: (_) => TahfidzProvider()),
+        ChangeNotifierProvider(create: (_) => QuranProvider()),
+      ],
       child: MyApp(isSessionValid: isSessionValid),
     ),
   );
 }
+
 
 class MyApp extends StatelessWidget {
   final bool isSessionValid;

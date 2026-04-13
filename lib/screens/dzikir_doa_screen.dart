@@ -110,7 +110,7 @@ class DzikirDoaScreen extends StatelessWidget {
                       icon: Icons.bedtime_outlined,
                       color: Colors.deepPurpleAccent,
                       bgColor: const Color(0xFFEDE3FF),
-                      type: '', // No API type yet
+                      type: 'tidur',
                     ),
                     _buildDzikirCard(
                       context,
@@ -119,7 +119,7 @@ class DzikirDoaScreen extends StatelessWidget {
                       icon: Icons.book_outlined,
                       color: Colors.amber[700]!,
                       bgColor: const Color(0xFFFFF8E1),
-                      type: '', // No API type yet
+                      type: '',
                     ),
                   ],
                 ),
