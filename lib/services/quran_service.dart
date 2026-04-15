@@ -8,7 +8,9 @@ class QuranService {
 
   Future<List<Surah>> getAllSurahs() async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/quran/list_surat.php'));
+      final response = await http.get(
+        Uri.parse('$_baseUrl/quran/list_surat.php'),
+      );
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> decoded = json.decode(response.body);
@@ -29,7 +31,9 @@ class QuranService {
 
   Future<Surah> getSurahDetail(int nomor) async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/quran/get_surah.php?nomor=$nomor'));
+      final response = await http.get(
+        Uri.parse('$_baseUrl/quran/get_surah.php?nomor=$nomor'),
+      );
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> decoded = json.decode(response.body);
@@ -47,4 +51,3 @@ class QuranService {
     }
   }
 }
-

@@ -30,16 +30,42 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id') ?? 0;
+      final userId = prefs.getInt('user_id') ?? prefs.getInt('userId') ?? 0;
 
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-      final results = await _kabidService.getStaffAttendance(
-        userId: userId,
-        date: dateStr,
-      );
+      final results = await Future.wait([
+        _kabidService.getStaffList(userId),
+        _kabidService.getStaffAttendance(userId: userId, date: dateStr),
+      ]);
+
+      final List<Map<String, dynamic>> staffList =
+          results[0] as List<Map<String, dynamic>>;
+      final List<StaffAttendance> attendanceList =
+          results[1] as List<StaffAttendance>;
+
+      // Merge: Map all staff to their attendance if it exists, otherwise use default Alpha status
+      List<StaffAttendance> mergedList =
+          staffList.map((s) {
+            final sId =
+                s['id'] is int
+                    ? s['id']
+                    : int.tryParse(s['id']?.toString() ?? '0') ?? 0;
+            return attendanceList.firstWhere(
+              (a) => a.id == sId,
+              orElse:
+                  () => StaffAttendance(
+                    id: sId,
+                    name: s['name'] ?? '',
+                    position: s['position_name'] ?? s['position'] ?? '',
+                    photo: s['profile_photo'] ?? s['photo'],
+                    time: '-',
+                    status: 'Alpha',
+                  ),
+            );
+          }).toList();
 
       setState(() {
-        _attendanceList = results;
+        _attendanceList = mergedList;
         _isLoading = false;
       });
     } catch (e) {

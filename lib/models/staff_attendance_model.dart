@@ -17,7 +17,7 @@ class StaffAttendance {
 
   factory StaffAttendance.fromJson(Map<String, dynamic> json) {
     return StaffAttendance(
-      id: json['id'] ?? 0,
+      id: json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       name: json['name'] ?? '',
       position: json['position'] ?? '',
       photo: json['photo'],

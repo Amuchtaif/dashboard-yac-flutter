@@ -34,7 +34,7 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
     setState(() => _isLoadingStaff = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id') ?? 0;
+      final userId = prefs.getInt('user_id') ?? prefs.getInt('userId') ?? 0;
       final results = await _kabidService.getStaffList(userId);
       if (!mounted) return;
       setState(() {
@@ -84,7 +84,7 @@ class _AbsensiManualScreenState extends State<AbsensiManualScreen> {
     setState(() => _isSaving = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final kabidId = prefs.getInt('user_id') ?? 0;
+      final kabidId = prefs.getInt('user_id') ?? prefs.getInt('userId') ?? 0;
 
       final data = {
         'kabid_id': kabidId,

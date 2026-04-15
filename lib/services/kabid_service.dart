@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../core/api_constants.dart';
 import '../models/staff_attendance_model.dart';
@@ -13,9 +14,9 @@ class KabidService {
       final queryParams = {'user_id': userId.toString()};
       if (date != null) queryParams['date'] = date;
 
-      final uri = Uri.parse(ApiConstants.kabidStaffAttendance).replace(
-        queryParameters: queryParams,
-      );
+      final uri = Uri.parse(
+        ApiConstants.kabidStaffAttendance,
+      ).replace(queryParameters: queryParams);
 
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -27,16 +28,16 @@ class KabidService {
       }
       return [];
     } catch (e) {
-      // Error fetching staff attendance
-      return [];
+      debugPrint("Error fetching staff attendance: $e");
+      rethrow;
     }
   }
 
   Future<StaffAttendanceRecap?> getStaffAttendanceRecap(int userId) async {
     try {
-      final uri = Uri.parse(ApiConstants.kabidStaffAttendanceRecap).replace(
-        queryParameters: {'user_id': userId.toString()},
-      );
+      final uri = Uri.parse(
+        ApiConstants.kabidStaffAttendanceRecap,
+      ).replace(queryParameters: {'user_id': userId.toString()});
 
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -47,7 +48,7 @@ class KabidService {
       }
       return null;
     } catch (e) {
-      // Error fetching attendance recap
+      debugPrint("Error fetching attendance recap: $e");
       return null;
     }
   }
@@ -57,11 +58,10 @@ class KabidService {
     required String month,
   }) async {
     try {
-      final uri = Uri.parse(ApiConstants.kabidStaffAttendanceMonthDetail).replace(
-        queryParameters: {
-          'user_id': userId.toString(),
-          'month': month,
-        },
+      final uri = Uri.parse(
+        ApiConstants.kabidStaffAttendanceMonthDetail,
+      ).replace(
+        queryParameters: {'user_id': userId.toString(), 'month': month},
       );
 
       final response = await http.get(uri);
@@ -73,16 +73,16 @@ class KabidService {
       }
       return [];
     } catch (e) {
-      // Error fetching month detail
+      debugPrint("Error fetching month detail: $e");
       return [];
     }
   }
 
   Future<List<Map<String, dynamic>>> getStaffList(int userId) async {
     try {
-      final uri = Uri.parse(ApiConstants.kabidStaffList).replace(
-        queryParameters: {'user_id': userId.toString()},
-      );
+      final uri = Uri.parse(
+        ApiConstants.kabidStaffList,
+      ).replace(queryParameters: {'user_id': userId.toString()});
 
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -93,12 +93,14 @@ class KabidService {
       }
       return [];
     } catch (e) {
-      // Error fetching staff list
+      debugPrint("Error fetching staff list: $e");
       return [];
     }
   }
 
-  Future<Map<String, dynamic>> saveManualAttendance(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> saveManualAttendance(
+    Map<String, dynamic> data,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse(ApiConstants.kabidManualSave),

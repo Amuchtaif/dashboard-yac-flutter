@@ -36,7 +36,7 @@ class _DetailRekapAbsensiScreenState extends State<DetailRekapAbsensiScreen> {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id') ?? 0;
+      final userId = prefs.getInt('user_id') ?? prefs.getInt('userId') ?? 0;
 
       final results = await _kabidService.getStaffAttendanceMonthDetail(
         userId: userId,

@@ -8,7 +8,9 @@ class DzikirService {
 
   Future<List<DzikirModel>> getDzikir(String type) async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/dzikir/get_dzikir.php?type=$type'));
+      final response = await http.get(
+        Uri.parse('$_baseUrl/dzikir/get_dzikir.php?type=$type'),
+      );
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
@@ -22,4 +24,3 @@ class DzikirService {
     }
   }
 }
-
