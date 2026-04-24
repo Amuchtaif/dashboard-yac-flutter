@@ -38,8 +38,18 @@ class NotificationService {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@drawable/ic_stat_yac___white');
 
+    const DarwinInitializationSettings initializationSettingsDarwin =
+        DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
     const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
+        InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsDarwin,
+    );
 
     await flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
@@ -319,20 +329,28 @@ class NotificationService {
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-          'high_importance_channel', // Match main.dart & Manifest
-          'High Importance Notifications', // Match main.dart
-          channelDescription:
-              'This channel is used for important notifications.',
-          importance: Importance.max,
-          priority: Priority.high,
-          showWhen: true,
-          icon: '@drawable/ic_stat_yac___white',
-          color: Color(0xFF1F3C88), // Blue Primary
-          colorized: true,
-        );
+      'high_importance_channel', // Match main.dart & Manifest
+      'High Importance Notifications', // Match main.dart
+      channelDescription:
+          'This channel is used for important notifications.',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+      icon: '@drawable/ic_stat_yac___white',
+      color: Color(0xFF1F3C88), // Blue Primary
+      colorized: true,
+    );
+
+    const DarwinNotificationDetails darwinPlatformChannelSpecifics =
+        DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
 
     const NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
+      iOS: darwinPlatformChannelSpecifics,
     );
 
     await flutterLocalNotificationsPlugin.show(
