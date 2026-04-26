@@ -32,8 +32,12 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
   final TextEditingController _objectivesController = TextEditingController();
   final TextEditingController _materialController = TextEditingController();
   final TextEditingController _stepsController = TextEditingController();
-  final TextEditingController _resourcesController = TextEditingController();
+  final TextEditingController _profilPancasilaController =
+      TextEditingController(); // teaching_profil_pancasila
+  final TextEditingController _mediaController =
+      TextEditingController(); // content_summary (Media & Sumber Belajar)
   final TextEditingController _assessmentController = TextEditingController();
+  final TextEditingController _smartPasteController = TextEditingController();
 
   String _teacherName = "";
   String? _selectedYear;
@@ -86,12 +90,19 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
             data['session_no'] ?? data['meeting_no'] ?? '';
         _timeAllocationController.text =
             data['allocation'] ?? data['time_allocation'] ?? '';
-        _standardCompetencyController.text = data['content_sk'] ?? '';
-        _basicCompetencyController.text = data['content_kd'] ?? '';
-        _indicatorController.text = data['content_indicator'] ?? '';
+        _standardCompetencyController.text =
+            data['content_cp'] ?? data['content_sk'] ?? '';
+        _basicCompetencyController.text =
+            data['content_atp'] ?? data['content_kd'] ?? '';
+        _indicatorController.text =
+            data['content_pertanyaan_pemantik'] ??
+            data['content_indicator'] ??
+            '';
         _objectivesController.text = data['learning_goal'] ?? '';
         _materialController.text = data['teaching_material'] ?? '';
-        _resourcesController.text = data['teaching_method'] ?? '';
+        _profilPancasilaController.text =
+            data['teaching_profil_pancasila'] ?? data['teaching_method'] ?? '';
+        _mediaController.text = data['content_summary'] ?? '';
         _stepsController.text = data['content_steps'] ?? '';
         _assessmentController.text = data['assessment'] ?? '';
 
@@ -330,14 +341,14 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
       'session_no': _meetingController.text,
       'allocation': _timeAllocationController.text,
       'title': _titleController.text,
-      'content_sk': _standardCompetencyController.text,
-      'content_kd': _basicCompetencyController.text,
-      'content_indicator': _indicatorController.text,
+      'content_cp': _standardCompetencyController.text,
+      'content_atp': _basicCompetencyController.text,
+      'content_pertanyaan_pemantik': _indicatorController.text,
       'learning_goal': _objectivesController.text,
       'teaching_material': _materialController.text,
-      'teaching_method': _resourcesController.text,
+      'teaching_profil_pancasila': _profilPancasilaController.text,
       'content_steps': _stepsController.text,
-      'content_summary': '',
+      'content_summary': _mediaController.text,
       'assessment': _assessmentController.text,
       'is_draft': isDraft ? 1 : 0,
     };
@@ -379,7 +390,8 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF8FAFC),
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(
@@ -417,6 +429,8 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
                           _buildInfoBox(
                             'Lengkapi data konten RPP di bawah ini.',
                           ),
+                          const SizedBox(height: 16),
+                          _buildSmartPasteButton(),
                           const SizedBox(height: 24),
 
                           _buildInputGroup('Info Guru', [
@@ -432,8 +446,7 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
                             _buildTextField(
                               'Judul RPP',
                               controller: _titleController,
-                              hint: 'Contoh: Materi Adab Berbakti',
-                              icon: Icons.title_rounded,
+                              icon: Icons.topic_outlined,
                             ),
                           ]),
                           const SizedBox(height: 24),
@@ -498,7 +511,6 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
                                     'Pertemuan Ke',
                                     controller: _meetingController,
                                     keyboardType: TextInputType.number,
-                                    hint: '1',
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -506,7 +518,6 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
                                   child: _buildTextField(
                                     'Alokasi Waktu',
                                     controller: _timeAllocationController,
-                                    hint: '2 x 45 Menit',
                                   ),
                                 ),
                               ],
@@ -515,17 +526,17 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
                           const SizedBox(height: 32),
                           _buildInputGroup('Kompetensi', [
                             _buildLargeTextField(
-                              'Standar Kompetensi',
+                              'Capaian Pembelajaran (CP)',
                               _standardCompetencyController,
                             ),
                             const SizedBox(height: 20),
                             _buildLargeTextField(
-                              'Kompetensi Dasar',
+                              'Alur Tujuan Pembelajaran (ATP)',
                               _basicCompetencyController,
                             ),
                             const SizedBox(height: 20),
                             _buildLargeTextField(
-                              'Indikator',
+                              'Pertanyaan Pemantik',
                               _indicatorController,
                             ),
                           ]),
@@ -542,19 +553,24 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
                             ),
                             const SizedBox(height: 20),
                             _buildLargeTextField(
-                              'Langkah Pembelajaran',
+                              'Kegiatan Pembelajaran',
                               _stepsController,
                             ),
                           ]),
                           const SizedBox(height: 24),
                           _buildInputGroup('Pendukung & Penilaian', [
                             _buildLargeTextField(
-                              'Alat & Sumber Belajar',
-                              _resourcesController,
+                              'Profil Pelajar Pancasila',
+                              _profilPancasilaController,
                             ),
                             const SizedBox(height: 20),
                             _buildLargeTextField(
-                              'Penilaian',
+                              'Media & Sumber Belajar',
+                              _mediaController,
+                            ),
+                            const SizedBox(height: 20),
+                            _buildLargeTextField(
+                              'Asesmen',
                               _assessmentController,
                             ),
                           ]),
@@ -850,5 +866,213 @@ class _CreateRppScreenState extends State<CreateRppScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildSmartPasteButton() {
+    return InkWell(
+      onTap: _showSmartPasteDialog,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF4F46E5), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF2FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.content_paste_go_rounded,
+                color: Color(0xFF4F46E5),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Smart Paste dari Word',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1E293B),
+                    ),
+                  ),
+                  Text(
+                    'Tempel teks RPP untuk isi form otomatis',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: Color(0xFF94A3B8),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSmartPasteDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => Container(
+            height: MediaQuery.of(context).size.height * 0.85,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Smart Paste',
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tempelkan teks RPP dari Word/PDF Anda di bawah ini. Pastikan format mengandung poin A s/d I.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: TextField(
+                    controller: _smartPasteController,
+                    maxLines: null,
+                    expands: true,
+                    textAlignVertical: TextAlignVertical.top,
+                    decoration: InputDecoration(
+                      hintText:
+                          'Contoh:\nA. Capaian Pembelajaran...\nB. Alur Tujuan...\n...',
+                      hintStyle: GoogleFonts.poppins(fontSize: 13),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      _processSmartPaste(_smartPasteController.text);
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4F46E5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      'Proses & Isi Form',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  height: MediaQuery.of(context).viewInsets.bottom,
+                ),
+              ],
+            ),
+          ),
+    );
+  }
+
+  void _processSmartPaste(String text) {
+    if (text.isEmpty) return;
+
+    final Map<String, TextEditingController> markersMapping = {
+      'A': _standardCompetencyController,
+      'B': _basicCompetencyController,
+      'C': _indicatorController,
+      'D': _objectivesController,
+      'E': _materialController,
+      'F': _profilPancasilaController,
+      'G': _stepsController,
+      'H': _mediaController,
+      'I': _assessmentController,
+    };
+
+    final keys = markersMapping.keys.toList();
+    bool foundAny = false;
+
+    for (int i = 0; i < keys.length; i++) {
+      final currentKey = keys[i];
+      String stopKey = (i + 1 < keys.length) ? keys[i + 1] : '';
+
+      String pattern =
+          stopKey.isNotEmpty
+              ? '$currentKey\\.\\s+([\\s\\S]*?)(?=\\s+$stopKey\\.\\s+)'
+              : '$currentKey\\.\\s+([\\s\\S]*)';
+
+      final regExp = RegExp(pattern, caseSensitive: true);
+      final match = regExp.firstMatch(text);
+
+      if (match != null) {
+        markersMapping[currentKey]!.text = match.group(1)?.trim() ?? '';
+        foundAny = true;
+      }
+    }
+
+    if (foundAny) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Berhasil memproses teks RPP!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal mengenali format. Pastikan ada poin A. s/d I.'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }

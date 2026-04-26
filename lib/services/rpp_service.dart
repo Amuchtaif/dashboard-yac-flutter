@@ -126,4 +126,25 @@ class RppService {
       return {'status': 'error', 'message': e.toString()};
     }
   }
+
+  Future<Map<String, dynamic>> deleteRpp(String rppId) async {
+    try {
+      final employeeId = await _getEmployeeId();
+      final body = {'id': rppId, 'employee_id': employeeId};
+
+      final response = await http.post(
+        Uri.parse(ApiConstants.rppDelete),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'success': false, 'message': 'HTTP ${response.statusCode}'};
+    } catch (e) {
+      debugPrint('RppService: Error deleting RPP: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
 }

@@ -441,4 +441,27 @@ class TahfidzService {
     }
     return [];
   }
+
+  Future<Map<String, dynamic>> deleteAssessment(int id) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.tahfidzDeleteAssessment),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({"id": id}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {
+        "success": false,
+        "message": "Server error ${response.statusCode}",
+      };
+    } catch (e) {
+      return {"success": false, "message": "Error: $e"};
+    }
+  }
 }

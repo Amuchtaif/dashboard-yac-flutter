@@ -6,7 +6,9 @@ import '../services/grading_service.dart';
 import '../services/teacher_service.dart';
 
 class InputGradingScreen extends StatefulWidget {
-  const InputGradingScreen({super.key});
+  final String? editId;
+  final Map<String, dynamic>? editData;
+  const InputGradingScreen({super.key, this.editId, this.editData});
 
   @override
   State<InputGradingScreen> createState() => _InputGradingScreenState();
@@ -35,10 +37,12 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
   bool _isLoading = true;
   bool _isFetchingStudents = false;
   bool _isSubmitting = false;
+  bool _isEditMode = false;
 
   @override
   void initState() {
     super.initState();
+    _isEditMode = widget.editData != null;
     _loadInitialData();
   }
 
@@ -62,7 +66,7 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
           _masterSubjects = results[2];
           _typeList = results[3];
 
-          // Filter classes that the teacher actually teaches (using Names like RPP)
+          // Filter classes that the teacher actually teaches
           final taughtClassNames =
               _allTeachingInfo
                   .map(
@@ -78,6 +82,10 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
                 return taughtClassNames.contains(name);
               }).toList();
 
+          if (_isEditMode) {
+            _prepareEditData();
+          }
+
           _isLoading = false;
         });
       }
@@ -91,8 +99,150 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
     }
   }
 
+  void _prepareEditData() {
+    final data = widget.editData!;
+
+    // 1. Set Date
+    try {
+      _selectedDate = DateTime.parse(
+        data['assessment_date'] ?? data['date'] ?? DateTime.now().toString(),
+      );
+    } catch (_) {}
+
+    // 2. Resolve Class ID
+    _selectedClassId =
+        (data['class_id'] ?? data['id_kelas'] ?? data['grade_id'])?.toString();
+    if (_selectedClassId == null || _selectedClassId == '0') {
+      final className =
+          (data['class_name'] ?? data['grade_name'] ?? '').toString();
+      if (className.isNotEmpty) {
+        final match = _masterClasses.firstWhere(
+          (c) => (c['name'] ?? c['class_name'] ?? '').toString() == className,
+          orElse: () => {},
+        );
+        if (match.isNotEmpty) _selectedClassId = match['id']?.toString();
+      }
+    }
+
+    // Ensure the selected class is in _classList
+    if (_selectedClassId != null) {
+      final isInList = _classList.any(
+        (c) => c['id'].toString() == _selectedClassId,
+      );
+      if (!isInList) {
+        final masterMatch = _masterClasses.firstWhere(
+          (c) => c['id'].toString() == _selectedClassId,
+          orElse: () => {},
+        );
+        if (masterMatch.isNotEmpty) _classList.add(masterMatch);
+      }
+    }
+
+    // 3. Resolve Type ID
+    _selectedTypeId =
+        (data['assessment_type_id'] ??
+                data['id_assessment_type'] ??
+                data['id_jenis_penilaian'] ??
+                data['type_id'])
+            ?.toString();
+    if (_selectedTypeId == null || _selectedTypeId == '0') {
+      final typeName =
+          (data['assessment_type_name'] ??
+                  data['type_name'] ??
+                  data['assessment_type'] ??
+                  '')
+              .toString();
+      if (typeName.isNotEmpty) {
+        final match = _typeList.firstWhere(
+          (t) =>
+              (t['name'] ?? t['type_name'] ?? t['assessment_type'] ?? '')
+                  .toString() ==
+              typeName,
+          orElse: () => {},
+        );
+        if (match.isNotEmpty) _selectedTypeId = match['id']?.toString();
+      }
+    }
+
+    // 4. Resolve Subject ID
+    if (_selectedClassId != null) {
+      final selectedClassMap = _masterClasses.firstWhere(
+        (c) => c['id'].toString() == _selectedClassId,
+        orElse: () => {},
+      );
+      final selectedClassName =
+          (selectedClassMap['name'] ?? selectedClassMap['class_name'] ?? '')
+              .toString();
+
+      final taughtSubjectNames =
+          _allTeachingInfo
+              .where(
+                (e) =>
+                    (e['class_name'] ?? e['grade_name'] ?? '') ==
+                    selectedClassName,
+              )
+              .map((e) => (e['subject_name'] ?? '').toString())
+              .where((name) => name.isNotEmpty)
+              .toSet();
+
+      _subjectList =
+          _masterSubjects.where((s) {
+            final name = (s['name'] ?? s['subject_name'] ?? '').toString();
+            return taughtSubjectNames.contains(name);
+          }).toList();
+
+      _selectedSubjectId =
+          (data['subject_id'] ?? data['id_subject'] ?? data['id_mapel'])
+              ?.toString();
+      final subjectName = (data['subject_name'] ?? '').toString();
+
+      if (_selectedSubjectId == null || _selectedSubjectId == '0') {
+        if (subjectName.isNotEmpty) {
+          final match = _masterSubjects.firstWhere(
+            (s) => (s['name'] ?? s['subject_name'] ?? '').toString() == subjectName,
+            orElse: () => {},
+          );
+          if (match.isNotEmpty) _selectedSubjectId = match['id']?.toString();
+        }
+      }
+
+      // Ensure the selected subject is in _subjectList
+      if (_selectedSubjectId != null) {
+        final isInList = _subjectList.any(
+          (s) => s['id'].toString() == _selectedSubjectId,
+        );
+        if (!isInList) {
+          final masterMatch = _masterSubjects.firstWhere(
+            (s) => s['id'].toString() == _selectedSubjectId,
+            orElse: () => {},
+          );
+          if (masterMatch.isNotEmpty) _subjectList.add(masterMatch);
+        }
+      }
+    }
+
+    // 5. Populate Students and Scores
+    final List<dynamic> details = data['details'] ?? [];
+    _students = details.map((e) => Map<String, dynamic>.from(e)).toList();
+
+    for (var s in _students) {
+      final studentId = (s['student_id'] ??
+              s['id_student'] ??
+              s['id_siswa'] ??
+              s['id'] ??
+              s['student_id_master'] ??
+              '')
+          .toString();
+      if (studentId.isNotEmpty && studentId != 'null') {
+        _scoreControllers[studentId] = TextEditingController(
+          text: s['score']?.toString() ?? '0',
+        );
+      }
+    }
+  }
+
   Future<void> _fetchStudents() async {
-    if (_selectedClassId == null) return;
+    if (_selectedClassId == null || _isEditMode) return;
 
     setState(() {
       _isFetchingStudents = true;
@@ -161,23 +311,38 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
         }
       });
 
-      final payload = {
-        'date': DateFormat('yyyy-MM-dd').format(_selectedDate),
+      final Map<String, dynamic> payload = {
         'class_id': int.tryParse(_selectedClassId ?? '') ?? 0,
         'subject_id': int.tryParse(_selectedSubjectId ?? '') ?? 0,
         'assessment_type_id': int.tryParse(_selectedTypeId ?? '') ?? 0,
+        'date': DateFormat('yyyy-MM-dd').format(_selectedDate),
         'teacher_id': teacherId,
         'scores': scores,
       };
 
-      final result = await _gradingService.submitGrading(payload);
+      if (_isEditMode) {
+        final finalId =
+            widget.editId ??
+            widget.editData!['id'] ??
+            widget.editData!['assessment_id'] ??
+            widget.editData!['id_grading'] ??
+            widget.editData!['id_penilaian'];
+
+        if (finalId != null) {
+          payload['assessment_id'] = int.tryParse(finalId.toString()) ?? finalId;
+        }
+      }
+
+      final result = _isEditMode 
+          ? await _gradingService.updateGrading(payload)
+          : await _gradingService.submitGrading(payload);
 
       if (mounted) {
         setState(() => _isSubmitting = false);
         if (result['success'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Penilaian berhasil disimpan'),
+            SnackBar(
+              content: Text(_isEditMode ? 'Penilaian berhasil diperbarui' : 'Penilaian berhasil disimpan'),
               backgroundColor: Colors.green,
             ),
           );
@@ -204,7 +369,7 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
         title: Text(
-          'Input Penilaian Baru',
+          _isEditMode ? 'Edit Penilaian' : 'Input Penilaian Baru',
           style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
             fontSize: 18,
@@ -313,12 +478,21 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
                   label: 'Pilih Kelas',
                   value: _selectedClassId,
                   icon: Icons.class_outlined,
+                  enabled: !_isEditMode,
                   items:
                       _classList
                           .map(
                             (e) => DropdownMenuItem(
                               value: e['id'].toString(),
-                              child: Text(e['name'] ?? e['class_name'] ?? '-'),
+                              child: Text(
+                                e['name'] ?? e['class_name'] ?? '-',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: const Color(0xFF1E293B),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
                             ),
                           )
                           .toList(),
@@ -399,13 +573,22 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
           _buildDropDownField(
             label: 'Mata Pelajaran',
             value: _selectedSubjectId,
+            enabled: !_isEditMode,
             icon: Icons.book_outlined,
             items:
                 _subjectList
                     .map(
                       (e) => DropdownMenuItem(
                         value: e['id'].toString(),
-                        child: Text(e['name'] ?? e['subject_name'] ?? '-'),
+                        child: Text(
+                          e['name'] ?? e['subject_name'] ?? '-',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: const Color(0xFF1E293B),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                       ),
                     )
                     .toList(),
@@ -415,6 +598,7 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
           _buildDropDownField(
             label: 'Jenis Penilaian',
             value: _selectedTypeId,
+            enabled: !_isEditMode,
             icon: Icons.assignment_outlined,
             items:
                 _typeList
@@ -426,6 +610,12 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
                               e['type_name'] ??
                               e['assessment_type'] ??
                               '-',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: const Color(0xFF1E293B),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ),
                     )
@@ -443,6 +633,7 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
     required List<DropdownMenuItem<String>> items,
     required ValueChanged<String?> onChanged,
     required IconData icon,
+    bool enabled = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,7 +653,7 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
+            color: enabled ? const Color(0xFFF8FAFC) : const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
@@ -470,6 +661,9 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
+              borderRadius: BorderRadius.circular(20),
+              dropdownColor: Colors.white,
+              menuMaxHeight: 300,
               icon: const Icon(
                 Icons.keyboard_arrow_down_rounded,
                 color: Color(0xFF94A3B8),
@@ -482,7 +676,22 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
                 ),
               ),
               items: items,
-              onChanged: onChanged,
+              onChanged: enabled ? onChanged : null,
+              selectedItemBuilder: (BuildContext context) {
+                return items.map<Widget>((DropdownMenuItem<String> item) {
+                  return Container(
+                    alignment: Alignment.centerLeft,
+                    child: DefaultTextStyle(
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: const Color(0xFF1E293B),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      child: item.child,
+                    ),
+                  );
+                }).toList();
+              },
             ),
           ),
         ),
@@ -628,12 +837,12 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
           itemBuilder: (context, index) {
             final student = _students[index];
             final id =
-                student['id']?.toString() ??
                 student['student_id']?.toString() ??
+                student['id']?.toString() ??
                 '';
             final name =
-                student['name'] ??
                 student['student_name'] ??
+                student['name'] ??
                 student['nama_siswa'] ??
                 'Siswa';
             final nis =
@@ -777,7 +986,7 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
                   ),
                 )
                 : Text(
-                  'Simpan Data Penilaian',
+                  _isEditMode ? 'Simpan Perubahan' : 'Simpan Data Penilaian',
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,

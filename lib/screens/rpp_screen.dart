@@ -373,6 +373,8 @@ class _RppScreenState extends State<RppScreen>
                       onSelected: (value) {
                         if (value == 'duplicate') {
                           _duplicateRpp(rpp);
+                        } else if (value == 'delete') {
+                          _confirmDeleteRpp(rpp);
                         }
                       },
                       itemBuilder:
@@ -392,6 +394,27 @@ class _RppScreenState extends State<RppScreen>
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.delete_outline_rounded,
+                                    size: 18,
+                                    color: Colors.redAccent,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'Hapus RPP',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.redAccent,
                                     ),
                                   ),
                                 ],
@@ -495,15 +518,20 @@ class _RppScreenState extends State<RppScreen>
         'allocation':
             fullData['allocation'] ?? fullData['time_allocation'] ?? '-',
         'title': '${fullData['title'] ?? 'Tanpa Judul'} (Duplikat)',
-        'content_sk': fullData['content_sk'] ?? '',
-        'content_kd': fullData['content_kd'] ?? '',
-        'content_indicator': fullData['content_indicator'] ?? '',
+        'content_cp': fullData['content_cp'] ?? fullData['content_sk'] ?? '',
+        'content_atp': fullData['content_atp'] ?? fullData['content_kd'] ?? '',
+        'content_pertanyaan_pemantik':
+            fullData['content_pertanyaan_pemantik'] ??
+            fullData['content_indicator'] ??
+            '',
         'learning_goal':
             fullData['learning_goal'] ?? fullData['objectives'] ?? '',
         'teaching_material':
             fullData['teaching_material'] ?? fullData['material'] ?? '',
-        'teaching_method':
-            fullData['teaching_method'] ?? fullData['resources'] ?? '',
+        'teaching_profil_pancasila':
+            fullData['teaching_profil_pancasila'] ??
+            fullData['teaching_method'] ??
+            '',
         'content_steps': fullData['content_steps'] ?? '',
         'content_summary': fullData['content_summary'] ?? '',
         'assessment': fullData['assessment'] ?? '',
@@ -529,6 +557,95 @@ class _RppScreenState extends State<RppScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Gagal duplikasi: ${result['message']}'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Terjadi kesalahan: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteRpp(Map<String, dynamic> rpp) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(
+              'Hapus RPP?',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+            ),
+            content: Text(
+              'Apakah Anda yakin ingin menghapus RPP "${rpp['title']}"? Tindakan ini tidak dapat dibatalkan.',
+              style: GoogleFonts.poppins(),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(
+                  'Batal',
+                  style: GoogleFonts.poppins(color: Colors.grey),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(
+                  'Hapus',
+                  style: GoogleFonts.poppins(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+    );
+
+    if (confirm == true) {
+      _deleteRpp(rpp['id'].toString());
+    }
+  }
+
+  Future<void> _deleteRpp(String id) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final result = await _rppService.deleteRpp(id);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        if (result['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('RPP Berhasil Dihapus!'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          setState(() {});
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal menghapus: ${result['message']}'),
               backgroundColor: Colors.redAccent,
               behavior: SnackBarBehavior.floating,
             ),

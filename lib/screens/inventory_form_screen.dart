@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import '../models/inventory_item_model.dart';
 import '../models/inventory_location_model.dart';
 import '../services/inventory_service.dart';
@@ -29,6 +30,8 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
   late TextEditingController _quantityController;
   late TextEditingController _unitController;
   late TextEditingController _conditionController;
+  late TextEditingController _purchaseDateController;
+  DateTime? _selectedPurchaseDate;
 
   InventoryLocationModel? _selectedLocation;
   List<InventoryLocationModel> _locations = [];
@@ -63,6 +66,12 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
     );
     _conditionController = TextEditingController(
       text: widget.item?.condition ?? 'Baik',
+    );
+    _selectedPurchaseDate = widget.item?.purchaseDate;
+    _purchaseDateController = TextEditingController(
+      text: _selectedPurchaseDate != null 
+          ? DateFormat('dd-MM-yyyy').format(_selectedPurchaseDate!) 
+          : '',
     );
 
     // Add listener for auto-generation (only for new items)
@@ -172,6 +181,7 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
     _quantityController.dispose();
     _unitController.dispose();
     _conditionController.dispose();
+    _purchaseDateController.dispose();
     super.dispose();
   }
 
@@ -284,6 +294,7 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
       'item_unit': _unitController.text,
       'item_condition': _conditionController.text,
       'description': _descriptionController.text,
+      'purchase_date': _selectedPurchaseDate?.toIso8601String() ?? '',
 
       // Backward compatibility aliases
       'nama_barang': _nameController.text,
@@ -292,6 +303,7 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
       'satuan_barang': _unitController.text,
       'kondisi_barang': _conditionController.text,
       'keterangan': _descriptionController.text,
+      'tanggal_pembelian': _selectedPurchaseDate?.toIso8601String() ?? '',
     };
 
     final result = await _inventoryService.saveItemMultipart(
@@ -493,6 +505,8 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
                     ),
                     const SizedBox(height: 20),
                     _buildConditionDropdown(),
+                    const SizedBox(height: 20),
+                    _buildPurchaseDateField(),
                     const SizedBox(height: 32),
 
                     _buildSectionHeader(
@@ -931,6 +945,81 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
               borderSide: const BorderSide(
                 color: Color(0xFF0085FF),
                 width: 1.5,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _selectPurchaseDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedPurchaseDate ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF0085FF),
+              onPrimary: Colors.white,
+              onSurface: Colors.black87,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedPurchaseDate) {
+      setState(() {
+        _selectedPurchaseDate = picked;
+        _purchaseDateController.text = DateFormat('dd-MM-yyyy').format(picked);
+      });
+    }
+  }
+
+  Widget _buildPurchaseDateField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Tanggal Pembelian',
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: _selectPurchaseDate,
+          borderRadius: BorderRadius.circular(16),
+          child: IgnorePointer(
+            child: TextFormField(
+              controller: _purchaseDateController,
+              style: GoogleFonts.poppins(fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Pilih tanggal...',
+                hintStyle: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.grey.shade400,
+                ),
+                prefixIcon: const Icon(Icons.calendar_today_rounded, size: 20, color: Color(0xFF0085FF)),
+                filled: true,
+                fillColor: Colors.white,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(color: Colors.grey.shade200),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF0085FF),
+                    width: 1.5,
+                  ),
+                ),
               ),
             ),
           ),

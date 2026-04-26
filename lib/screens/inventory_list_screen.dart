@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../models/inventory_item_model.dart';
 import '../services/inventory_service.dart';
 import 'inventory_form_screen.dart';
@@ -336,6 +337,22 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
                           ),
                         ],
                       ),
+                      if (item.purchaseDate != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.calendar_today_outlined, size: 10, color: Colors.grey.shade500),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Tgl Beli: ${DateFormat('dd MMM yyyy').format(item.purchaseDate!)}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),

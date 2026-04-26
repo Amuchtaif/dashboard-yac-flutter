@@ -128,6 +128,86 @@ class _QuranDetailScreenState extends State<QuranDetailScreen> {
                     inactiveColor: const Color(0xFFE5E7EB),
                     onChanged: (val) => quranProvider.setFontSize(val),
                   ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Ukuran Font Latin",
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2B83F6).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          "${quranProvider.latinFontSize.toInt()} px",
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF2B83F6),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: quranProvider.latinFontSize,
+                    min: 10,
+                    max: 24,
+                    activeColor: const Color(0xFF2B83F6),
+                    inactiveColor: const Color(0xFFE5E7EB),
+                    onChanged: (val) => quranProvider.setLatinFontSize(val),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Ukuran Font Terjemahan",
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2B83F6).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          "${quranProvider.translationFontSize.toInt()} px",
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF2B83F6),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: quranProvider.translationFontSize,
+                    min: 10,
+                    max: 24,
+                    activeColor: const Color(0xFF2B83F6),
+                    inactiveColor: const Color(0xFFE5E7EB),
+                    onChanged: (val) => quranProvider.setTranslationFontSize(val),
+                  ),
                   const SizedBox(height: 20),
                 ],
               ),
@@ -310,7 +390,7 @@ class _QuranDetailScreenState extends State<QuranDetailScreen> {
                     ayah.teksLatin,
                     textAlign: TextAlign.left,
                     style: GoogleFonts.notoSans(
-                      fontSize: 13,
+                      fontSize: provider.latinFontSize,
                       fontStyle: FontStyle.italic,
                       color: const Color(0xFF2B83F6),
                     ),
@@ -320,7 +400,7 @@ class _QuranDetailScreenState extends State<QuranDetailScreen> {
                     ayah.teksIndonesia,
                     textAlign: TextAlign.left,
                     style: GoogleFonts.poppins(
-                      fontSize: 14,
+                      fontSize: provider.translationFontSize,
                       height: 1.6,
                       color: const Color(0xFF4B5563),
                     ),

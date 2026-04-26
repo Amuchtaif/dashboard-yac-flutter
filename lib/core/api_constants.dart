@@ -94,6 +94,7 @@ class ApiConstants {
   static const String rppGetDetail = '${baseUrl}rpp/get_detail.php';
   static const String rppCreate = '${baseUrl}rpp/create.php';
   static const String rppUpdate = '${baseUrl}rpp/update.php';
+  static const String rppDelete = '${baseUrl}rpp/delete.php';
   static const String rppGetActivePeriod =
       '${baseUrl}rpp/get_active_period.php';
 
@@ -103,6 +104,8 @@ class ApiConstants {
   static const String gradingGetHistory = '${baseUrl}grading/get_history.php';
   static const String gradingGetDetail = '${baseUrl}grading/get_detail.php';
   static const String gradingSubmit = '${baseUrl}grading/submit.php';
+  static const String gradingUpdate = '${baseUrl}grading/update.php';
+  static const String gradingDelete = '${baseUrl}grading/delete.php';
 
   // Tahfidz Endpoints
   static const String tahfidzGetAssessmentTypes =
@@ -113,6 +116,8 @@ class ApiConstants {
       '${baseUrl}tahfidz/add_halaqah_member.php';
   static const String tahfidzRemoveMember =
       '${baseUrl}tahfidz/remove_halaqah_member.php';
+  static const String tahfidzDeleteAssessment =
+      '${baseUrl}tahfidz/delete_assessment.php';
 
   // Boarding Endpoints
   static const String boardingGetRooms = '${baseUrl}boarding/get_rooms.php';
@@ -151,4 +156,10 @@ class ApiConstants {
   static const String kabidStaffAttendanceMonthDetail = '${baseUrl}kabid/staff_attendance/month_detail.php';
   static const String kabidStaffList = '${baseUrl}kabid/staff_attendance/list_staff.php';
   static const String kabidManualSave = '${baseUrl}kabid/staff_attendance/manual_save.php';
+
+  // Work Report Endpoints
+  static const String workReportSave = '${baseUrl}work_reports/save.php';
+  static const String workReportGetMy = '${baseUrl}work_reports/get_my_reports.php';
+  static const String workReportGetStaff = '${baseUrl}work_reports/get_staff_reports.php';
+  static const String workReportGetCategories = '${baseUrl}work_reports/get_categories.php';
 }

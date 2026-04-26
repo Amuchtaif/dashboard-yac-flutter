@@ -182,4 +182,64 @@ class GradingService {
       return {'success': false, 'message': 'Connection Error: $e'};
     }
   }
+
+  Future<Map<String, dynamic>> updateGrading(Map<String, dynamic> data) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.gradingUpdate),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode(data),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+
+      try {
+        final result = jsonDecode(response.body);
+        return result;
+      } catch (_) {
+        return {
+          'success': false,
+          'message': 'HTTP Error ${response.statusCode}',
+        };
+      }
+    } catch (e) {
+      debugPrint('Error updating grading: $e');
+      return {'success': false, 'message': 'Connection Error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteAssessment(String id) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.gradingDelete),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({'id': id}),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+
+      try {
+        final result = jsonDecode(response.body);
+        return result;
+      } catch (_) {
+        return {
+          'success': false,
+          'message': 'HTTP Error ${response.statusCode}',
+        };
+      }
+    } catch (e) {
+      debugPrint('Error deleting grading: $e');
+      return {'success': false, 'message': 'Connection Error: $e'};
+    }
+  }
 }

@@ -57,6 +57,9 @@ import '../services/news_service.dart';
 import '../models/news_model.dart';
 import 'student_grading_screen.dart';
 import 'news_detail_screen.dart';
+import 'self_attendance_recap_screen.dart';
+import 'work_report_screen.dart';
+
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -2113,6 +2116,16 @@ class HomeTab extends StatelessWidget {
         'color': Colors.indigo,
       },
       {'title': 'Penugasan', 'icon': Icons.assignment, 'color': Colors.orange},
+      {
+        'title': 'Rekap Kehadiran',
+        'icon': Icons.history_rounded,
+        'color': Colors.green,
+      },
+      {
+        'title': 'Laporan Kerja',
+        'icon': Icons.assignment_turned_in,
+        'color': Colors.deepOrange,
+      },
     ];
 
     return Column(
@@ -2707,6 +2720,18 @@ class HomeTab extends StatelessWidget {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const AssignmentScreen()),
+      );
+    } else if (navTitle == 'Rekap Kehadiran') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const SelfAttendanceRecapScreen(),
+        ),
+      );
+    } else if (navTitle == 'Laporan Kerja') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const WorkReportScreen()),
       );
     } else if (navTitle == 'Data Presensi') {
       Navigator.push(

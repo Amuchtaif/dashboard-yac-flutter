@@ -11,6 +11,7 @@ class InventoryItemModel {
   final String? unit;
   final String? condition;
   final String? imageUrl;
+  final DateTime? purchaseDate;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -25,6 +26,7 @@ class InventoryItemModel {
     this.unit,
     this.condition,
     this.imageUrl,
+    this.purchaseDate,
     this.createdAt,
     this.updatedAt,
   });
@@ -49,6 +51,9 @@ class InventoryItemModel {
       imageUrl: ApiConstants.getInventoryPhotoUrl(
         toStringSafe(json['item_photo'] ?? json['foto_barang'] ?? json['image_url']),
       ),
+      purchaseDate: json['purchase_date'] != null || json['tanggal_pembelian'] != null
+          ? DateTime.tryParse((json['purchase_date'] ?? json['tanggal_pembelian']).toString())
+          : null,
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
       updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'].toString()) : null,
     );
@@ -66,6 +71,7 @@ class InventoryItemModel {
       'item_unit': unit,
       'item_condition': condition,
       'item_photo': imageUrl,
+      'purchase_date': purchaseDate?.toIso8601String(),
     };
   }
 }
