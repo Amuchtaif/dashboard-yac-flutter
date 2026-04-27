@@ -54,6 +54,7 @@ class AuthService {
             await prefs.setString('divisionName', user.divisionName);
             await prefs.setString('positionName', user.positionName);
             await prefs.setString('phoneNumber', user.phoneNumber);
+            await prefs.setString('nik', user.nik);
             await prefs.setString(
               'address',
               user.address,

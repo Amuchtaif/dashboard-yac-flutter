@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'education_deduction_screen.dart';
 
 class PayrollDetailScreen extends StatelessWidget {
   final Map<String, dynamic> payrollData;
@@ -67,6 +68,8 @@ class PayrollDetailScreen extends StatelessWidget {
             _buildDebtBalanceSection(currencyFormat),
             const SizedBox(height: 32),
             _buildDownloadButton(context),
+            const SizedBox(height: 12),
+            _buildEducationDeductionButton(context),
             const SizedBox(height: 40),
           ],
         ),
@@ -100,62 +103,115 @@ class PayrollDetailScreen extends StatelessWidget {
   }
 
   Widget _buildTotalSalaryCard(NumberFormat formatter) {
-    final amount = double.tryParse(payrollData['gaji_netto'].toString()) ?? 0;
+    final bruto = double.tryParse(payrollData['gaji_bruto'].toString()) ?? 0;
+    final potongan =
+        double.tryParse(payrollData['jumlah_potongan'].toString()) ?? 0;
+    final netto = double.tryParse(payrollData['gaji_netto'].toString()) ?? 0;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.grey.shade100),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: const Color(0xFF005AAA).withValues(alpha: 0.08),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
           ),
         ],
+        border: Border.all(color: const Color(0xFFF1F5F9)),
       ),
       child: Column(
         children: [
-          Text(
-            'Total Gaji Bersih',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: Colors.grey.shade500,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            formatter.format(amount),
-            style: GoogleFonts.poppins(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF2D3142),
-            ),
-          ),
-          const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F9F1),
-              borderRadius: BorderRadius.circular(20),
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                const Icon(
-                  Icons.check_circle,
-                  size: 16,
-                  color: Color(0xFF27AE60),
+                _buildEquationValue(
+                  formatter.format(bruto),
+                  'Gaji Bruto',
+                  const Color(0xFF005AAA),
                 ),
-                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.remove,
+                    size: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                _buildEquationValue(
+                  formatter.format(potongan),
+                  'Total Potongan',
+                  const Color(0xFFEF4444),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
                 Text(
-                  payrollData['status']?.toUpperCase() ?? 'BERHASIL DIBAYARKAN',
+                  'GAJI BERSIH (NETTO)',
                   style: GoogleFonts.poppins(
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF27AE60),
+                    color: const Color(0xFF94A3B8),
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  formatter.format(netto),
+                  style: GoogleFonts.poppins(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1E293B),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(
+                      color: const Color(0xFF22C55E).withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.verified_rounded,
+                        size: 14,
+                        color: Color(0xFF16A34A),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        payrollData['status']?.toUpperCase() ?? 'TERBAYAR',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF16A34A),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -163,6 +219,30 @@ class PayrollDetailScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEquationValue(String amount, String label, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF64748B),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          amount,
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 
@@ -655,6 +735,50 @@ class PayrollDetailScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           elevation: 0,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEducationDeductionButton(BuildContext context) {
+    final periodName =
+        "${payrollData['nama_bulan']} ${payrollData['periode_tahun']}";
+    final nik = payrollData['nik']?.toString() ?? '';
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      child: OutlinedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EducationDeductionScreen(
+                nik: nik,
+                period: periodName,
+              ),
+            ),
+          );
+        },
+        icon: const Icon(
+          Icons.account_balance_rounded,
+          color: Color(0xFF005AAA),
+          size: 20,
+        ),
+        label: Text(
+          'Cek Potongan Pendidikan',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF005AAA),
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Color(0xFF005AAA), width: 1.5),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );

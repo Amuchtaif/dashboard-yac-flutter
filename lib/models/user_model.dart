@@ -11,7 +11,7 @@ class User {
   final int divisionId; // Added divisionId
   final int unitId; // Added unitId
   final bool canManageNews; // Added canManageNews
-
+  final String nik;
   final String profilePhoto;
 
   User({
@@ -26,6 +26,7 @@ class User {
     required this.positionLevel,
     required this.divisionId,
     required this.unitId,
+    required this.nik,
     required this.profilePhoto,
     this.canManageNews = false,
   });
@@ -53,6 +54,7 @@ class User {
               ? json['unit_id']
               : int.tryParse(json['unit_id']?.toString() ?? '0') ?? 0,
       profilePhoto: json['profile_photo'] ?? '',
+      nik: json['nik']?.toString() ?? '',
       canManageNews:
           json['can_manage_news'] == 1 ||
           json['can_manage_news'] == '1' ||
@@ -73,6 +75,7 @@ class User {
       'position_level': positionLevel,
       'division_id': divisionId,
       'unit_id': unitId,
+      'nik': nik,
       'profile_photo': profilePhoto,
       'can_manage_news': canManageNews ? 1 : 0,
     };
