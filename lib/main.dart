@@ -13,10 +13,13 @@ import 'services/permission_service.dart';
 import 'providers/tahfidz_provider.dart';
 import 'providers/quran_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'firebase_options.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   debugPrint("Handling a background message: ${message.messageId}");
 }
 
@@ -25,9 +28,23 @@ void main() async {
   await initializeDateFormatting('id_ID', null);
 
   debugPrint("🔥 INITIALIZING FIREBASE...");
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint("✅ FIREBASE CONNECTED!");
+  } catch (e) {
+    debugPrint("❌ FIREBASE INIT ERROR: $e");
+  }
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Set foreground notification options for iOS
+  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
 
   // Define Android Notification Channel
   const AndroidNotificationChannel channel = AndroidNotificationChannel(
