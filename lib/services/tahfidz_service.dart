@@ -13,7 +13,7 @@ class TahfidzService {
       final response = await http.get(
         Uri.parse("$baseUrl/tahfidz/get_students.php"),
         headers: {'ngrok-skip-browser-warning': 'true'},
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -35,7 +35,7 @@ class TahfidzService {
           "${ApiConstants.tahfidzGetMyStudents}?teacher_id=$teacherId",
         ),
         headers: {'ngrok-skip-browser-warning': 'true'},
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -61,7 +61,7 @@ class TahfidzService {
           'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({"teacher_id": teacherId, "student_id": studentId}),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -87,7 +87,7 @@ class TahfidzService {
           'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({"teacher_id": teacherId, "student_id": studentId}),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -106,7 +106,7 @@ class TahfidzService {
       final response = await http.get(
         Uri.parse("$baseUrl/tahfidz/get_teachers.php"),
         headers: {'ngrok-skip-browser-warning': 'true'},
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -140,7 +140,7 @@ class TahfidzService {
           "teacher_id": teacherId,
           "students": students,
         }),
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -179,7 +179,7 @@ class TahfidzService {
       final response = await http.get(
         Uri.parse("$baseUrl/tahfidz/get_student_attendance.php?$query"),
         headers: {'ngrok-skip-browser-warning': 'true'},
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -198,7 +198,7 @@ class TahfidzService {
       final response = await http.get(
         Uri.parse("$baseUrl/tahfidz/get_halaqah_groups.php"),
         headers: {'ngrok-skip-browser-warning': 'true'},
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -232,7 +232,7 @@ class TahfidzService {
           "notes": notes,
           "time": time,
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -261,7 +261,7 @@ class TahfidzService {
       final response = await http.get(
         Uri.parse("$baseUrl/tahfidz/get_teacher_attendance.php?$query"),
         headers: {'ngrok-skip-browser-warning': 'true'},
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -287,7 +287,7 @@ class TahfidzService {
           'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({"id": attendanceId, "action": action}),
-      );
+      ).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -312,7 +312,7 @@ class TahfidzService {
           'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode(data),
-      );
+      ).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -345,7 +345,7 @@ class TahfidzService {
       final response = await http.get(
         Uri.parse("$baseUrl/tahfidz/get_memorization.php?$query"),
         headers: {'ngrok-skip-browser-warning': 'true'},
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -372,7 +372,7 @@ class TahfidzService {
           'Access-Control-Allow-Origin': '*',
         },
         body: jsonEncode(data),
-      );
+      ).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
@@ -409,7 +409,7 @@ class TahfidzService {
       final response = await http.get(
         Uri.parse("$baseUrl/tahfidz/get_assessments.php?$query"),
         headers: {'ngrok-skip-browser-warning': 'true'},
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -425,20 +425,35 @@ class TahfidzService {
 
   Future<List<dynamic>> getAssessmentTypes() async {
     try {
+      debugPrint("TahfidzService: Fetching types from ${ApiConstants.tahfidzGetAssessmentTypes}");
       final response = await http.get(
-        Uri.parse("$baseUrl/tahfidz/get_assessment_types.php"),
+        Uri.parse(ApiConstants.tahfidzGetAssessmentTypes),
         headers: {'ngrok-skip-browser-warning': 'true'},
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          return data['data'];
+        final body = response.body.trim();
+        if (body.startsWith('<')) {
+          debugPrint("TahfidzService: Endpoint returned HTML (Check for PHP errors)");
+          return [];
         }
+
+        final dynamic data = jsonDecode(body);
+        if (data is List) {
+          return data;
+        } else if (data is Map) {
+          if (data['success'] == true || data['status'] == 'success') {
+            return data['data'] ?? data['types'] ?? data['list'] ?? [];
+          }
+          return data['data'] ?? [];
+        }
+      } else {
+        debugPrint("TahfidzService: HTTP Error ${response.statusCode}");
       }
     } catch (e) {
-      debugPrint("Error fetching tahfidz assessment types: $e");
+      debugPrint("TahfidzService: Format or Network Error: $e");
     }
+
     return [];
   }
 
@@ -451,7 +466,7 @@ class TahfidzService {
           'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({"id": id}),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);

@@ -19,14 +19,17 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
 
   List<dynamic> _studentsList = [];
   List<dynamic> _assessmentTypes = [];
+  bool _isLoadingTypes = true;
   int? _selectedStudentId;
   DateTime _selectedDate = DateTime.now();
-  String _category = 'Bulanan';
+  String _category = '';
 
   final TextEditingController _tajweedController = TextEditingController();
   final TextEditingController _fluencyController = TextEditingController();
   final TextEditingController _makhrajController = TextEditingController();
   final TextEditingController _commentsController = TextEditingController();
+
+  double _averageScore = 0.0;
 
   bool _isLoading = true;
   bool _isSubmitting = false;
@@ -46,6 +49,32 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
       _fetchCoordinatorData();
     } else {
       _fetchTeacherData();
+    }
+
+    // Add listeners for automatic average calculation
+    _tajweedController.addListener(_calculateAverage);
+    _fluencyController.addListener(_calculateAverage);
+    _makhrajController.addListener(_calculateAverage);
+  }
+
+  @override
+  void dispose() {
+    _tajweedController.dispose();
+    _fluencyController.dispose();
+    _makhrajController.dispose();
+    _commentsController.dispose();
+    super.dispose();
+  }
+
+  void _calculateAverage() {
+    final t = double.tryParse(_tajweedController.text.replaceAll(',', '.')) ?? 0;
+    final f = double.tryParse(_fluencyController.text.replaceAll(',', '.')) ?? 0;
+    final m = double.tryParse(_makhrajController.text.replaceAll(',', '.')) ?? 0;
+
+    if (mounted) {
+      setState(() {
+        _averageScore = (t + f + m) / 3;
+      });
     }
   }
 
@@ -93,35 +122,44 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
   }
 
   Future<void> _fetchAssessmentTypes() async {
+    setState(() => _isLoadingTypes = true);
     try {
       debugPrint('PenilaianTahfidzScreen: Fetching assessment types...');
       final types = await _service.getAssessmentTypes();
       debugPrint('PenilaianTahfidzScreen: Received ${types.length} types');
 
       if (mounted) {
-        if (types.isNotEmpty) {
-          setState(() {
+        setState(() {
+          if (types.isNotEmpty) {
             _assessmentTypes = types;
             // Check if current category is available in new types
             bool exists = types.any((t) {
-              final name = (t['name'] ?? t['jenis'] ?? '').toString();
+              final name =
+                  (t['name'] ??
+                          t['jenis'] ??
+                          t['type_name'] ??
+                          t['assessment_type'] ??
+                          '')
+                      .toString();
               return name == _category;
             });
 
             if (!exists) {
               _category =
-                  (types.first['name'] ?? types.first['jenis'] ?? 'Bulanan')
+                  (types.first['name'] ??
+                          types.first['jenis'] ??
+                          types.first['type_name'] ??
+                          types.first['assessment_type'] ??
+                          'Bulanan')
                       .toString();
             }
-          });
-        } else {
-          debugPrint(
-            'PenilaianTahfidzScreen: Assessment types list is empty from server',
-          );
-        }
+          }
+        });
       }
     } catch (e) {
       debugPrint('PenilaianTahfidzScreen: Error fetching assessment types: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingTypes = false);
     }
   }
 
@@ -138,21 +176,62 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
     final provider = Provider.of<TahfidzProvider>(context, listen: false);
     final int? teacherId = provider.teacherId;
 
-    int tajweed = int.tryParse(_tajweedController.text) ?? 0;
-    int fluency = int.tryParse(_fluencyController.text) ?? 0;
-    int makhraj = int.tryParse(_makhrajController.text) ?? 0;
+    if (teacherId == null) {
+      setState(() => _isSubmitting = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ID Pengampu tidak ditemukan. Silakan login ulang.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Find assessment type ID if available
+    dynamic typeId;
+    if (_assessmentTypes.isNotEmpty) {
+      final selectedType = _assessmentTypes.firstWhere(
+        (t) => (t['name'] ?? t['jenis'] ?? '').toString() == _category,
+        orElse: () => null,
+      );
+      if (selectedType != null) {
+        typeId = selectedType['id'] ??
+            selectedType['id_jenis'] ??
+            selectedType['id_jenis_penilaian'];
+      }
+    }
+
+    int tajweed = int.tryParse(_tajweedController.text.replaceAll(',', '.')) ?? 0;
+    int fluency = int.tryParse(_fluencyController.text.replaceAll(',', '.')) ?? 0;
+    int makhraj = int.tryParse(_makhrajController.text.replaceAll(',', '.')) ?? 0;
     int total = (tajweed + fluency + makhraj) ~/ 3;
 
     final data = {
       "student_id": _selectedStudentId,
+      "id_santri": _selectedStudentId,
       "assessment_date": DateFormat('yyyy-MM-dd').format(_selectedDate),
+      "tgl_penilaian": DateFormat('yyyy-MM-dd').format(_selectedDate),
       "category": _category,
+      "jenis": _category,
+      "type_id": typeId,
+      "id_jenis": typeId,
+      "assessment_type_id": typeId,
+      "id_jenis_penilaian": typeId,
       "tajweed_score": tajweed,
+      "nilai_tajwid": tajweed,
       "fluency_score": fluency,
+      "nilai_kelancaran": fluency,
       "makhraj_score": makhraj,
+      "nilai_makhraj": makhraj,
       "total_score": total,
+      "nilai_total": total,
       "comments": _commentsController.text,
+      "catatan": _commentsController.text,
+      "keterangan": _commentsController.text,
       "teacher_id": teacherId,
+      "id_pengampu": teacherId,
+      "teacher_name": provider.teacherName,
     };
 
     final result = await _service.submitAssessment(data);
@@ -503,6 +582,15 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
                           ),
                           const SizedBox(width: 8),
                           _buildLabel('Jenis Penilaian'),
+                          const Spacer(),
+                          if (!_isLoadingTypes)
+                            IconButton(
+                              icon: const Icon(Icons.refresh, size: 16),
+                              onPressed: _fetchAssessmentTypes,
+                              constraints: const BoxConstraints(),
+                              padding: EdgeInsets.zero,
+                              tooltip: 'Refresh Jenis Penilaian',
+                            ),
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -545,6 +633,50 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
                         "Makhraj",
                         _makhrajController,
                         Icons.record_voice_over_rounded,
+                      ),
+                      const SizedBox(height: 20),
+                      const Divider(height: 1),
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Rata-rata Nilai",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                ),
+                                Text(
+                                  "Otomatis terhitung",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 10,
+                                    color: const Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              _averageScore.toStringAsFixed(1),
+                              style: GoogleFonts.poppins(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF3B82F6),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ]),
                     const SizedBox(height: 20),
@@ -710,13 +842,25 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
   }
 
   Widget _buildCategoryDropdown() {
-    List<String> categories = ["Bulanan", "Ujian", "Harian"];
+    List<String> categories = [];
     if (_assessmentTypes.isNotEmpty) {
       categories =
           _assessmentTypes
-              .map((t) => (t['name'] ?? t['jenis'] ?? '').toString())
+              .map(
+                (t) =>
+                    (t['name'] ??
+                            t['jenis'] ??
+                            t['type_name'] ??
+                            t['assessment_type'] ??
+                            '')
+                        .toString(),
+              )
               .where((name) => name.isNotEmpty)
               .toList();
+    }
+
+    if (categories.isEmpty) {
+      categories = ["Bulanan", "Ujian", "Harian"];
     }
 
     // Ensure _category is still valid for the current list
@@ -733,9 +877,19 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: _category,
+          value: _category.isEmpty || !categories.contains(_category) ? null : _category,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded),
+          hint: Text(
+            _isLoadingTypes ? "Memuat..." : "Pilih Jenis Penilaian",
+            style: GoogleFonts.poppins(fontSize: 14),
+          ),
+          icon: _isLoadingTypes
+              ? const SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+              : const Icon(Icons.keyboard_arrow_down_rounded),
           items:
               categories.map((c) {
                 return DropdownMenuItem<String>(
@@ -811,6 +965,7 @@ class _PenilaianTahfidzScreenState extends State<PenilaianTahfidzScreen> {
             controller: controller,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
+            onChanged: (_) => _calculateAverage(),
             style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
