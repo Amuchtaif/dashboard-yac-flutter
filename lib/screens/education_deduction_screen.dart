@@ -80,27 +80,6 @@ class _EducationDeductionScreenState extends State<EducationDeductionScreen> {
           return true;
         }).toList();
 
-        // Debug info if empty
-        String? debugInfo;
-        if (filtered.isEmpty && allData.isNotEmpty) {
-          final firstItem = allData.first;
-          debugInfo = 'Data ditemukan: ${allData.length} baris. Kolom tersedia: ${firstItem.keys.join(", ")}';
-          
-          // Check for NIK match without period filter
-          final nikOnlyMatch = allData.where((item) {
-            final rawItemNik = (item['NIK'] ?? item['nik'] ?? item['NIK_KARYAWAN'] ?? '').toString().trim();
-            final itemNikClean = rawItemNik.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^0+'), '');
-            final targetNikClean = targetNik.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^0+'), '');
-            return targetNikClean.isNotEmpty && itemNikClean == targetNikClean;
-          }).toList();
-          
-          if (nikOnlyMatch.isNotEmpty) {
-            final availablePeriods = nikOnlyMatch.map((e) => e['Bulan Gaji']?.toString() ?? '-').toSet().join(", ");
-            debugInfo += '\n\nNIK ditemukan (${nikOnlyMatch.length} baris), tapi periode tidak cocok. Periode di sistem: $availablePeriods';
-          } else {
-            debugInfo += '\n\nNIK $targetNik tidak ditemukan di seluruh data.';
-          }
-        }
 
         // Sort by Date (latest first)
         filtered.sort((a, b) {
@@ -122,9 +101,7 @@ class _EducationDeductionScreenState extends State<EducationDeductionScreen> {
             _totalBayar = bayar;
             _totalHutang = hutang;
             _isLoading = false;
-            if (filtered.isEmpty) {
-              _errorMessage = debugInfo;
-            }
+            // Tidak perlu set _errorMessage di sini agar masuk ke empty state
           });
         }
       } else {
@@ -235,53 +212,32 @@ class _EducationDeductionScreenState extends State<EducationDeductionScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.info_outline_rounded, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'Data Tidak Ditemukan',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tidak ada data potongan pendidikan yang cocok untuk kriteria berikut:',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(color: Colors.grey.shade600, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
+                color: const Color(0xFFF0FDF4),
+                shape: BoxShape.circle,
               ),
-              child: Column(
-                children: [
-                  _buildDiagnosticRow('NIK', widget.nik),
-                  const Divider(),
-                  _buildDiagnosticRow('Periode', widget.period),
-                ],
+              child: const Icon(
+                Icons.check_circle_outline_rounded,
+                size: 64,
+                color: Color(0xFF16A34A),
               ),
             ),
             const SizedBox(height: 24),
             Text(
-              'Tips: Pastikan NIK Anda sudah terdaftar di sistem dan periode gaji sesuai. Jika Anda baru saja login, coba muat ulang halaman ini.',
+              'Bebas Potongan',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Anda tidak mempunyai potongan pendidikan',
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(color: Colors.grey.shade400, fontSize: 11),
+              style: GoogleFonts.poppins(color: Colors.grey.shade600, fontSize: 14),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildDiagnosticRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-        Text(value.isEmpty ? '(Kosong)' : value, style: const TextStyle(color: Colors.blueAccent, fontSize: 12)),
-      ],
     );
   }
 

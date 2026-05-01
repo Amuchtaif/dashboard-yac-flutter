@@ -39,6 +39,7 @@ import 'kesantrian/absensi_makan_screen.dart';
 import 'kesantrian/pelanggaran_screen.dart';
 import 'kesantrian/kepulangan_screen.dart';
 import 'kesantrian/izin_santri_screen.dart';
+import 'absensi_makan_pendidikan_screen.dart';
 import 'class_list_screen.dart';
 import '../services/attendance_service.dart';
 import '../models/location_model.dart';
@@ -2200,19 +2201,21 @@ class HomeTab extends StatelessWidget {
         'subtitle': 'Rencana Pembelajaran',
         'icon': Icons.assignment_outlined,
         'color': Colors.indigo,
-        'flex': 2,
       },
       {
         'title': 'Rekap Presensi',
         'icon': Icons.assignment_ind_outlined,
         'color': Colors.redAccent,
-        'flex': 1,
       },
       {
         'title': 'Kalender Akademik',
         'icon': Icons.event_note_outlined,
         'color': Colors.teal,
-        'flex': 1,
+      },
+      {
+        'title': 'Absensi Makan',
+        'icon': Icons.restaurant_rounded,
+        'color': Colors.orange,
       },
     ];
 
@@ -2249,13 +2252,9 @@ class HomeTab extends StatelessWidget {
         const SizedBox(height: 8),
         Row(
           children:
-              row2.map((menu) {
-                int flex = menu['flex'] as int? ?? 1;
-                return Expanded(
-                  flex: flex,
-                  child: _buildMenuCard(context, menu),
-                );
-              }).toList(),
+              row2
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
         ),
       ],
     );
@@ -2761,10 +2760,20 @@ class HomeTab extends StatelessWidget {
         MaterialPageRoute(builder: (context) => const AbsensiAsramaScreen()),
       );
     } else if (navTitle == 'Absensi Makan') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const AbsensiMakanScreen()),
-      );
+      if (deptName.toLowerCase().contains('kesantrian') || 
+          positionName.toLowerCase().contains('musyrif') || 
+          positionName.toLowerCase().contains('kesantrian')) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AbsensiMakanScreen()),
+        );
+      } else {
+        // Assume Pendidikan/Wali Kelas
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AbsensiMakanPendidikanScreen()),
+        );
+      }
     } else if (navTitle == 'Pelanggaran') {
       Navigator.push(
         context,

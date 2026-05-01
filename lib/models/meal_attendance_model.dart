@@ -18,13 +18,26 @@ class MealStudent {
   });
 
   factory MealStudent.fromJson(Map<String, dynamic> json) {
+    // Robust parsing for attendance_id which can be int, string, or boolean
+    int? parsedAttendanceId;
+    final rawAttendanceId = json['attendance_id'];
+    if (rawAttendanceId != null) {
+      if (rawAttendanceId is int) {
+        parsedAttendanceId = rawAttendanceId;
+      } else if (rawAttendanceId is bool) {
+        parsedAttendanceId = rawAttendanceId ? 1 : null;
+      } else {
+        parsedAttendanceId = int.tryParse(rawAttendanceId.toString());
+      }
+    }
+
     return MealStudent(
-      id: json['id'],
-      namaSiswa: json['nama_siswa'],
+      id: json['id'] is int ? json['id'] : int.parse(json['id'].toString()),
+      namaSiswa: json['nama_siswa'] ?? '',
       nomorInduk: json['nomor_induk'].toString(),
       kelas: json['kelas'] ?? '-',
       roomName: json['room_name'] ?? '-',
-      attendanceId: json['attendance_id'] != null ? int.tryParse(json['attendance_id'].toString()) : null,
+      attendanceId: parsedAttendanceId,
       checkTime: json['check_time'],
     );
   }

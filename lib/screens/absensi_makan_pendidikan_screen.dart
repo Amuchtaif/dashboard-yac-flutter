@@ -2,37 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../models/meal_attendance_model.dart';
-import '../../services/meal_attendance_service.dart';
+import '../models/meal_attendance_model.dart';
+import '../services/meal_attendance_service.dart';
 
-class AbsensiMakanScreen extends StatefulWidget {
-  const AbsensiMakanScreen({super.key});
+class AbsensiMakanPendidikanScreen extends StatefulWidget {
+  const AbsensiMakanPendidikanScreen({super.key});
 
   @override
-  State<AbsensiMakanScreen> createState() => _AbsensiMakanScreenState();
+  State<AbsensiMakanPendidikanScreen> createState() =>
+      _AbsensiMakanPendidikanScreenState();
 }
 
-class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
+class _AbsensiMakanPendidikanScreenState
+    extends State<AbsensiMakanPendidikanScreen> {
   String _selectedMeal = 'Siang';
   DateTime _selectedDate = DateTime.now();
   List<MealStudent> _students = [];
   List<MealStudent> _filteredStudents = [];
+  MealStats? _stats;
   bool _isLoading = false;
+  String? _errorMessage;
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _selectedMeal = _getDefaultMealType();
+    _selectedMeal = 'Siang'; // Hanya makan siang
     _fetchData();
-  }
-
-  String _getDefaultMealType() {
-    final hour = DateTime.now().hour;
-    if (hour >= 5 && hour <= 9) return 'Pagi';
-    if (hour >= 11 && hour <= 14) return 'Siang';
-    if (hour >= 17 && hour <= 20) return 'Malam';
-    return 'Siang'; // Default
   }
 
   Future<void> _fetchData() async {
@@ -40,33 +36,35 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id');
-      final positionName = prefs.getString('positionName') ?? '';
-      final isMusyrif = positionName.toLowerCase().contains('musyrif');
+      final userId =
+          prefs.getInt('user_id') ??
+          prefs.getInt('userId'); // Ensure we get the correct key
 
-      final studentsList = await (isMusyrif && userId != null
-          ? MealAttendanceService.getStudentsByMusyrif(
-              musyrifId: userId,
-              date: dateStr,
-              mealType: _selectedMeal,
-            )
-          : MealAttendanceService.getStudents(
-              date: dateStr,
-              mealType: _selectedMeal,
-            ));
+      final results = await Future.wait([
+        MealAttendanceService.getStudentsByWaliKelas(
+          waliKelasId: userId ?? 0,
+          date: dateStr,
+          mealType: _selectedMeal,
+        ),
+        MealAttendanceService.getStats(
+          date: dateStr,
+          mealType: _selectedMeal,
+          waliKelasId: userId ?? 0,
+        ),
+      ]);
 
       setState(() {
-        _students = studentsList;
+        _students = results[0] as List<MealStudent>;
+        _stats = results[1] as MealStats?;
+        _errorMessage = null; // Clear error if success
         _filterStudents(_searchController.text);
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+      setState(() {
+        _isLoading = false;
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
     }
   }
 
@@ -75,21 +73,28 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
       if (query.isEmpty) {
         _filteredStudents = _students;
       } else {
-        _filteredStudents = _students
-            .where((s) =>
-                s.namaSiswa.toLowerCase().contains(query.toLowerCase()) ||
-                s.nomorInduk.contains(query))
-            .toList();
+        _filteredStudents =
+            _students
+                .where(
+                  (s) =>
+                      s.namaSiswa.toLowerCase().contains(query.toLowerCase()) ||
+                      s.nomorInduk.contains(query),
+                )
+                .toList();
       }
     });
   }
 
   Future<void> _toggleMealStatus(MealStudent student) async {
-    final success = student.attendanceId == null
-        ? await MealAttendanceService.markAsEaten(
-            studentId: student.id, mealType: _selectedMeal)
-        : await MealAttendanceService.unmarkEaten(
-            attendanceId: student.attendanceId!);
+    final success =
+        student.attendanceId == null
+            ? await MealAttendanceService.markAsEaten(
+              studentId: student.id,
+              mealType: _selectedMeal,
+            )
+            : await MealAttendanceService.unmarkEaten(
+              attendanceId: student.attendanceId!,
+            );
 
     if (success) {
       _fetchData();
@@ -110,28 +115,33 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
         child: Column(
           children: [
             _buildAppBar(),
-            _buildMealTabs(),
-            _buildSearchBar(),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _fetchData,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      _buildStatsBanner(),
-                      const SizedBox(height: 24),
-                      _buildStudentList(),
-                    ],
+            if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: _buildErrorState(),
+              )
+            else ...[
+              _buildSearchBar(),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _fetchData,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        _buildStatsBanner(),
+                        const SizedBox(height: 24),
+                        _buildStudentList(),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
-
     );
   }
 
@@ -153,7 +163,7 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
           ),
           const SizedBox(width: 12),
           Text(
-            'Presensi Makan Santri',
+            'Presensi Makan Kelas',
             style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -161,70 +171,23 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
             ),
           ),
           const Spacer(),
-          IconButton(
-            onPressed: () async {
-              final DateTime? picked = await showDatePicker(
-                context: context,
-                initialDate: _selectedDate,
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030),
-              );
-              if (picked != null && picked != _selectedDate) {
-                setState(() => _selectedDate = picked);
-                _fetchData();
-              }
-            },
-            icon: const Icon(Icons.calendar_today, size: 20),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMealTabs() {
-    final meals = [
-      {'val': 'Pagi', 'label': 'Pagi'},
-      {'val': 'Siang', 'label': 'Siang'},
-      {'val': 'Malam', 'label': 'Sore'},
-    ];
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: meals.map((m) {
-          bool isSelected = _selectedMeal == m['val'];
-          return Expanded(
-            child: InkWell(
-              onTap: () {
-                setState(() => _selectedMeal = m['val']!);
-                _fetchData();
+          if (_errorMessage == null)
+            IconButton(
+              onPressed: () async {
+                final DateTime? picked = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2030),
+                );
+                if (picked != null && picked != _selectedDate) {
+                  setState(() => _selectedDate = picked);
+                  _fetchData();
+                }
               },
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFFF97316) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    m['label']!,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      color: isSelected ? Colors.white : const Color(0xFF64748B),
-                    ),
-                  ),
-                ),
-              ),
+              icon: const Icon(Icons.calendar_today, size: 20),
             ),
-          );
-        }).toList(),
+        ],
       ),
     );
   }
@@ -252,9 +215,6 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
   }
 
   Widget _buildStatsBanner() {
-    final sudahMakan = _students.where((s) => s.attendanceId != null).length;
-    final belumMakan = _students.where((s) => s.attendanceId == null).length;
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -268,61 +228,116 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
           ),
         ],
       ),
-      child: _isLoading && _students.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'SANTRI SUDAH MAKAN',
-                        style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey,
+      child:
+          _isLoading && _stats == null
+              ? const Center(child: CircularProgressIndicator())
+              : Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'SANTRI SUDAH MAKAN',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '$sudahMakan',
-                        style: GoogleFonts.poppins(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFFF97316),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_stats?.totalServed ?? 0}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFFF97316),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                Container(width: 1, height: 40, color: Colors.grey[200]),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'BELUM MAKAN',
-                        style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey,
+                  Container(width: 1, height: 40, color: Colors.grey[200]),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'BELUM MAKAN',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '$belumMakan',
-                        style: GoogleFonts.poppins(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E293B),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${(_stats?.totalQuota ?? 0) - (_stats?.totalServed ?? 0)}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF1E293B),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
             ),
+            child: const Icon(
+              Icons.lock_person_rounded,
+              size: 48,
+              color: Colors.orange,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Akses Terbatas',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF1E293B),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Hanya wali kelas yg dapat akses menu ini',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: const Color(0xFF64748B),
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -365,8 +380,11 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
               TextButton.icon(
                 onPressed: _handleBulkAction,
                 icon: const Icon(Icons.done_all, size: 16),
-                label: Text('Pilih Semua', style: GoogleFonts.poppins(fontSize: 12)),
-              )
+                label: Text(
+                  'Pilih Semua',
+                  style: GoogleFonts.poppins(fontSize: 12),
+                ),
+              ),
           ],
         ),
         const SizedBox(height: 16),
@@ -383,19 +401,27 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
   }
 
   Future<void> _handleBulkAction() async {
-    final untreated = _filteredStudents.where((s) => s.attendanceId == null).toList();
+    final untreated =
+        _filteredStudents.where((s) => s.attendanceId == null).toList();
     if (untreated.isEmpty) return;
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Konfirmasi'),
-        content: Text('Tandai ${untreated.length} santri sudah makan?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ya, Simpan')),
-        ],
-      ),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Konfirmasi'),
+            content: Text('Tandai ${untreated.length} santri sudah makan?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Batal'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Ya, Simpan'),
+              ),
+            ],
+          ),
     );
 
     if (confirm == true) {
@@ -429,13 +455,17 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDone ? const Color(0xFFF97316).withValues(alpha: 0.3) : const Color(0xFFE2E8F0),
+          color:
+              isDone
+                  ? const Color(0xFFF97316).withValues(alpha: 0.3)
+                  : const Color(0xFFE2E8F0),
         ),
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: isDone ? const Color(0xFFFFF7ED) : const Color(0xFFF1F5F9),
+            backgroundColor:
+                isDone ? const Color(0xFFFFF7ED) : const Color(0xFFF1F5F9),
             child: Icon(
               Icons.person,
               color: isDone ? const Color(0xFFF97316) : const Color(0xFF94A3B8),
@@ -452,7 +482,10 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
-                    color: isDone ? const Color(0xFFF97316) : const Color(0xFF1E293B),
+                    color:
+                        isDone
+                            ? const Color(0xFFF97316)
+                            : const Color(0xFF1E293B),
                   ),
                 ),
                 Text(
@@ -474,7 +507,10 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
           ElevatedButton(
             onPressed: () => _toggleMealStatus(student),
             style: ElevatedButton.styleFrom(
-              backgroundColor: isDone ? Colors.red.withValues(alpha: 0.1) : const Color(0xFFF97316),
+              backgroundColor:
+                  isDone
+                      ? Colors.red.withValues(alpha: 0.1)
+                      : const Color(0xFFF97316),
               foregroundColor: isDone ? Colors.red : Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 12),
