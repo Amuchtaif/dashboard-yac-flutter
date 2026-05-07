@@ -917,195 +917,238 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: item['status'] == 'Pending' ? Colors.white : const Color(0xFFF9F9F9),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.blueAccent.withValues(alpha: 0.08),
+                color: item['status'] == 'Pending' 
+                  ? Colors.blueAccent.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.03),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // HEADER: Avatar + Name + Position
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.blueAccent, width: 1.5),
-                    ),
-                    child: const CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.white,
-                      child: Icon(Icons.person, color: Colors.blueAccent),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item['employee_name'] ?? 'Nama Karyawan',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: Colors.black87,
-                          ),
+          child: Opacity(
+            opacity: item['status'] == 'Pending' ? 1.0 : 0.8,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // HEADER: Avatar + Name + Position
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: item['status'] == 'Pending' ? Colors.blueAccent : Colors.grey, 
+                          width: 1.5
                         ),
-                        if (item['position_name'] != null &&
-                            item['position_name'].toString().isNotEmpty)
+                      ),
+                      child: CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Colors.white,
+                        child: Icon(
+                          Icons.person, 
+                          color: item['status'] == 'Pending' ? Colors.blueAccent : Colors.grey
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            item['position_name'],
+                            item['employee_name'] ?? 'Nama Karyawan',
                             style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              color: Colors.blueAccent,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: item['status'] == 'Pending' ? Colors.black87 : Colors.grey[700],
                             ),
                           ),
+                          if (item['position_name'] != null &&
+                              item['position_name'].toString().isNotEmpty)
+                            Text(
+                              item['position_name'],
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color: item['status'] == 'Pending' ? Colors.blueAccent : Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          Text(
+                            item['unit_name'] ?? (item['division_name'] ?? '-'),
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Permit Type Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: item['status'] == 'Pending' ? Colors.blue[50] : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: item['status'] == 'Pending' ? Colors.blue[100]! : Colors.grey[200]!),
+                      ),
+                      child: Text(
+                        item['permit_type'] ?? 'Izin',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: item['status'] == 'Pending' ? Colors.blue[700] : Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+  
+                const SizedBox(height: 16),
+                const Divider(height: 1, color: Colors.black12),
+                const SizedBox(height: 16),
+  
+                // DATE SECTION
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_month_outlined,
+                      size: 18,
+                      color: item['status'] == 'Pending' ? Colors.orange : Colors.grey,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "${_formatDateIndo(item['start_date'])} - ${_formatDateIndo(item['end_date'])}",
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: item['status'] == 'Pending' ? Colors.black87 : Colors.grey[700],
+                      ),
+                    ),
+                  ],
+                ),
+  
+                const SizedBox(height: 10),
+  
+                // REASON SECTION
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: item['status'] == 'Pending' ? Colors.grey[50] : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Alasan:",
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.grey[500],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "\"${item['reason']}\"",
+                        style: GoogleFonts.poppins(
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey[700],
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+  
+                const SizedBox(height: 16),
+  
+                // ACTIONS
+                if (item['status'] == 'Pending')
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed:
+                              () => _actionPermit(item['id'].toString(), 'reject'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: const Text("Tolak"),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed:
+                              () => _actionPermit(item['id'].toString(), 'approve'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            "Setujui",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: item['status'] == 'Approved' ? Colors.green[50] : Colors.red[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: item['status'] == 'Approved' ? Colors.green[100]! : Colors.red[100]!,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          item['status'] == 'Approved' ? Icons.check_circle : Icons.cancel,
+                          color: item['status'] == 'Approved' ? Colors.green[700] : Colors.red[700],
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
                         Text(
-                          item['unit_name'] ?? (item['division_name'] ?? '-'),
+                          item['status'] == 'Approved' ? "TELAH DISETUJUI" : "TELAH DITOLAK",
                           style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color: Colors.grey[600],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: item['status'] == 'Approved' ? Colors.green[700] : Colors.red[700],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  // Permit Type Badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue[100]!),
-                    ),
-                    child: Text(
-                      item['permit_type'] ?? 'Izin',
-                      style: GoogleFonts.poppins(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[700],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-              const Divider(height: 1, color: Colors.black12),
-              const SizedBox(height: 16),
-
-              // DATE SECTION
-              Row(
-                children: [
-                  const Icon(
-                    Icons.calendar_month_outlined,
-                    size: 18,
-                    color: Colors.orange,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "${_formatDateIndo(item['start_date'])} - ${_formatDateIndo(item['end_date'])}",
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 10),
-
-              // REASON SECTION
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[200]!),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Alasan:",
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: Colors.grey[500],
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "\"${item['reason']}\"",
-                      style: GoogleFonts.poppins(
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey[700],
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // ACTIONS
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed:
-                          () => _actionPermit(item['id'].toString(), 'reject'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: const Text("Tolak"),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed:
-                          () => _actionPermit(item['id'].toString(), 'approve'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        "Setujui",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

@@ -30,16 +30,24 @@ class AttendanceService {
     return [];
   }
 
-  Future<List<AttendanceActivity>> getHistory(int userId) async {
+  Future<List<AttendanceActivity>> getHistory(int userId, {String? startDate, String? endDate}) async {
     final url = Uri.parse('$baseUrl/attendance.php');
     try {
+      final Map<String, dynamic> body = {
+        'action': 'get_history',
+        'user_id': userId,
+      };
+      
+      if (startDate != null) body['start_date'] = startDate;
+      if (endDate != null) body['end_date'] = endDate;
+
       final response = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true',
         },
-        body: jsonEncode({'action': 'get_history', 'user_id': userId}),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) {

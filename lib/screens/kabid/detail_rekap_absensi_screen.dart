@@ -258,8 +258,13 @@ class _DetailRekapAbsensiScreenState extends State<DetailRekapAbsensiScreen> {
                 children: [
                   _buildMiniStat(
                     'Hadir',
-                    '${item['hadir']}',
+                    '${(int.tryParse(item['hadir']?.toString() ?? '0') ?? 0) + (int.tryParse(item['telat']?.toString() ?? '0') ?? 0)}',
                     const Color(0xFF10B981),
+                  ),
+                  _buildMiniStat(
+                    'Tepat',
+                    '${item['hadir']}',
+                    const Color(0xFF0EA5E9),
                   ),
                   _buildMiniStat(
                     'Telat',
@@ -267,7 +272,7 @@ class _DetailRekapAbsensiScreenState extends State<DetailRekapAbsensiScreen> {
                     const Color(0xFFF59E0B),
                   ),
                   _buildMiniStat(
-                    'Izin/Sakit',
+                    'Izin',
                     '${item['absent']}',
                     const Color(0xFF3B82F6),
                   ),

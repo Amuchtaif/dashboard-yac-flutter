@@ -55,7 +55,20 @@ class _SelfAttendanceRecapScreenState extends State<SelfAttendanceRecapScreen> {
       final userId = prefs.getInt('user_id') ?? prefs.getInt('userId') ?? 0;
       
       if (userId != 0) {
-        final data = await _attendanceService.getHistory(userId);
+        String? startDate;
+        String? endDate;
+        
+        if (_selectedRange != null) {
+          startDate = DateFormat('yyyy-MM-dd').format(_selectedRange!.start);
+          endDate = DateFormat('yyyy-MM-dd').format(_selectedRange!.end);
+        }
+
+        final data = await _attendanceService.getHistory(
+          userId, 
+          startDate: startDate, 
+          endDate: endDate
+        );
+        
         setState(() {
           _allHistory = data;
           _applyFilter();
@@ -74,53 +87,61 @@ class _SelfAttendanceRecapScreenState extends State<SelfAttendanceRecapScreen> {
 
   void _applyFilter() {
     if (_selectedRange == null) {
-      _filteredHistory = _allHistory;
-      return;
-    }
+      _filteredHistory = List.from(_allHistory);
+    } else {
+      // Normalize dates to midnight for robust comparison
+      final startDate = DateTime(_selectedRange!.start.year, _selectedRange!.start.month, _selectedRange!.start.day);
+      final endDate = DateTime(_selectedRange!.end.year, _selectedRange!.end.month, _selectedRange!.end.day, 23, 59, 59);
 
-    setState(() {
       _filteredHistory = _allHistory.where((activity) {
         try {
           final date = DateTime.parse(activity.timestamp);
-          // Normalize to date only for comparison if needed, but here we include the whole day
-          return date.isAfter(_selectedRange!.start.subtract(const Duration(seconds: 1))) &&
-                 date.isBefore(_selectedRange!.end.add(const Duration(days: 1)));
+          return date.isAfter(startDate.subtract(const Duration(milliseconds: 1))) &&
+                 date.isBefore(endDate.add(const Duration(milliseconds: 1)));
         } catch (e) {
           return false;
         }
       }).toList();
+    }
+
+    // Sort by timestamp descending
+    _filteredHistory.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    // Use sets to track unique days for each category
+    Set<String> uniqueDaysHadir = {};
+    Set<String> uniqueDaysOnTime = {};
+    Set<String> uniqueDaysLate = {};
+    int leftEarlyCount = 0;
+
+    for (var activity in _filteredHistory) {
+      final type = activity.type.toLowerCase().trim();
+      final status = activity.status.toLowerCase().trim();
       
-      // Sort by timestamp descending
-      _filteredHistory.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      final datePart = activity.timestamp.split(' ')[0];
 
-      // Calculate stats
-      _totalAttendance = 0;
-      _onTimeCount = 0;
-      _lateCount = 0;
-      _leftEarlyCount = 0;
-
-      for (var activity in _filteredHistory) {
-        final type = activity.type.toLowerCase();
-        final status = activity.status.toLowerCase();
-
-        // Entry is a Check-In (Masuk)
-        if (type.contains('in') || type.contains('masuk')) {
-          _totalAttendance++;
-          
-          if (status.contains('terlambat') || status.contains('telat')) {
-            _lateCount++;
-          } else {
-            // Count as On Time if it's "Tepat Waktu", "Hadir", or if it's an IN without "Terlambat/Telat" status
-            _onTimeCount++;
-          }
-        } 
-        // Entry is a Check-Out (Pulang)
-        else if (type.contains('out') || type.contains('pulang')) {
-          if (status.contains('cepat')) {
-            _leftEarlyCount++;
-          }
+      // Entry is a Check-In (Masuk)
+      if (type.contains('in') || type.contains('masuk')) {
+        uniqueDaysHadir.add(datePart);
+        
+        if (status.contains('terlambat') || status.contains('telat') || status.contains('late')) {
+          uniqueDaysLate.add(datePart);
+        } else {
+          uniqueDaysOnTime.add(datePart);
+        }
+      } 
+      // Entry is a Check-Out (Pulang)
+      else if (type.contains('out') || type.contains('pulang')) {
+        if (status.contains('cepat') || status.contains('early')) {
+          leftEarlyCount++;
         }
       }
+    }
+
+    setState(() {
+      _totalAttendance = uniqueDaysHadir.length;
+      _onTimeCount = uniqueDaysOnTime.length;
+      _lateCount = uniqueDaysLate.length;
+      _leftEarlyCount = leftEarlyCount;
     });
   }
 
@@ -128,7 +149,7 @@ class _SelfAttendanceRecapScreenState extends State<SelfAttendanceRecapScreen> {
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
       initialDateRange: _selectedRange,
       builder: (context, child) {
         return Theme(
@@ -148,7 +169,7 @@ class _SelfAttendanceRecapScreenState extends State<SelfAttendanceRecapScreen> {
       setState(() {
         _selectedRange = picked;
       });
-      _applyFilter();
+      _fetchHistory(); // Re-fetch from API for the new range
     }
   }
 
@@ -340,7 +361,8 @@ class _SelfAttendanceRecapScreenState extends State<SelfAttendanceRecapScreen> {
       itemCount: _filteredHistory.length,
       itemBuilder: (context, index) {
         final activity = _filteredHistory[index];
-        final bool isCheckIn = activity.type.toLowerCase().contains('in');
+        final String type = activity.type.toLowerCase();
+        final bool isCheckIn = type.contains('in') || type.contains('masuk');
         
         DateTime? timestamp;
         try {
@@ -411,7 +433,9 @@ class _SelfAttendanceRecapScreenState extends State<SelfAttendanceRecapScreen> {
                       margin: const EdgeInsets.only(top: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: (activity.status.toLowerCase().contains('terlambat') || activity.status.toLowerCase().contains('telat'))
+                        color: (activity.status.toLowerCase().contains('terlambat') || 
+                                activity.status.toLowerCase().contains('telat') || 
+                                activity.status.toLowerCase().contains('late'))
                           ? const Color(0xFFFEF2F2) 
                           : const Color(0xFFF0FDF4),
                         borderRadius: BorderRadius.circular(6),
@@ -421,7 +445,9 @@ class _SelfAttendanceRecapScreenState extends State<SelfAttendanceRecapScreen> {
                         style: GoogleFonts.poppins(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: (activity.status.toLowerCase().contains('terlambat') || activity.status.toLowerCase().contains('telat'))
+                          color: (activity.status.toLowerCase().contains('terlambat') || 
+                                  activity.status.toLowerCase().contains('telat') || 
+                                  activity.status.toLowerCase().contains('late'))
                             ? const Color(0xFFEF4444) 
                             : const Color(0xFF22C55E),
                         ),
