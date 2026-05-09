@@ -270,7 +270,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!mounted) return;
 
     // Case 1: Approval Santri (Manager/Mudir)
-    if (screen == 'approval' || screen == 'izin_santri') {
+    if (screen == 'izin_santri') {
       final String? id = data['id']?.toString();
       Navigator.push(
         context,
@@ -279,7 +279,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
     }
-    // Case 2: Assignment - tugas baru atau update tugas
+    // Case 2: Permit Approval - Atasan menerima notif izin baru karyawan
+    else if (screen == 'permit_approval' || screen == 'approval') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const MainPermitScreen(initialIndex: 1),
+        ),
+      );
+    }
+    // Case 3: Permit Status Update - Karyawan menerima notif status izin
+    else if (screen == 'permit' || screen == 'history' ||
+        (title != null && title.toLowerCase().contains('status izin')) ||
+        (body != null && body.toLowerCase().contains('status'))) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const MainPermitScreen()),
+      );
+    }
+    // Case 4: Meeting Invitation - Peserta menerima notif undangan rapat
+    else if (screen == 'meeting') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const MeetingListScreen()),
+      );
+    }
+    // Case 5: Assignment - tugas baru atau update tugas
     else if (screen == 'assignment') {
       final String? taskId = data['task_id']?.toString();
       if (taskId != null) {
@@ -296,20 +321,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
     }
-    // Case 3: Assignment List
+    // Case 6: Assignment List
     else if (screen == 'assignment_list') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const AssignmentScreen()),
-      );
-    }
-    // Case 4: Permit Status Update (Staff) - "halaman perizinan"
-    else if (screen == 'permit' ||
-        (title != null && title.toLowerCase().contains('status')) ||
-        (body != null && body.toLowerCase().contains('status'))) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const MainPermitScreen()),
       );
     }
   }

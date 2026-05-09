@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../models/inventory_item_model.dart';
 import '../models/inventory_location_model.dart';
 import '../services/inventory_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/location_tree_picker.dart';
 
 class InventoryFormScreen extends StatefulWidget {
@@ -38,6 +39,13 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
   File? _imageFile;
   bool _isSaving = false;
   bool _isLoadingLocations = true;
+
+  // Filtering based on user division
+  String _userDivision = '';
+  String _userUnit = '';
+  int _userPositionLevel = 99;
+  String _userPositionName = '';
+  bool _isSuperAdmin = false;
 
   @override
   void initState() {
@@ -79,6 +87,26 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
       _nameController.addListener(_updateGeneratedCode);
     }
 
+    _loadUserAndFetch();
+  }
+
+  Future<void> _loadUserAndFetch() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userDivision = prefs.getString('divisionName') ?? '';
+      _userUnit = prefs.getString('unitName') ?? '';
+      _userPositionLevel = prefs.getInt('positionLevel') ?? 99;
+      _userPositionName = prefs.getString('positionName') ?? '';
+      
+      // Full access for Level 1 (Mudir) or anyone in "Umum"/"Sarpras"
+      bool isLevel1 = _userPositionLevel == 1;
+      bool isUmumOrSarpras = _userDivision.toLowerCase().contains('umum') || 
+                             _userDivision.toLowerCase().contains('sarpras') ||
+                             _userPositionName.toLowerCase().contains('umum') ||
+                             _userPositionName.toLowerCase().contains('sarpras');
+
+      _isSuperAdmin = isLevel1 || isUmumOrSarpras;
+    });
     _fetchLocations();
   }
 
@@ -140,16 +168,22 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
 
   Future<void> _fetchLocations() async {
     setState(() => _isLoadingLocations = true);
-    final locations = await _inventoryService.getLocations();
+    final allLocations = await _inventoryService.getLocations();
     if (mounted) {
       setState(() {
-        _locations = locations;
+        // Filter locations based on division if not admin (recursive check)
+        List<InventoryLocationModel> filtered = allLocations;
+        if (!_isSuperAdmin && _userDivision.isNotEmpty) {
+          filtered = allLocations.where((loc) => _locationMatchesDivision(loc)).toList();
+        }
+
+        _locations = filtered;
         _isLoadingLocations = false;
 
         if (widget.item != null) {
-          _findSelectedLocation(locations, widget.item!.locationId);
+          _findSelectedLocation(_locations, widget.item!.locationId);
         } else if (widget.locationId != null) {
-          _findSelectedLocation(locations, widget.locationId!);
+          _findSelectedLocation(_locations, widget.locationId!);
         }
 
         // If it's a new item and a location is pre-selected or found, update the code
@@ -171,6 +205,71 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
         if (_selectedLocation != null) return;
       }
     }
+  }
+
+  bool _locationMatchesDivision(InventoryLocationModel loc) {
+    if (_isSuperAdmin) return true;
+    
+    final locationName = loc.name.toLowerCase().trim();
+    final division = _userDivision.toLowerCase().trim();
+    final unit = _userUnit.toLowerCase().trim();
+    
+    bool selfMatches = false;
+    final effectiveDivision = _getEffectiveDivision(division);
+    
+    // Check for Unit match
+    if (unit.isNotEmpty) {
+      if (locationName == unit || 
+          locationName.startsWith('$unit ') || 
+          locationName.endsWith(' $unit') || 
+          locationName.contains(' $unit ')) {
+        selfMatches = true;
+      }
+    } 
+    
+    // Check for Division match as fallback 
+    // IF no unit match AND (no unit assigned OR unit is a general/non-school unit)
+    if (!selfMatches && effectiveDivision.isNotEmpty) {
+      final u = unit.toLowerCase();
+      bool isSchoolUnit = u == 'ma' || u == 'mts' || u == 'tkit' || 
+                          u == 'sdit' || u == 'mi' || u == 'tahfidz' || 
+                          u.contains('ma\'had aly') || u.contains('mahad aly');
+      
+      bool isGeneralUnit = unit.isEmpty || !isSchoolUnit || 
+                           u.contains('yayasan') || u.contains('pusat') || 
+                           u.contains('sekretariat') || u.contains('kantor') ||
+                           u.contains('pendidikan') || u.contains('kesantrian');
+                           
+      if (isGeneralUnit) {
+        if (locationName == effectiveDivision || locationName.contains(effectiveDivision)) {
+          selfMatches = true;
+        }
+        if (!selfMatches && division.isNotEmpty && locationName.contains(division)) {
+          selfMatches = true;
+        }
+      }
+    }
+    
+    if (selfMatches) return true;
+    
+    // Check if any child matches (recursive)
+    for (var child in loc.children) {
+      if (_locationMatchesDivision(child)) return true;
+    }
+    
+    return false;
+  }
+
+  String _getEffectiveDivision(String div) {
+    final d = div.toLowerCase();
+    // Map sub-divisions to parent divisions
+    if (d.contains('kurikulum') || d.contains('akademik') || d.contains('pengajaran') || d.contains('guru')) {
+      return 'pendidikan';
+    }
+    if (d.contains('pengasuhan') || d.contains('asrama') || d.contains('kesantrian')) {
+      return 'kesantrian';
+    }
+    return d;
   }
 
   @override
@@ -408,6 +507,7 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
                       _updateGeneratedCode();
                       Navigator.pop(context);
                     },
+                    filter: _locationMatchesDivision,
                   ),
                 ),
               ),

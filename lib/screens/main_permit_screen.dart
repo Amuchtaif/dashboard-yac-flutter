@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'permit_screen.dart'; // Pastikan file ini ada
 import '../config/api_config.dart';
 import '../services/permission_service.dart';
+import '../core/api_constants.dart';
+import '../widgets/image_preview_dialog.dart';
 
 class MainPermitScreen extends StatefulWidget {
   final int? initialIndex;
@@ -606,6 +608,30 @@ class _MyPermitsTabState extends State<MyPermitsTab> {
                                 ),
                               ),
 
+                              // Attachment Section
+                              if (permit['attachment'] != null && permit['attachment'].toString().isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    final url = ApiConstants.getPermitAttachmentUrl(permit['attachment']);
+                                    if (url != null) {
+                                      ImagePreviewDialog.show(context, url, title: "Lampiran ${permit['permit_type']}");
+                                    }
+                                  },
+                                  icon: const Icon(Icons.image_outlined, size: 16),
+                                  label: Text(
+                                    "Lihat Lampiran",
+                                    style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.blueAccent,
+                                    side: const BorderSide(color: Colors.blueAccent),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  ),
+                                ),
+                              ],
+
                               const SizedBox(height: 16),
 
                               // Footer Info
@@ -1073,6 +1099,46 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
   
                 const SizedBox(height: 16),
   
+                // Attachment Section
+                if (item['attachment'] != null && item['attachment'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () {
+                      final url = ApiConstants.getPermitAttachmentUrl(item['attachment']);
+                      if (url != null) {
+                        ImagePreviewDialog.show(context, url, title: "Lampiran ${item['employee_name']}");
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.blueAccent.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.1)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.attach_file, size: 18, color: Colors.blueAccent),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Lihat Lampiran / Bukti",
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blueAccent,
+                            ),
+                          ),
+                          const Spacer(),
+                          const Icon(Icons.visibility_outlined, size: 18, color: Colors.blueAccent),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+  
                 // ACTIONS
                 if (item['status'] == 'Pending')
                   Row(
@@ -1147,9 +1213,9 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                       ],
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
         );
       },
     );

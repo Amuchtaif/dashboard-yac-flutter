@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:dashboard_yac/screens/inventory_list_screen.dart';
 import '../models/inventory_location_model.dart';
 import '../services/inventory_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class InventoryCategoryScreen extends StatefulWidget {
   final List<InventoryLocationModel>? locations;
@@ -22,11 +23,52 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
   bool _isLoading = false;
   String _searchQuery = '';
 
+  // Filtering based on user division
+  String _userDivision = '';
+  String _userUnit = '';
+  int _userPositionLevel = 99;
+  String _userPositionName = '';
+  bool _isSuperAdmin = false;
+
   @override
   void initState() {
     super.initState();
+    _loadUserAndFetch();
+  }
+
+  Future<void> _loadUserAndFetch() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userDivision = prefs.getString('divisionName') ?? '';
+      _userUnit = prefs.getString('unitName') ?? '';
+      _userPositionLevel = prefs.getInt('positionLevel') ?? 99;
+      _userPositionName = prefs.getString('positionName') ?? '';
+
+      // Full access for Level 1 (Mudir) or anyone in "Umum"/"Sarpras"
+      bool isLevel1 = _userPositionLevel == 1;
+      bool isUmumOrSarpras =
+          _userDivision.toLowerCase().contains('umum') ||
+          _userDivision.toLowerCase().contains('sarpras') ||
+          _userPositionName.toLowerCase().contains('umum') ||
+          _userPositionName.toLowerCase().contains('sarpras');
+
+      _isSuperAdmin = isLevel1 || isUmumOrSarpras;
+
+      debugPrint(
+        "🔍 Inventory Filter - Div: $_userDivision, Unit: $_userUnit, Level: $_userPositionLevel, Admin: $_isSuperAdmin",
+      );
+    });
+
     if (widget.locations != null) {
-      _locations = widget.locations!;
+      // Filter passed sub-locations as well
+      if (!_isSuperAdmin && _userDivision.isNotEmpty) {
+        _locations =
+            widget.locations!
+                .where((loc) => _locationMatchesDivision(loc))
+                .toList();
+      } else {
+        _locations = widget.locations!;
+      }
     } else {
       _fetchRootLocations();
     }
@@ -38,9 +80,17 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
       final allLocations = await _inventoryService.getLocations();
       if (mounted) {
         setState(() {
-          // Filter root locations (where parentId is null or not found in children of others)
-          // In this implementation, the API returns the full tree starting with root nodes.
-          _locations = allLocations;
+          List<InventoryLocationModel> filtered = allLocations;
+
+          // Apply recursive division filter if not admin
+          if (!_isSuperAdmin && _userDivision.isNotEmpty) {
+            filtered =
+                allLocations
+                    .where((loc) => _locationMatchesDivision(loc))
+                    .toList();
+          }
+
+          _locations = filtered;
           _isLoading = false;
         });
       }
@@ -59,6 +109,90 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
     return _locations.where((loc) {
       return loc.name.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
+  }
+
+  bool _locationMatchesDivision(InventoryLocationModel loc) {
+    if (_isSuperAdmin) return true;
+
+    final locationName = loc.name.toLowerCase().trim();
+    final division = _userDivision.toLowerCase().trim();
+    final unit = _userUnit.toLowerCase().trim();
+
+    bool selfMatches = false;
+    final effectiveDivision = _getEffectiveDivision(division);
+
+    // Check for Unit match
+    if (unit.isNotEmpty) {
+      if (locationName == unit ||
+          locationName.startsWith('$unit ') ||
+          locationName.endsWith(' $unit') ||
+          locationName.contains(' $unit ')) {
+        selfMatches = true;
+      }
+    }
+
+    // Check for Division match as fallback
+    // IF no unit match AND (no unit assigned OR unit is a general/non-school unit)
+    if (!selfMatches && effectiveDivision.isNotEmpty) {
+      final u = unit.toLowerCase();
+      bool isSchoolUnit =
+          u == 'ma' ||
+          u == 'mts' ||
+          u == 'tkit' ||
+          u == 'sdit' ||
+          u == 'mi' ||
+          u == 'tahfidz' ||
+          u.contains('ma\'had aly') ||
+          u.contains('mahad aly');
+
+      bool isGeneralUnit =
+          unit.isEmpty ||
+          !isSchoolUnit ||
+          u.contains('yayasan') ||
+          u.contains('pusat') ||
+          u.contains('sekretariat') ||
+          u.contains('kantor') ||
+          u.contains('pendidikan') ||
+          u.contains('kesantrian');
+
+      if (isGeneralUnit) {
+        if (locationName == effectiveDivision ||
+            locationName.contains(effectiveDivision)) {
+          selfMatches = true;
+        }
+        if (!selfMatches &&
+            division.isNotEmpty &&
+            locationName.contains(division)) {
+          selfMatches = true;
+        }
+      }
+    }
+
+    if (selfMatches) return true;
+
+    // Check if any child matches (recursive)
+    for (var child in loc.children) {
+      if (_locationMatchesDivision(child)) return true;
+    }
+
+    return false;
+  }
+
+  String _getEffectiveDivision(String div) {
+    final d = div.toLowerCase();
+    // Map sub-divisions to parent divisions
+    if (d.contains('kurikulum') ||
+        d.contains('akademik') ||
+        d.contains('pengajaran') ||
+        d.contains('guru')) {
+      return 'pendidikan';
+    }
+    if (d.contains('pengasuhan') ||
+        d.contains('asrama') ||
+        d.contains('kesantrian')) {
+      return 'kesantrian';
+    }
+    return d;
   }
 
   @override
@@ -199,7 +333,6 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
         child: InkWell(
           onTap: () {
             if (location.children.isNotEmpty) {
-              // Navigate to sub-locations
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -211,7 +344,6 @@ class _InventoryCategoryScreenState extends State<InventoryCategoryScreen> {
                 ),
               );
             } else {
-              // Leaf location: Navigate to items list
               Navigator.push(
                 context,
                 MaterialPageRoute(

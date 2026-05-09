@@ -6,12 +6,14 @@ class LocationTreePicker extends StatefulWidget {
   final List<InventoryLocationModel> locations;
   final int? selectedLocationId;
   final Function(InventoryLocationModel) onSelected;
+  final bool Function(InventoryLocationModel)? filter;
 
   const LocationTreePicker({
     super.key,
     required this.locations,
     this.selectedLocationId,
     required this.onSelected,
+    this.filter,
   });
 
   @override
@@ -46,7 +48,10 @@ class _LocationTreePickerState extends State<LocationTreePicker> {
             color: isSelected ? const Color(0xFF0085FF) : Colors.black87,
           ),
         ),
-        trailing: isSelected ? const Icon(Icons.check, color: Color(0xFF0085FF)) : null,
+        trailing:
+            isSelected
+                ? const Icon(Icons.check, color: Color(0xFF0085FF))
+                : null,
         onTap: () => widget.onSelected(location),
       );
     }
@@ -64,16 +69,22 @@ class _LocationTreePickerState extends State<LocationTreePicker> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isSelected) const Icon(Icons.check, color: Color(0xFF0085FF), size: 18),
+          if (isSelected)
+            const Icon(Icons.check, color: Color(0xFF0085FF), size: 18),
           const SizedBox(width: 8),
           const Icon(Icons.expand_more, size: 18),
         ],
       ),
-      children: location.children.map((child) => _buildLocationNode(child, depth + 1)).toList(),
+      children:
+          (widget.filter != null
+                  ? location.children.where(widget.filter!).toList()
+                  : location.children)
+              .map((child) => _buildLocationNode(child, depth + 1))
+              .toList(),
       onExpansionChanged: (expanded) {
         // If user taps the tile itself (not the expand arrow), we might want to select it
-        // But usually ExpansionTile expands on tap. 
-        // We can add a "Select this location" button inside if needed, 
+        // But usually ExpansionTile expands on tap.
+        // We can add a "Select this location" button inside if needed,
         // or just allow selecting any node.
       },
     );

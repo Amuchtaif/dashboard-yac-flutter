@@ -1,7 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
@@ -20,7 +21,7 @@ class _PermitScreenState extends State<PermitScreen> {
   String? _selectedPermitType;
   DateTimeRange? _selectedDateRange;
   final TextEditingController _reasonController = TextEditingController();
-  PlatformFile? _selectedFile;
+  File? _imageFile;
   bool _isLoading = false;
 
   final List<String> _permitTypes = ['Sakit', 'Izin', 'Cuti', 'Lainnya'];
@@ -61,16 +62,17 @@ class _PermitScreenState extends State<PermitScreen> {
     }
   }
 
-  // --- LOGIC: PICK FILE ---
-  Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'pdf', 'png', 'jpeg'],
+  // --- LOGIC: PICK IMAGE ---
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
     );
 
-    if (result != null) {
+    if (image != null) {
       setState(() {
-        _selectedFile = result.files.first;
+        _imageFile = File(image.path);
       });
     }
   }
@@ -113,9 +115,9 @@ class _PermitScreenState extends State<PermitScreen> {
       request.fields['reason'] = _reasonController.text;
 
       // File Attachment
-      if (_selectedFile != null && _selectedFile!.path != null) {
+      if (_imageFile != null) {
         request.files.add(
-          await http.MultipartFile.fromPath('attachment', _selectedFile!.path!),
+          await http.MultipartFile.fromPath('attachment', _imageFile!.path),
         );
       }
 
@@ -276,47 +278,76 @@ class _PermitScreenState extends State<PermitScreen> {
               ),
               const SizedBox(height: 16),
 
-              _buildSectionLabel("Lampiran (Opsional)"),
-              InkWell(
-                onTap: _pickFile,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                    // dashed border effect could be added here if needed
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.attach_file,
-                        color:
-                            _selectedFile != null ? Colors.green : Colors.grey,
+              _buildSectionLabel("Lampiran (Bukti Foto)"),
+              Center(
+                child: Stack(
+                  children: [
+                    GestureDetector(
+                      onTap: _pickImage,
+                      child: Container(
+                        width: double.infinity,
+                        height: 200,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.grey.shade300, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: _imageFile != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(18),
+                                child: Image.file(
+                                  _imageFile!,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                    size: 48,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    "Tap untuk ambil dari Galeri",
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.grey[500],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _selectedFile != null
-                              ? _selectedFile!.name
-                              : "Tap to upload (PDF, JPG, PNG)",
-                          style: GoogleFonts.poppins(
-                            color:
-                                _selectedFile != null
-                                    ? Colors.black
-                                    : Colors.grey,
+                    ),
+                    if (_imageFile != null)
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _imageFile = null),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (_selectedFile != null)
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.red),
-                          onPressed: () => setState(() => _selectedFile = null),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
               const SizedBox(height: 32),

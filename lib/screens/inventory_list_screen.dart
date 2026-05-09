@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/inventory_item_model.dart';
 import '../services/inventory_service.dart';
 import 'inventory_form_screen.dart';
@@ -27,9 +28,36 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
   bool _isLoading = true;
   String _searchQuery = '';
   
+  // Filtering based on user division
+  String _userDivision = '';
+  String _userUnit = '';
+  int _userPositionLevel = 99;
+  String _userPositionName = '';
+  bool _isSuperAdmin = false;
+  
   @override
   void initState() {
     super.initState();
+    _loadUserAndFetch();
+  }
+
+  Future<void> _loadUserAndFetch() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userDivision = prefs.getString('divisionName') ?? '';
+      _userUnit = prefs.getString('unitName') ?? '';
+      _userPositionLevel = prefs.getInt('positionLevel') ?? 99;
+      _userPositionName = prefs.getString('positionName') ?? '';
+      
+      // Full access for Level 1 (Mudir) or anyone in "Umum"/"Sarpras"
+      bool isLevel1 = _userPositionLevel == 1;
+      bool isUmumOrSarpras = _userDivision.toLowerCase().contains('umum') || 
+                             _userDivision.toLowerCase().contains('sarpras') ||
+                             _userPositionName.toLowerCase().contains('umum') ||
+                             _userPositionName.toLowerCase().contains('sarpras');
+
+      _isSuperAdmin = isLevel1 || isUmumOrSarpras;
+    });
     _fetchItems();
   }
 
@@ -39,7 +67,7 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
       final items = await _inventoryService.getItems(locationId: widget.locationId);
       if (mounted) {
         setState(() {
-          _allItems = items;
+          _allItems = _applyDivisionFilter(items);
           _filterItems();
           _isLoading = false;
         });
@@ -54,7 +82,76 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
     }
   }
 
+  List<InventoryItemModel> _applyDivisionFilter(List<InventoryItemModel> items) {
+    if (_isSuperAdmin) return items;
+    
+    final division = _userDivision.toLowerCase().trim();
+    final unit = _userUnit.toLowerCase().trim();
+
+    return items.where((item) {
+      final breadcrumb = (item.locationBreadcrumb ?? '').toLowerCase();
+      if (breadcrumb.isEmpty) return false;
+
+      final segments = breadcrumb.split(' > ').map((s) => s.trim()).toList();
+      
+      // Helper for strict word matching
+      bool matchesWord(String target, String source) {
+        if (target.isEmpty) return false;
+        return source == target || 
+               source.startsWith('$target ') || 
+               source.endsWith(' $target') || 
+               source.contains(' $target ');
+      }
+
+      // Check if any segment matches unit or division
+      bool unitMatches = unit.isNotEmpty && segments.any((s) => matchesWord(unit, s));
+      
+      final effectiveDivision = _getEffectiveDivision(division);
+      bool divisionMatches = division.isNotEmpty && (
+          segments.any((s) => matchesWord(division, s)) || 
+          segments.any((s) => matchesWord(effectiveDivision, s))
+      );
+      
+      // If user has a unit, check if it's a school unit or general unit
+      if (unit.isNotEmpty) {
+        final u = unit.toLowerCase();
+        bool isSchoolUnit = u == 'ma' || u == 'mts' || u == 'tkit' || 
+                            u == 'sdit' || u == 'mi' || u == 'tahfidz' || 
+                            u.contains('ma\'had aly') || u.contains('mahad aly');
+        
+        bool isGeneralUnit = !isSchoolUnit || 
+                             u.contains('yayasan') || u.contains('pusat') || 
+                             u.contains('sekretariat') || u.contains('kantor') ||
+                             u.contains('pendidikan') || u.contains('kesantrian');
+                             
+        if (isGeneralUnit) {
+          // General unit: can see both their unit AND their whole division
+          return unitMatches || divisionMatches;
+        } else {
+          // School unit: strictly restricted to their unit
+          return unitMatches;
+        }
+      }
+      
+      // If no unit, match by division
+      return divisionMatches;
+    }).toList();
+  }
+
+  String _getEffectiveDivision(String div) {
+    final d = div.toLowerCase();
+    // Map sub-divisions to parent divisions
+    if (d.contains('kurikulum') || d.contains('akademik') || d.contains('pengajaran') || d.contains('guru')) {
+      return 'pendidikan';
+    }
+    if (d.contains('pengasuhan') || d.contains('asrama') || d.contains('kesantrian')) {
+      return 'kesantrian';
+    }
+    return d;
+  }
+
   void _filterItems() {
+    // Search filter based on already division-filtered _allItems
     if (_searchQuery.isEmpty) {
       _filteredItems = _allItems;
     } else {

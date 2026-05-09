@@ -78,8 +78,15 @@ class ApiConstants {
     if (filename == null || filename.isEmpty || filename == 'null') return null;
     if (filename.startsWith('http')) return filename;
     final rootUrl = ApiConfig.baseUrl.replaceAll('/api', '');
-    // Common path for inventory is /uploads/inventory/
     return "$rootUrl/uploads/inventory/$filename";
+  }
+
+  static String? getPermitAttachmentUrl(String? filename) {
+    if (filename == null || filename.isEmpty || filename == 'null') return null;
+    if (filename.startsWith('http')) return filename;
+    final rootUrl = ApiConfig.baseUrl.replaceAll('/api', '');
+    // Based on common project structure
+    return "$rootUrl/uploads/permits/$filename";
   }
 
   // Shift Exchange Endpoints
@@ -162,4 +169,8 @@ class ApiConstants {
   static const String workReportGetMy = '${baseUrl}work_reports/get_my_reports.php';
   static const String workReportGetStaff = '${baseUrl}work_reports/get_staff_reports.php';
   static const String workReportGetCategories = '${baseUrl}work_reports/get_categories.php';
+
+  // Meeting Notes Endpoints
+  static const String meetingNotesGet = '${baseUrl}meeting_notes/get.php';
+  static const String meetingNotesAdd = '${baseUrl}meeting_notes/add.php';
 }

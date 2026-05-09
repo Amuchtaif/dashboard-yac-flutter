@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../models/meeting_model.dart';
+import '../models/meeting_note_model.dart';
 import 'scan/scan_qr_screen.dart';
 import '../core/api_constants.dart';
 
@@ -33,6 +34,13 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
   List<dynamic> _attendees = [];
   Map<String, dynamic> _attendeeSummary = {};
 
+  // Notes state
+  List<MeetingNote> _notes = [];
+  bool _isLoadingNotes = false;
+  bool _isSubmittingNote = false;
+  final TextEditingController _noteController = TextEditingController();
+  String _selectedNoteType = 'usulan'; // Default
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +51,219 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
     await _loadUser();
     await _checkAttendanceStatus();
     _fetchAttendees();
+    _fetchNotes();
+  }
+
+  Future<void> _fetchNotes() async {
+    if (!mounted) return;
+    setState(() => _isLoadingNotes = true);
+    try {
+      final url = Uri.parse(
+        '${ApiConstants.meetingNotesGet}?meeting_id=${widget.meeting.id}',
+      );
+      final response = await http.get(
+        url,
+        headers: {'ngrok-skip-browser-warning': 'true'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          final List<dynamic> notesList = data['data'] ?? [];
+          if (mounted) {
+            setState(() {
+              _notes = notesList.map((e) => MeetingNote.fromJson(e)).toList();
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching notes: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingNotes = false);
+    }
+  }
+
+  Future<void> _submitNote() async {
+    if (_noteController.text.trim().isEmpty) return;
+    if (_currentUserId == null) return;
+
+    setState(() => _isSubmittingNote = true);
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.meetingNotesAdd),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({
+          'meeting_id': widget.meeting.id,
+          'user_id': _currentUserId,
+          'type': _selectedNoteType,
+          'content': _noteController.text.trim(),
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      if (data['success'] == true) {
+        _noteController.clear();
+        if (mounted) {
+          Navigator.pop(context); // Close dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Catatan berhasil ditambahkan')),
+          );
+          _fetchNotes(); // Refresh notes
+        }
+      } else {
+        if (mounted) {
+          _showErrorSnackbar(data['message'] ?? 'Gagal menambahkan catatan');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error submitting note: $e');
+      if (mounted) _showErrorSnackbar('Terjadi kesalahan koneksi');
+    } finally {
+      if (mounted) setState(() => _isSubmittingNote = false);
+    }
+  }
+
+  void _showAddNoteDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setModalState) => Container(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                    top: 24,
+                    left: 24,
+                    right: 24,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(32),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Tambah Catatan',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF1F2937),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Jenis Catatan',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF4B5563),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _buildTypeChip('usulan', 'Usulan', setModalState),
+                          const SizedBox(width: 12),
+                          _buildTypeChip('notulen', 'Notulen', setModalState),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      TextField(
+                        controller: _noteController,
+                        maxLines: 4,
+                        decoration: InputDecoration(
+                          hintText: 'Tulis catatan rapat di sini...',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF9FAFB),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.all(16),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _isSubmittingNote ? null : _submitNote,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF3B82F6),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 0,
+                          ),
+                          child:
+                              _isSubmittingNote
+                                  ? const CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
+                                  : Text(
+                                    'Simpan Catatan',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+          ),
+    );
+  }
+
+  Widget _buildTypeChip(String type, String label, StateSetter setModalState) {
+    final isSelected = _selectedNoteType == type;
+    return GestureDetector(
+      onTap: () {
+        setModalState(() {
+          _selectedNoteType = type;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : const Color(0xFF6B7280),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _fetchAttendees() async {
@@ -453,6 +674,13 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
 
                           // Participants List Section - always shown
                           _buildParticipantsSection(),
+
+                          const SizedBox(height: 24),
+                          const Divider(),
+                          const SizedBox(height: 24),
+
+                          // Notes Section
+                          _buildNotesSection(),
                         ],
                       ),
                     ),
@@ -1105,5 +1333,192 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
         setState(() => _isSharing = false);
       }
     }
+  }
+
+  Widget _buildNotesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Catatan & Notulen',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1F2937),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () {
+                if (_isMeetingStarted) {
+                  _showAddNoteDialog();
+                } else {
+                  _showErrorSnackbar(
+                    'Rapat belum dimulai. Anda belum bisa menambahkan catatan atau notulen.',
+                  );
+                }
+              },
+              icon: Icon(
+                Icons.add_comment_outlined,
+                size: 18,
+                color: _isMeetingStarted ? const Color(0xFF3B82F6) : Colors.grey,
+              ),
+              label: Text(
+                'Tambah',
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color:
+                      _isMeetingStarted ? const Color(0xFF3B82F6) : Colors.grey,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_isLoadingNotes)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else if (_notes.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.note_alt_outlined, color: Colors.grey[400], size: 40),
+                const SizedBox(height: 12),
+                Text(
+                  'Belum ada catatan rapat',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _notes.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final note = _notes[index];
+              final isUsulan = note.type == 'usulan';
+
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFE5E7EB),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                isUsulan
+                                    ? const Color(0xFFDBEAFE)
+                                    : const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            isUsulan ? 'Usulan' : 'Notulen',
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color:
+                                  isUsulan
+                                      ? const Color(0xFF1E40AF)
+                                      : const Color(0xFF92400E),
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          _formatNoteDate(note.createdAt),
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: const Color(0xFF9CA3AF),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      note.content,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: const Color(0xFF374151),
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 10,
+                          backgroundColor: const Color(0xFFE5E7EB),
+                          child: Text(
+                            note.userName.isNotEmpty
+                                ? note.userName[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          note.userName,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  String _formatNoteDate(DateTime date) {
+    return '${date.day}/${date.month} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

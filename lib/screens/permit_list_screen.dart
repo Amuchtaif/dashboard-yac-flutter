@@ -7,6 +7,8 @@ import 'package:intl/date_symbol_data_local.dart'; // Import for initializeDateF
 import 'package:shared_preferences/shared_preferences.dart';
 import 'permit_screen.dart';
 import '../config/api_config.dart';
+import '../core/api_constants.dart';
+import '../widgets/image_preview_dialog.dart';
 
 class PermitListScreen extends StatefulWidget {
   const PermitListScreen({super.key});
@@ -405,6 +407,28 @@ class _PermitListScreenState extends State<PermitListScreen> {
               ),
             ],
           ),
+          if (permit['attachment'] != null && permit['attachment'].toString().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () {
+                final url = ApiConstants.getPermitAttachmentUrl(permit['attachment']);
+                if (url != null) {
+                  ImagePreviewDialog.show(context, url, title: "Lampiran ${permit['permit_type']}");
+                }
+              },
+              icon: const Icon(Icons.image_outlined, size: 16),
+              label: Text(
+                "Lihat Lampiran",
+                style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.blueAccent,
+                side: const BorderSide(color: Colors.blueAccent),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Divider(color: Colors.grey[200], thickness: 1),
           const SizedBox(height: 8),
