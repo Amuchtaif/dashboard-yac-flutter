@@ -76,19 +76,7 @@ class _MainPermitScreenState extends State<MainPermitScreen> {
       return Scaffold(
         backgroundColor: const Color(0xFFF5F5F5),
         appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: Text(
-            "Daftar Izin",
-            style: GoogleFonts.poppins(
-              color: Colors.black,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          title: const Text("Daftar Izin"),
         ),
         body: MyPermitsTab(key: _myPermitsKey),
         floatingActionButton: FloatingActionButton(
@@ -112,19 +100,7 @@ class _MainPermitScreenState extends State<MainPermitScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F5F5),
         appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: Text(
-            "Perizinan",
-            style: GoogleFonts.poppins(
-              color: Colors.black,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          title: const Text("Perizinan"),
           bottom: TabBar(
             labelColor: Colors.blueAccent,
             unselectedLabelColor: Colors.grey,
@@ -302,8 +278,23 @@ class _MyPermitsTabState extends State<MyPermitsTab> {
     }
   }
 
-  String _formatDateRange(String? start, String? end) {
+  String _formatPermitDate(Map<String, dynamic> permit) {
+    String? start = permit['start_date'];
+    String? end = permit['end_date'];
+    bool isHourly = (permit['is_hourly'] == 1 || permit['is_hourly'] == '1');
+    String? startTime = permit['start_time'];
+    String? endTime = permit['end_time'];
+
     if (start == null && end == null) return '-';
+
+    if (isHourly && startTime != null && endTime != null) {
+      String dateStr = _formatDate(start);
+      // Format time from HH:mm:ss to HH:mm
+      String t1 = startTime.length > 5 ? startTime.substring(0, 5) : startTime;
+      String t2 = endTime.length > 5 ? endTime.substring(0, 5) : endTime;
+      return "$dateStr ($t1 - $t2)";
+    }
+
     if (start == end) return _formatDate(start);
     try {
       DateTime d1 = DateTime.parse(start!);
@@ -320,7 +311,7 @@ class _MyPermitsTabState extends State<MyPermitsTab> {
       children: [
         // Filter Chips
         Container(
-          color: Colors.white,
+          color: Colors.transparent,
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -594,10 +585,7 @@ class _MyPermitsTabState extends State<MyPermitsTab> {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      _formatDateRange(
-                                        permit['start_date'],
-                                        permit['end_date'],
-                                      ),
+                                      _formatPermitDate(permit),
                                       style: GoogleFonts.poppins(
                                         fontSize: 13,
                                         color: Colors.black87,
@@ -609,25 +597,49 @@ class _MyPermitsTabState extends State<MyPermitsTab> {
                               ),
 
                               // Attachment Section
-                              if (permit['attachment'] != null && permit['attachment'].toString().isNotEmpty) ...[
+                              if (permit['attachment'] != null &&
+                                  permit['attachment']
+                                      .toString()
+                                      .isNotEmpty) ...[
                                 const SizedBox(height: 12),
                                 OutlinedButton.icon(
                                   onPressed: () {
-                                    final url = ApiConstants.getPermitAttachmentUrl(permit['attachment']);
+                                    final url =
+                                        ApiConstants.getPermitAttachmentUrl(
+                                          permit['attachment'],
+                                        );
                                     if (url != null) {
-                                      ImagePreviewDialog.show(context, url, title: "Lampiran ${permit['permit_type']}");
+                                      ImagePreviewDialog.show(
+                                        context,
+                                        url,
+                                        title:
+                                            "Lampiran ${permit['permit_type']}",
+                                      );
                                     }
                                   },
-                                  icon: const Icon(Icons.image_outlined, size: 16),
+                                  icon: const Icon(
+                                    Icons.image_outlined,
+                                    size: 16,
+                                  ),
                                   label: Text(
                                     "Lihat Lampiran",
-                                    style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.blueAccent,
-                                    side: const BorderSide(color: Colors.blueAccent),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    side: const BorderSide(
+                                      color: Colors.blueAccent,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -882,6 +894,27 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
     }
   }
 
+  String _formatPermitDate(Map<String, dynamic> permit) {
+    String? start = permit['start_date'];
+    String? end = permit['end_date'];
+    bool isHourly = (permit['is_hourly'] == 1 || permit['is_hourly'] == '1');
+    String? startTime = permit['start_time'];
+    String? endTime = permit['end_time'];
+
+    if (start == null && end == null) return '-';
+
+    if (isHourly && startTime != null && endTime != null) {
+      String dateStr = _formatDateIndo(start);
+      // Format time from HH:mm:ss to HH:mm
+      String t1 = startTime.length > 5 ? startTime.substring(0, 5) : startTime;
+      String t2 = endTime.length > 5 ? endTime.substring(0, 5) : endTime;
+      return "$dateStr ($t1 - $t2)";
+    }
+
+    if (start == end) return _formatDateIndo(start);
+    return "${_formatDateIndo(start)} - ${_formatDateIndo(end)}";
+  }
+
   String _formatDateIndo(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return '-';
     try {
@@ -943,13 +976,17 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: item['status'] == 'Pending' ? Colors.white : const Color(0xFFF9F9F9),
+            color:
+                item['status'] == 'Pending'
+                    ? Colors.white
+                    : const Color(0xFFF9F9F9),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: item['status'] == 'Pending' 
-                  ? Colors.blueAccent.withValues(alpha: 0.08)
-                  : Colors.black.withValues(alpha: 0.03),
+                color:
+                    item['status'] == 'Pending'
+                        ? Colors.blueAccent.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.03),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               ),
@@ -969,16 +1006,22 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: item['status'] == 'Pending' ? Colors.blueAccent : Colors.grey, 
-                          width: 1.5
+                          color:
+                              item['status'] == 'Pending'
+                                  ? Colors.blueAccent
+                                  : Colors.grey,
+                          width: 1.5,
                         ),
                       ),
                       child: CircleAvatar(
                         radius: 20,
                         backgroundColor: Colors.white,
                         child: Icon(
-                          Icons.person, 
-                          color: item['status'] == 'Pending' ? Colors.blueAccent : Colors.grey
+                          Icons.person,
+                          color:
+                              item['status'] == 'Pending'
+                                  ? Colors.blueAccent
+                                  : Colors.grey,
                         ),
                       ),
                     ),
@@ -992,7 +1035,10 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                             style: GoogleFonts.poppins(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
-                              color: item['status'] == 'Pending' ? Colors.black87 : Colors.grey[700],
+                              color:
+                                  item['status'] == 'Pending'
+                                      ? Colors.black87
+                                      : Colors.grey[700],
                             ),
                           ),
                           if (item['position_name'] != null &&
@@ -1001,7 +1047,10 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                               item['position_name'],
                               style: GoogleFonts.poppins(
                                 fontSize: 13,
-                                color: item['status'] == 'Pending' ? Colors.blueAccent : Colors.grey[600],
+                                color:
+                                    item['status'] == 'Pending'
+                                        ? Colors.blueAccent
+                                        : Colors.grey[600],
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -1022,54 +1071,74 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: item['status'] == 'Pending' ? Colors.blue[50] : Colors.grey[100],
+                        color:
+                            item['status'] == 'Pending'
+                                ? Colors.blue[50]
+                                : Colors.grey[100],
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: item['status'] == 'Pending' ? Colors.blue[100]! : Colors.grey[200]!),
+                        border: Border.all(
+                          color:
+                              item['status'] == 'Pending'
+                                  ? Colors.blue[100]!
+                                  : Colors.grey[200]!,
+                        ),
                       ),
                       child: Text(
                         item['permit_type'] ?? 'Izin',
                         style: GoogleFonts.poppins(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: item['status'] == 'Pending' ? Colors.blue[700] : Colors.grey[600],
+                          color:
+                              item['status'] == 'Pending'
+                                  ? Colors.blue[700]
+                                  : Colors.grey[600],
                         ),
                       ),
                     ),
                   ],
                 ),
-  
+
                 const SizedBox(height: 16),
                 const Divider(height: 1, color: Colors.black12),
                 const SizedBox(height: 16),
-  
+
                 // DATE SECTION
                 Row(
                   children: [
                     Icon(
                       Icons.calendar_month_outlined,
                       size: 18,
-                      color: item['status'] == 'Pending' ? Colors.orange : Colors.grey,
+                      color:
+                          item['status'] == 'Pending'
+                              ? Colors.orange
+                              : Colors.grey,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      "${_formatDateIndo(item['start_date'])} - ${_formatDateIndo(item['end_date'])}",
+                      _formatPermitDate(item),
                       style: GoogleFonts.poppins(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: item['status'] == 'Pending' ? Colors.black87 : Colors.grey[700],
+                        color:
+                            item['status'] == 'Pending'
+                                ? Colors.black87
+                                : Colors.grey[700],
                       ),
                     ),
                   ],
                 ),
-  
+
                 const SizedBox(height: 10),
-  
+
                 // REASON SECTION
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: item['status'] == 'Pending' ? Colors.grey[50] : Colors.white,
+                    color:
+                        item['status'] == 'Pending'
+                            ? Colors.grey[50]
+                            : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.grey[200]!),
                   ),
@@ -1096,30 +1165,46 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                     ],
                   ),
                 ),
-  
+
                 const SizedBox(height: 16),
-  
+
                 // Attachment Section
-                if (item['attachment'] != null && item['attachment'].toString().isNotEmpty) ...[
+                if (item['attachment'] != null &&
+                    item['attachment'].toString().isNotEmpty) ...[
                   const SizedBox(height: 12),
                   InkWell(
                     onTap: () {
-                      final url = ApiConstants.getPermitAttachmentUrl(item['attachment']);
+                      final url = ApiConstants.getPermitAttachmentUrl(
+                        item['attachment'],
+                      );
                       if (url != null) {
-                        ImagePreviewDialog.show(context, url, title: "Lampiran ${item['employee_name']}");
+                        ImagePreviewDialog.show(
+                          context,
+                          url,
+                          title: "Lampiran ${item['employee_name']}",
+                        );
                       }
                     },
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.blueAccent.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.1)),
+                        border: Border.all(
+                          color: Colors.blueAccent.withValues(alpha: 0.1),
+                        ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.attach_file, size: 18, color: Colors.blueAccent),
+                          const Icon(
+                            Icons.attach_file,
+                            size: 18,
+                            color: Colors.blueAccent,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             "Lihat Lampiran / Bukti",
@@ -1130,7 +1215,11 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                             ),
                           ),
                           const Spacer(),
-                          const Icon(Icons.visibility_outlined, size: 18, color: Colors.blueAccent),
+                          const Icon(
+                            Icons.visibility_outlined,
+                            size: 18,
+                            color: Colors.blueAccent,
+                          ),
                         ],
                       ),
                     ),
@@ -1138,7 +1227,7 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                 ],
 
                 const SizedBox(height: 16),
-  
+
                 // ACTIONS
                 if (item['status'] == 'Pending')
                   Row(
@@ -1146,7 +1235,10 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed:
-                              () => _actionPermit(item['id'].toString(), 'reject'),
+                              () => _actionPermit(
+                                item['id'].toString(),
+                                'reject',
+                              ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.red,
                             side: const BorderSide(color: Colors.red),
@@ -1162,7 +1254,10 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed:
-                              () => _actionPermit(item['id'].toString(), 'approve'),
+                              () => _actionPermit(
+                                item['id'].toString(),
+                                'approve',
+                              ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
                             shape: RoundedRectangleBorder(
@@ -1187,35 +1282,51 @@ class _ApprovalsTabState extends State<ApprovalsTab> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: item['status'] == 'Approved' ? Colors.green[50] : Colors.red[50],
+                      color:
+                          item['status'] == 'Approved'
+                              ? Colors.green[50]
+                              : Colors.red[50],
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: item['status'] == 'Approved' ? Colors.green[100]! : Colors.red[100]!,
+                        color:
+                            item['status'] == 'Approved'
+                                ? Colors.green[100]!
+                                : Colors.red[100]!,
                       ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          item['status'] == 'Approved' ? Icons.check_circle : Icons.cancel,
-                          color: item['status'] == 'Approved' ? Colors.green[700] : Colors.red[700],
+                          item['status'] == 'Approved'
+                              ? Icons.check_circle
+                              : Icons.cancel,
+                          color:
+                              item['status'] == 'Approved'
+                                  ? Colors.green[700]
+                                  : Colors.red[700],
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          item['status'] == 'Approved' ? "TELAH DISETUJUI" : "TELAH DITOLAK",
+                          item['status'] == 'Approved'
+                              ? "TELAH DISETUJUI"
+                              : "TELAH DITOLAK",
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
-                            color: item['status'] == 'Approved' ? Colors.green[700] : Colors.red[700],
+                            color:
+                                item['status'] == 'Approved'
+                                    ? Colors.green[700]
+                                    : Colors.red[700],
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
+          ),
         );
       },
     );

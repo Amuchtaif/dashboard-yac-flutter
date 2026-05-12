@@ -15,6 +15,7 @@ class PermissionService {
   // Cache permission di memory untuk akses cepat
   bool _canCreateMeeting = false;
   bool _canApprovePermits = false;
+  bool _isWaliKelas = false;
   bool _isLoaded = false;
   bool _usingFallback = false;
 
@@ -23,6 +24,9 @@ class PermissionService {
 
   /// Getter untuk mengecek apakah user bisa menyetujui izin
   bool get canApprovePermits => _canApprovePermits;
+
+  /// Getter untuk mengecek apakah user adalah Wali Kelas
+  bool get isWaliKelas => _isWaliKelas;
 
   /// Getter untuk mengecek apakah permission sudah di-load
   bool get isLoaded => _isLoaded;
@@ -39,6 +43,7 @@ class PermissionService {
     final prefs = await SharedPreferences.getInstance();
     _canCreateMeeting = prefs.getBool('can_create_meeting') ?? false;
     _canApprovePermits = prefs.getBool('can_approve_permits') ?? false;
+    _isWaliKelas = prefs.getBool('is_wali_kelas') ?? false;
     _activePermissions = prefs.getStringList('user_permissions') ?? [];
     _usingFallback = prefs.getBool('using_fallback') ?? false;
     _isLoaded = true;
@@ -77,6 +82,7 @@ class PermissionService {
           // Parse permission values
           _canCreateMeeting = _parseBool(permissions['can_create_meeting']);
           _canApprovePermits = _parseBool(permissions['can_approve_permits']);
+          _isWaliKelas = _parseBool(permissions['is_wali_kelas']);
 
           // Populate active permissions list
           _activePermissions.clear();
@@ -182,6 +188,7 @@ class PermissionService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('can_create_meeting', _canCreateMeeting);
     await prefs.setBool('can_approve_permits', _canApprovePermits);
+    await prefs.setBool('is_wali_kelas', _isWaliKelas);
     await prefs.setStringList('user_permissions', _activePermissions);
     await prefs.setBool('using_fallback', _usingFallback);
     debugPrint("💾 Permissions saved to cache");

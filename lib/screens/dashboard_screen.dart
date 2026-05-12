@@ -60,7 +60,10 @@ import 'student_grading_screen.dart';
 import 'news_detail_screen.dart';
 import 'self_attendance_recap_screen.dart';
 import 'work_report_screen.dart';
-
+import 'homeroom/student_attendance_screen.dart';
+import 'homeroom/journal_recap_screen.dart';
+import 'homeroom/grade_recap_screen.dart';
+import 'homeroom/subject_attendance_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -133,6 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isSwapped = false;
   String? _swapPartnerName;
   bool _canApprovePermits = false;
+  bool _isWaliKelas = false;
 
   final String baseUrl = ApiConfig.baseUrl;
   List<LocationModel> _locations = [];
@@ -289,7 +293,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
     // Case 3: Permit Status Update - Karyawan menerima notif status izin
-    else if (screen == 'permit' || screen == 'history' ||
+    else if (screen == 'permit' ||
+        screen == 'history' ||
         (title != null && title.toLowerCase().contains('status izin')) ||
         (body != null && body.toLowerCase().contains('status'))) {
       Navigator.push(
@@ -359,6 +364,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (mounted) {
             setState(() {
               _canApprovePermits = PermissionService().canApprovePermits;
+              _isWaliKelas = PermissionService().isWaliKelas;
             });
           }
         }),
@@ -889,6 +895,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         isSwapped: _isSwapped,
         swapPartnerName: _swapPartnerName,
         canApprovePermits: _canApprovePermits,
+        isWaliKelas: _isWaliKelas,
         onRefresh: () async {
           await _fetchDashboardData();
           await _fetchNewsData();
@@ -1025,6 +1032,7 @@ class HomeTab extends StatelessWidget {
   final bool isSwapped;
   final String? swapPartnerName;
   final bool canApprovePermits;
+  final bool isWaliKelas;
   final Future<void> Function() onRefresh;
 
   const HomeTab({
@@ -1047,6 +1055,7 @@ class HomeTab extends StatelessWidget {
     required this.isSwapped,
     this.swapPartnerName,
     required this.canApprovePermits,
+    required this.isWaliKelas,
     required this.onRefresh,
     required this.onSeeAllNews,
   });
@@ -1109,6 +1118,13 @@ class HomeTab extends StatelessWidget {
                 _buildSectionTitle('Menu Kesantrian'),
                 const SizedBox(height: 12),
                 _buildKesantrianMenuGrid(context),
+              ],
+              // Show Homeroom Menu Only If User is Wali Kelas
+              if (isWaliKelas || AccessControl.can('is_wali_kelas')) ...[
+                const SizedBox(height: 24),
+                _buildSectionTitle('Menu Wali Kelas'),
+                const SizedBox(height: 12),
+                _buildHomeroomMenuGrid(context),
               ],
               const SizedBox(height: 24),
             ],
@@ -2428,6 +2444,38 @@ class HomeTab extends StatelessWidget {
     );
   }
 
+  Widget _buildHomeroomMenuGrid(BuildContext context) {
+    final menus = [
+      {
+        'title': 'Absensi Siswa',
+        'icon': Icons.how_to_reg_rounded,
+        'color': Colors.blueAccent,
+      },
+      {
+        'title': 'Absensi Per Mapel',
+        'icon': Icons.view_agenda_outlined,
+        'color': Colors.indigoAccent,
+      },
+      {
+        'title': 'Rekap Jurnal',
+        'icon': Icons.menu_book_rounded,
+        'color': Colors.green,
+      },
+      {
+        'title': 'Rekap Penilaian',
+        'icon': Icons.assignment_turned_in_rounded,
+        'color': Colors.orangeAccent,
+      },
+    ];
+
+    return Row(
+      children:
+          menus
+              .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+              .toList(),
+    );
+  }
+
   Widget _buildMenuCard(BuildContext context, Map<String, dynamic> menu) {
     return Container(
       height: 110,
@@ -2592,7 +2640,8 @@ class HomeTab extends StatelessWidget {
   }
 
   void _proceedToSetoran(BuildContext context, TahfidzProvider provider) {
-    if (!isKoordinator && (!provider.isHalaqohOpened || !provider.isAttendanceSubmitted)) {
+    if (!isKoordinator &&
+        (!provider.isHalaqohOpened || !provider.isAttendanceSubmitted)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -2638,19 +2687,19 @@ class HomeTab extends StatelessWidget {
       }
     } else if (navTitle == 'Setoran') {
       final provider = Provider.of<TahfidzProvider>(context, listen: false);
-      
+
       // Jika data belum di-load (misal baru login), load dulu sebentar
       if (provider.teacherId == null) {
-         SharedPreferences.getInstance().then((prefs) {
-           int? tid = prefs.getInt('userId');
-           String? tname = prefs.getString('fullName');
-           provider.fetchMyStudents(tid, teacherName: tname).then((_) {
-              if (context.mounted) {
-                _proceedToSetoran(context, provider);
-              }
-           });
-         });
-         return;
+        SharedPreferences.getInstance().then((prefs) {
+          int? tid = prefs.getInt('userId');
+          String? tname = prefs.getString('fullName');
+          provider.fetchMyStudents(tid, teacherName: tname).then((_) {
+            if (context.mounted) {
+              _proceedToSetoran(context, provider);
+            }
+          });
+        });
+        return;
       }
 
       _proceedToSetoran(context, provider);
@@ -2776,8 +2825,8 @@ class HomeTab extends StatelessWidget {
         MaterialPageRoute(builder: (context) => const AbsensiAsramaScreen()),
       );
     } else if (navTitle == 'Absensi Makan') {
-      if (deptName.toLowerCase().contains('kesantrian') || 
-          positionName.toLowerCase().contains('musyrif') || 
+      if (deptName.toLowerCase().contains('kesantrian') ||
+          positionName.toLowerCase().contains('musyrif') ||
           positionName.toLowerCase().contains('kesantrian')) {
         Navigator.push(
           context,
@@ -2787,7 +2836,9 @@ class HomeTab extends StatelessWidget {
         // Assume Pendidikan/Wali Kelas
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const AbsensiMakanPendidikanScreen()),
+          MaterialPageRoute(
+            builder: (context) => const AbsensiMakanPendidikanScreen(),
+          ),
         );
       }
     } else if (navTitle == 'Pelanggaran') {
@@ -2799,6 +2850,31 @@ class HomeTab extends StatelessWidget {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const KepulanganScreen()),
+      );
+    } else if (navTitle == 'Absensi Siswa' ||
+        navTitle == 'Absensi Siswa di Kelas') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const StudentAttendanceScreen(),
+        ),
+      );
+    } else if (navTitle == 'Absensi Per Mapel') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const SubjectAttendanceScreen(),
+        ),
+      );
+    } else if (navTitle == 'Rekap Jurnal') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const JournalRecapScreen()),
+      );
+    } else if (navTitle == 'Rekap Penilaian') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const GradeRecapScreen()),
       );
     } else if (navTitle == 'Izin Santri') {
       Navigator.push(

@@ -23,6 +23,10 @@ class _PermitScreenState extends State<PermitScreen> {
   final TextEditingController _reasonController = TextEditingController();
   File? _imageFile;
   bool _isLoading = false;
+  bool _isHourly = false; // New: To track if it's an hourly permit
+  DateTime? _selectedDate; // For hourly
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
 
   final List<String> _permitTypes = ['Sakit', 'Izin', 'Cuti', 'Lainnya'];
 
@@ -62,6 +66,56 @@ class _PermitScreenState extends State<PermitScreen> {
     }
   }
 
+  // --- LOGIC: PICK SINGLE DATE ---
+  Future<void> _pickDate() async {
+    final DateTime now = DateTime.now();
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? now,
+      firstDate: now,
+      lastDate: DateTime(now.year, now.month + 1, now.day),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF1E429F),
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF1F2937),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  // --- LOGIC: PICK TIME ---
+  Future<void> _pickTime({required bool isStart}) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime:
+          isStart
+              ? (_startTime ?? TimeOfDay.now())
+              : (_endTime ?? TimeOfDay.now()),
+    );
+
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _startTime = picked;
+        } else {
+          _endTime = picked;
+        }
+      });
+    }
+  }
+
   // --- LOGIC: PICK IMAGE ---
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -80,11 +134,27 @@ class _PermitScreenState extends State<PermitScreen> {
   // --- LOGIC: SUBMIT PERMIT ---
   Future<void> _submitPermit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedDateRange == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Mohon pilih tanggal izin')));
-      return;
+
+    if (_isHourly) {
+      if (_selectedDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Mohon pilih tanggal izin')),
+        );
+        return;
+      }
+      if (_startTime == null || _endTime == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Mohon pilih jam mulai & selesai')),
+        );
+        return;
+      }
+    } else {
+      if (_selectedDateRange == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Mohon pilih tanggal izin')),
+        );
+        return;
+      }
     }
 
     setState(() => _isLoading = true);
@@ -106,12 +176,25 @@ class _PermitScreenState extends State<PermitScreen> {
       // Form Fields
       request.fields['user_id'] = userId.toString();
       request.fields['permit_type'] = _selectedPermitType!;
-      request.fields['start_date'] = DateFormat(
-        'yyyy-MM-dd',
-      ).format(_selectedDateRange!.start);
-      request.fields['end_date'] = DateFormat(
-        'yyyy-MM-dd',
-      ).format(_selectedDateRange!.end);
+      request.fields['is_hourly'] = _isHourly ? '1' : '0';
+
+      if (_isHourly) {
+        final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate!);
+        request.fields['start_date'] = dateStr;
+        request.fields['end_date'] = dateStr;
+        request.fields['start_time'] =
+            "${_startTime!.hour.toString().padLeft(2, '0')}:${_startTime!.minute.toString().padLeft(2, '0')}";
+        request.fields['end_time'] =
+            "${_endTime!.hour.toString().padLeft(2, '0')}:${_endTime!.minute.toString().padLeft(2, '0')}";
+      } else {
+        request.fields['start_date'] = DateFormat(
+          'yyyy-MM-dd',
+        ).format(_selectedDateRange!.start);
+        request.fields['end_date'] = DateFormat(
+          'yyyy-MM-dd',
+        ).format(_selectedDateRange!.end);
+      }
+
       request.fields['reason'] = _reasonController.text;
 
       // File Attachment
@@ -157,19 +240,7 @@ class _PermitScreenState extends State<PermitScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          "Pengajuan Izin",
-          style: GoogleFonts.poppins(
-            color: Colors.black,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: const Text("Pengajuan Izin"),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -178,6 +249,76 @@ class _PermitScreenState extends State<PermitScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _buildSectionLabel("Kategori Izin"),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _isHourly = true),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color:
+                                _isHourly
+                                    ? const Color(0xFF1E429F)
+                                    : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Text(
+                              "Izin Jam",
+                              style: GoogleFonts.poppins(
+                                color: _isHourly ? Colors.white : Colors.grey,
+                                fontWeight:
+                                    _isHourly
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setState(() => _isHourly = false),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color:
+                                !_isHourly
+                                    ? const Color(0xFF1E429F)
+                                    : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Text(
+                              "Full / Beberapa Hari",
+                              style: GoogleFonts.poppins(
+                                color: !_isHourly ? Colors.white : Colors.grey,
+                                fontWeight:
+                                    !_isHourly
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
               _buildSectionLabel("Jenis Izin"),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -212,46 +353,162 @@ class _PermitScreenState extends State<PermitScreen> {
               ),
               const SizedBox(height: 16),
 
-              _buildSectionLabel("PILIH TANGGAL"),
-              InkWell(
-                onTap: _pickDateRange,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.calendar_today_outlined,
-                        color: Colors.grey,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _selectedDateRange == null
-                              ? "Pilih Tanggal Mulai - Selesai"
-                              : "${DateFormat('dd MMM yyyy').format(_selectedDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(_selectedDateRange!.end)}",
+              _buildSectionLabel(
+                _isHourly ? "PILIH TANGGAL & JAM" : "PILIH TANGGAL",
+              ),
+              if (_isHourly) ...[
+                // Hourly View
+                InkWell(
+                  onTap: _pickDate,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today_outlined,
+                          color: Colors.grey,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          _selectedDate == null
+                              ? "Pilih Tanggal"
+                              : DateFormat(
+                                'dd MMMM yyyy',
+                              ).format(_selectedDate!),
                           style: GoogleFonts.poppins(
-                            fontSize: 14,
                             color:
-                                _selectedDateRange != null
+                                _selectedDate != null
                                     ? Colors.black
                                     : Colors.grey,
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _pickTime(isStart: true),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.access_time,
+                                color: Colors.grey,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                _startTime == null
+                                    ? "Jam Mulai"
+                                    : _startTime!.format(context),
+                                style: GoogleFonts.poppins(
+                                  color:
+                                      _startTime != null
+                                          ? Colors.black
+                                          : Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _pickTime(isStart: false),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.access_time,
+                                color: Colors.grey,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                _endTime == null
+                                    ? "Jam Selesai"
+                                    : _endTime!.format(context),
+                                style: GoogleFonts.poppins(
+                                  color:
+                                      _endTime != null
+                                          ? Colors.black
+                                          : Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                // Range View (Original)
+                InkWell(
+                  onTap: _pickDateRange,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today_outlined,
+                          color: Colors.grey,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _selectedDateRange == null
+                                ? "Pilih Tanggal Mulai - Selesai"
+                                : "${DateFormat('dd MMM yyyy').format(_selectedDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(_selectedDateRange!.end)}",
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color:
+                                  _selectedDateRange != null
+                                      ? Colors.black
+                                      : Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
 
               _buildSectionLabel("Alasan"),
@@ -290,7 +547,10 @@ class _PermitScreenState extends State<PermitScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.grey.shade300, width: 2),
+                          border: Border.all(
+                            color: Colors.grey.shade300,
+                            width: 2,
+                          ),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.05),
@@ -299,32 +559,33 @@ class _PermitScreenState extends State<PermitScreen> {
                             ),
                           ],
                         ),
-                        child: _imageFile != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(18),
-                                child: Image.file(
-                                  _imageFile!,
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                            : Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.add_photo_alternate_outlined,
-                                    size: 48,
-                                    color: Colors.grey[400],
+                        child:
+                            _imageFile != null
+                                ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: Image.file(
+                                    _imageFile!,
+                                    fit: BoxFit.cover,
                                   ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    "Tap untuk ambil dari Galeri",
-                                    style: GoogleFonts.poppins(
-                                      color: Colors.grey[500],
-                                      fontSize: 14,
+                                )
+                                : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.add_photo_alternate_outlined,
+                                      size: 48,
+                                      color: Colors.grey[400],
                                     ),
-                                  ),
-                                ],
-                              ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      "Tap untuk ambil dari Galeri",
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.grey[500],
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                       ),
                     ),
                     if (_imageFile != null)
@@ -358,36 +619,39 @@ class _PermitScreenState extends State<PermitScreen> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submitPermit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E429F), // Deep Blue like image
+                    backgroundColor: const Color(
+                      0xFF1E429F,
+                    ), // Deep Blue like image
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.check_circle_outline, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              "Kirim Pengajuan",
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                  child:
+                      _isLoading
+                          ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
                             ),
-                          ],
-                        ),
+                          )
+                          : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.check_circle_outline, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                "Kirim Pengajuan",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                 ),
               ),
             ],

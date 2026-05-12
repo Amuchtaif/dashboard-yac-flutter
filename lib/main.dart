@@ -13,14 +13,16 @@ import 'services/permission_service.dart';
 import 'providers/tahfidz_provider.dart';
 import 'providers/quran_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'firebase_options.dart';
+import 'config/api_config.dart';
+import 'screens/maintenance_screen.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   debugPrint("Handling a background message: ${message.messageId}");
 }
 
@@ -33,14 +35,14 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    
-    // Set foreground notification options for iOS - ONLY if Firebase init succeeds
-    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-    
+
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+
     debugPrint("✅ FIREBASE CONNECTED!");
   } catch (e) {
     debugPrint("❌ FIREBASE INIT ERROR: $e");
@@ -48,12 +50,10 @@ void main() async {
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // Define Android Notification Channel
   const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'high_importance_channel', // id
-    'High Importance Notifications', // title
-    description:
-        'This channel is used for important notifications.', // description
+    'high_importance_channel',
+    'High Importance Notifications',
+    description: 'This channel is used for important notifications.',
     importance: Importance.max,
     playSound: true,
   );
@@ -69,7 +69,6 @@ void main() async {
 
   debugPrint("✅ FIREBASE CONNECTED!");
 
-  // --- CEK SESI LOGIN (24 JAM) ---
   final prefs = await SharedPreferences.getInstance();
   await prefs.reload();
   final int? loginTimestamp = prefs.getInt('login_timestamp');
@@ -80,24 +79,16 @@ void main() async {
   if (isLoggedIn && loginTimestamp != null) {
     final now = DateTime.now().millisecondsSinceEpoch;
     final diff = now - loginTimestamp;
-    // 24 Jam = 24 * 60 * 60 * 1000 = 86,400,000 ms
-    // const sessionTimeout = 86400000;
     const sessionTimeout = 172800000;
 
     if (diff < sessionTimeout) {
-      debugPrint(
-        "✅ SESSION VALID (Login: ${DateTime.fromMillisecondsSinceEpoch(loginTimestamp)})",
-      );
+      debugPrint("✅ SESSION VALID");
       isSessionValid = true;
-      // Initialize permission service
       await PermissionService().loadFromCache();
-      // Sliding Expiration: Update timestamp agar session diperpanjang jika aktif
       await prefs.setInt('login_timestamp', now);
     } else {
-      debugPrint(
-        "❌ SESSION EXPIRED (Diff: ${diff}ms > ${sessionTimeout}ms). LOGOUT.",
-      );
-      await prefs.clear(); // Reset session
+      debugPrint("❌ SESSION EXPIRED");
+      await prefs.clear();
     }
   } else {
     debugPrint("ℹ️ NO ACTIVE SESSION");
@@ -107,10 +98,29 @@ void main() async {
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark, // Untuk Android (ikon gelap)
-      statusBarBrightness: Brightness.light, // Untuk iOS (teks gelap)
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
     ),
   );
+
+  String? maintenanceMessage;
+  bool isMaintenance = false;
+
+  try {
+    final response = await http
+        .get(Uri.parse("${ApiConfig.baseUrl}/app_status.php"))
+        .timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['status'] == 'maintenance') {
+        isMaintenance = true;
+        maintenanceMessage = data['message'];
+      }
+    }
+  } catch (e) {
+    debugPrint("⚠️ Failed to check maintenance status: $e");
+  }
 
   runApp(
     MultiProvider(
@@ -118,25 +128,50 @@ void main() async {
         ChangeNotifierProvider(create: (_) => TahfidzProvider()),
         ChangeNotifierProvider(create: (_) => QuranProvider()),
       ],
-      child: MyApp(isSessionValid: isSessionValid),
+      child: MyApp(
+        isSessionValid: isSessionValid == true,
+        isMaintenance: isMaintenance == true,
+        maintenanceMessage: maintenanceMessage,
+      ),
     ),
   );
 }
 
-
 class MyApp extends StatelessWidget {
   final bool isSessionValid;
-  const MyApp({super.key, required this.isSessionValid});
+  final bool isMaintenance;
+  final String? maintenanceMessage;
+
+  const MyApp({
+    super.key,
+    this.isSessionValid = false,
+    this.isMaintenance = false,
+    this.maintenanceMessage,
+  });
 
   @override
   Widget build(BuildContext context) {
+    debugPrint("MyApp Build - isMaintenance: $isMaintenance, isSessionValid: $isSessionValid");
     return MaterialApp(
       title: 'Aplikasi YAC',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueAccent),
         useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF5F5F5),
         textTheme: GoogleFonts.poppinsTextTheme(),
         appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF5F5F5),
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+          centerTitle: false,
+          iconTheme: IconThemeData(color: Colors.black),
+          titleTextStyle: TextStyle(
+            color: Colors.black,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'Poppins',
+          ),
           systemOverlayStyle: SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
             statusBarIconBrightness: Brightness.dark,
@@ -157,9 +192,12 @@ class MyApp extends StatelessWidget {
       ],
       supportedLocales: const [Locale('id', 'ID')],
       locale: const Locale('id', 'ID'),
-
-      // Jika Sesi Valid -> Dashboard, Jika Tidak -> Login
-      home: isSessionValid ? const DashboardScreen() : const LoginScreen(),
+      home: isMaintenance
+          ? MaintenanceScreen(
+              message: maintenanceMessage ?? "Sedang pemeliharaan sistem",
+              isSessionValid: isSessionValid,
+            )
+          : (isSessionValid ? const DashboardScreen() : const LoginScreen()),
       debugShowCheckedModeBanner: false,
     );
   }
