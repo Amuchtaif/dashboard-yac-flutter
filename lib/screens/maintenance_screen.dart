@@ -1,10 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
-import '../config/api_config.dart';
-import 'login_screen.dart';
-import 'dashboard_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_status_provider.dart';
 
 class MaintenanceScreen extends StatefulWidget {
   final String message;
@@ -22,61 +19,35 @@ class MaintenanceScreen extends StatefulWidget {
 
 class _MaintenanceScreenState extends State<MaintenanceScreen> {
   bool _isLoading = false;
-  late String _currentMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentMessage = widget.message;
-  }
+  String? _errorFeedback;
 
   Future<void> _checkMaintenanceStatus() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorFeedback = null;
+    });
 
     try {
-      final response = await http
-          .get(Uri.parse("${ApiConfig.baseUrl}/app_status.php"))
-          .timeout(const Duration(seconds: 5));
+      final provider = context.read<AppStatusProvider>();
+      // Clear any existing snackbars from previous attempts
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['status'] == 'maintenance') {
+      final isStillMaintenance = await provider.checkStatus();
+
+      if (mounted) {
+        if (isStillMaintenance) {
           setState(() {
-            _currentMessage = data['message'] ?? widget.message;
+            _errorFeedback =
+                "Sistem masih dalam pemeliharaan. Silakan coba beberapa saat lagi.";
           });
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Sistem masih dalam pemeliharaan"),
-                backgroundColor: Colors.amber,
-              ),
-            );
-          }
-        } else {
-          // Maintenance is over!
-          if (mounted) {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                builder: (context) => widget.isSessionValid
-                    ? const DashboardScreen()
-                    : const LoginScreen(),
-              ),
-              (route) => false,
-            );
-          }
         }
-      } else {
-        throw Exception("Server returned ${response.statusCode}");
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Gagal memeriksa status: $e"),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        setState(() {
+          _errorFeedback =
+              "Gagal terhubung ke server. Periksa koneksi internet Anda.";
+        });
       }
     } finally {
       if (mounted) {
@@ -109,7 +80,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
             ),
             const SizedBox(height: 32),
             Text(
-              "Sistem Sedang\nDIPERBARUI",
+              "Sistem Sedang\nDalam Pemeliharaan",
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 24,
@@ -119,7 +90,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              _currentMessage,
+              widget.message,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontSize: 14,
@@ -141,6 +112,40 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
             else
               Column(
                 children: [
+                  if (_errorFeedback != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red.shade100),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              color: Colors.red.shade700,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _errorFeedback!,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.red.shade800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -148,9 +153,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
                       icon: const Icon(Icons.refresh_rounded),
                       label: Text(
                         "Coba Lagi",
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.amber.shade700,
@@ -167,7 +170,9 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
                 ],
               ),
             Text(
-              _isLoading ? "Memeriksa status..." : "Ketuk tombol untuk memuat ulang",
+              _isLoading
+                  ? "Memeriksa status..."
+                  : "Ketuk tombol untuk memuat ulang",
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 color: const Color(0xFF94A3B8),
@@ -180,4 +185,3 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     );
   }
 }
-

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -64,6 +65,7 @@ import 'homeroom/student_attendance_screen.dart';
 import 'homeroom/journal_recap_screen.dart';
 import 'homeroom/grade_recap_screen.dart';
 import 'homeroom/subject_attendance_screen.dart';
+import '../services/permit_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -138,10 +140,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _canApprovePermits = false;
   bool _isWaliKelas = false;
 
+  StreamSubscription<RemoteMessage>? _fcmSubscription;
+  StreamSubscription<String?>? _notificationSubscription;
+
   final String baseUrl = ApiConfig.baseUrl;
   List<LocationModel> _locations = [];
   List<News> _newsList = [];
   bool _isLoadingNews = false;
+
+  @override
+  void dispose() {
+    _fcmSubscription?.cancel();
+    _notificationSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -162,11 +174,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setupInteractedMessage();
 
     // 3. Foreground Message Handler
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    _fcmSubscription = FirebaseMessaging.onMessage.listen((
+      RemoteMessage message,
+    ) {
       debugPrint("🔥 FOREGROUND NOTIF RECEIVED!");
-      debugPrint("Title: ${message.notification?.title}");
-      debugPrint("Body: ${message.notification?.body}");
       debugPrint("Data: ${message.data}");
+
+      // ⚠️ SILENT CHECK: Don't show local notification if it's a maintenance type
+      final String? type = message.data['type'];
+      if (type == 'maintenance' || type == 'app_status') {
+        debugPrint(
+          "🔇 Maintenance message detected, skipping local notification display.",
+        );
+        return; // ABSOLUTELY STOP HERE for maintenance messages
+      }
 
       // Prepare payload with title/body included if they exist in notification
       Map<String, dynamic> payloadData = Map.from(message.data);
@@ -186,10 +207,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           message.notification!.body ?? '',
           const NotificationDetails(
             android: AndroidNotificationDetails(
-              'high_importance_channel', // Id unik ini harus sama antara konfigurasi dan pemanggilan
+              'high_importance_channel',
               'High Importance Notifications',
-              channelDescription:
-                  'Dipakai untuk notifikasi penting agar melayang/bisa bunyi.',
+              channelDescription: 'Dipakai untuk notifikasi penting.',
               importance: Importance.max,
               priority: Priority.high,
               icon: '@mipmap/ic_launcher',
@@ -208,8 +228,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             android: AndroidNotificationDetails(
               'high_importance_channel',
               'High Importance Notifications',
-              channelDescription:
-                  'Dipakai untuk notifikasi penting agar melayang/bisa bunyi.',
+              channelDescription: 'Dipakai untuk notifikasi penting.',
               importance: Importance.max,
               priority: Priority.high,
               icon: '@mipmap/ic_launcher',
@@ -224,17 +243,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     // 4. Listen to Local Notification Taps
-    NotificationService().selectNotificationStream.listen((String? payload) {
-      if (payload != null) {
-        debugPrint("🔔 Local Notification Tapped! Payload: $payload");
-        try {
-          final Map<String, dynamic> data = jsonDecode(payload);
-          _handleNavigationData(data);
-        } catch (e) {
-          debugPrint("Error parsing payload: $e");
-        }
-      }
-    });
+    _notificationSubscription = NotificationService().selectNotificationStream
+        .listen((String? payload) {
+          if (payload != null) {
+            debugPrint("🔔 Local Notification Tapped! Payload: $payload");
+            try {
+              final Map<String, dynamic> data = jsonDecode(payload);
+              _handleNavigationData(data);
+            } catch (e) {
+              debugPrint("Error parsing payload: $e");
+            }
+          }
+        });
 
     // 5. Start Polling (fetch from API every 30s)
     NotificationService().startPolling();
@@ -453,10 +473,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _handleAttendance() async {
     if (_attendanceStatus == "SELESAI") return;
 
-    // 1. Flow Berdasarkan Status
+    // --- INTEGRASI IZIN ---
+    if (_attendanceStatus == "BELUM_ABSEN") {
+      _showLoadingSnackBar("Memeriksa status izin...");
+      final hasPermit = await PermitService().hasApprovedFullDayPermitToday(
+        int.parse(_userId),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      if (hasPermit) {
+        _showErrorDialog(
+          "Anda tidak dapat melakukan absensi masuk karena hari ini Anda tercatat sedang izin yang telah disetujui.",
+        );
+        return;
+      }
+    }
+
     if (_attendanceStatus == "BELUM_ABSEN" ||
         _attendanceStatus == "SUDAH_MASUK") {
-      // Check-in & Check-out flow: Sekarang keduanya butuh pilih lokasi
       if (_locations.isEmpty) {
         _showLoadingSnackBar("Mengambil data lokasi...");
         await _fetchLocations();

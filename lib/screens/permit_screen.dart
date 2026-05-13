@@ -239,9 +239,7 @@ class _PermitScreenState extends State<PermitScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
-        title: const Text("Pengajuan Izin"),
-      ),
+      appBar: AppBar(title: const Text("Pengajuan Izin")),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -301,7 +299,7 @@ class _PermitScreenState extends State<PermitScreen> {
                           ),
                           child: Center(
                             child: Text(
-                              "Full / Beberapa Hari",
+                              "Izin Harian",
                               style: GoogleFonts.poppins(
                                 color: !_isHourly ? Colors.white : Colors.grey,
                                 fontWeight:

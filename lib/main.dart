@@ -12,6 +12,7 @@ import 'screens/dashboard_screen.dart';
 import 'services/permission_service.dart';
 import 'providers/tahfidz_provider.dart';
 import 'providers/quran_provider.dart';
+import 'providers/app_status_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -127,6 +128,13 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => TahfidzProvider()),
         ChangeNotifierProvider(create: (_) => QuranProvider()),
+        ChangeNotifierProvider(
+          create:
+              (_) => AppStatusProvider(
+                initialIsMaintenance: isMaintenance == true,
+                initialMessage: maintenanceMessage,
+              ),
+        ),
       ],
       child: MyApp(
         isSessionValid: isSessionValid == true,
@@ -137,7 +145,7 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final bool isSessionValid;
   final bool isMaintenance;
   final String? maintenanceMessage;
@@ -150,8 +158,48 @@ class MyApp extends StatelessWidget {
   });
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    _setupFCMMaintenanceListener();
+  }
+
+  void _setupFCMMaintenanceListener() {
+    // Subscribe to maintenance topic
+    FirebaseMessaging.instance.subscribeToTopic('maintenance');
+
+    // Handle messages while app is in foreground
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      debugPrint("FCM Message Received: ${message.data}");
+      _handleMaintenanceMessage(message);
+    });
+
+    // Handle messages when app is opened from notification
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      _handleMaintenanceMessage(message);
+    });
+  }
+
+  void _handleMaintenanceMessage(RemoteMessage message) {
+    if (message.data['type'] == 'maintenance') {
+      final bool isMaint = message.data['status'] == 'true' || message.data['status'] == '1';
+      final String? msg = message.data['message'];
+
+      if (mounted) {
+        context.read<AppStatusProvider>().updateStatus(isMaint, msg);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    debugPrint("MyApp Build - isMaintenance: $isMaintenance, isSessionValid: $isSessionValid");
+    debugPrint(
+      "MyApp Build - isMaintenance: ${widget.isMaintenance}, isSessionValid: ${widget.isSessionValid}",
+    );
     return MaterialApp(
       title: 'Aplikasi YAC',
       theme: ThemeData(
@@ -192,16 +240,27 @@ class MyApp extends StatelessWidget {
       ],
       supportedLocales: const [Locale('id', 'ID')],
       locale: const Locale('id', 'ID'),
-      home: isMaintenance
-          ? MaintenanceScreen(
-              message: maintenanceMessage ?? "Sedang pemeliharaan sistem",
-              isSessionValid: isSessionValid,
-            )
-          : (isSessionValid ? const DashboardScreen() : const LoginScreen()),
+      builder: (context, child) {
+        return Consumer<AppStatusProvider>(
+          builder: (context, appStatus, _) {
+            if (appStatus.isMaintenance) {
+              return MaintenanceScreen(
+                message:
+                    appStatus.maintenanceMessage ??
+                    "Sedang pemeliharaan sistem",
+                isSessionValid: widget.isSessionValid,
+              );
+            }
+            return child!;
+          },
+        );
+      },
+      home: widget.isSessionValid ? const DashboardScreen() : const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
 }
+
 
 class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
   const NoAnimationPageTransitionsBuilder();

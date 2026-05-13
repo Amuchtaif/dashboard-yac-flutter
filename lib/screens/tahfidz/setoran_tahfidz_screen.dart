@@ -32,7 +32,9 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
   String? _selectedSurah;
 
   final TextEditingController _ayatStartController = TextEditingController();
+  final TextEditingController _barisStartController = TextEditingController();
   final TextEditingController _ayatEndController = TextEditingController();
+  final TextEditingController _barisEndController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
   String _quality = 'Lancar';
@@ -378,8 +380,10 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
       "date": DateFormat('yyyy-MM-dd').format(DateTime.now()),
       "surah_start": _selectedSurah,
       "ayat_start": int.tryParse(_ayatStartController.text) ?? 1,
+      "baris_start": int.tryParse(_barisStartController.text) ?? 0,
       "surah_end": _selectedSurah,
       "ayat_end": int.tryParse(_ayatEndController.text) ?? 1,
+      "baris_end": int.tryParse(_barisEndController.text) ?? 0,
       "status": _quality,
       "notes": _notesController.text,
       "teacher_id": teacherId,
@@ -552,6 +556,34 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                                       _buildLabel('Ayat Selesai'),
                                       const SizedBox(height: 8),
                                       _buildNumberInput(_ayatEndController),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _buildLabel('Baris Awal'),
+                                      const SizedBox(height: 8),
+                                      _buildNumberInput(_barisStartController),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _buildLabel('Baris Akhir'),
+                                      const SizedBox(height: 8),
+                                      _buildNumberInput(_barisEndController),
                                     ],
                                   ),
                                 ),
