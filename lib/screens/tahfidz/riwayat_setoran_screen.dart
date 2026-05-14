@@ -287,8 +287,7 @@ class _RiwayatSetoranScreenState extends State<RiwayatSetoranScreen> {
     final surah = record['surah_name'] ?? '-';
     final ayatStart = record['ayat_start']?.toString() ?? '-';
     final ayatEnd = record['ayat_end']?.toString() ?? '-';
-    final barisStart = record['baris_start']?.toString() ?? '0';
-    final barisEnd = record['baris_end']?.toString() ?? '0';
+    final totalBaris = record['total_baris']?.toString() ?? '0';
     final quality = record['quality'] ?? '-';
     final notes = record['notes'] ?? '';
 
@@ -439,14 +438,14 @@ class _RiwayatSetoranScreenState extends State<RiwayatSetoranScreen> {
                     ),
                   ],
                 ),
-                if (barisStart != '0' || barisEnd != '0') ...[
+                if (totalBaris != '0' && totalBaris != '') ...[
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       const Icon(Icons.linear_scale_rounded, size: 16, color: Colors.blueAccent),
                       const SizedBox(width: 10),
                       Text(
-                        'Baris $barisStart - $barisEnd',
+                        'Total: $totalBaris Baris',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,

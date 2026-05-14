@@ -32,12 +32,11 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
   String? _selectedSurah;
 
   final TextEditingController _ayatStartController = TextEditingController();
-  final TextEditingController _barisStartController = TextEditingController();
   final TextEditingController _ayatEndController = TextEditingController();
-  final TextEditingController _barisEndController = TextEditingController();
+  final TextEditingController _totalBarisController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
-  String _quality = 'Lancar';
+  final ValueNotifier<String> _quality = ValueNotifier<String>('Lancar');
   bool _isLoading = true;
   bool _isSubmitting = false;
 
@@ -45,6 +44,16 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
   bool _isKoordinator = false;
   DateTime _coordSelectedDate = DateTime.now();
   List<dynamic> _coordMemorizationRecords = [];
+
+  @override
+  void dispose() {
+    _ayatStartController.dispose();
+    _ayatEndController.dispose();
+    _totalBarisController.dispose();
+    _notesController.dispose();
+    _quality.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -380,11 +389,10 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
       "date": DateFormat('yyyy-MM-dd').format(DateTime.now()),
       "surah_start": _selectedSurah,
       "ayat_start": int.tryParse(_ayatStartController.text) ?? 1,
-      "baris_start": int.tryParse(_barisStartController.text) ?? 0,
+      "total_baris": int.tryParse(_totalBarisController.text) ?? 0,
       "surah_end": _selectedSurah,
       "ayat_end": int.tryParse(_ayatEndController.text) ?? 1,
-      "baris_end": int.tryParse(_barisEndController.text) ?? 0,
-      "status": _quality,
+      "status": _quality.value,
       "notes": _notesController.text,
       "teacher_id": teacherId,
     };
@@ -538,8 +546,7 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       _buildLabel('Ayat Mulai'),
                                       const SizedBox(height: 8),
@@ -547,11 +554,10 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       _buildLabel('Ayat Selesai'),
                                       const SizedBox(height: 8),
@@ -559,31 +565,14 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                                     ],
                                   ),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-                            Row(
-                              children: [
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      _buildLabel('Baris Awal'),
+                                      _buildLabel('Total Baris'),
                                       const SizedBox(height: 8),
-                                      _buildNumberInput(_barisStartController),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      _buildLabel('Baris Akhir'),
-                                      const SizedBox(height: 8),
-                                      _buildNumberInput(_barisEndController),
+                                      _buildNumberInput(_totalBarisController),
                                     ],
                                   ),
                                 ),
@@ -598,12 +587,49 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                                 color: const Color(0xFFF9FAFB),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Row(
-                                children: [
-                                  _buildQualityOption('Lancar'),
-                                  _buildQualityOption('Kurang Lancar'),
-                                  _buildQualityOption('Ulang'),
-                                ],
+                              child: ValueListenableBuilder<String>(
+                                valueListenable: _quality,
+                                builder: (context, currentQuality, _) {
+                                  int selectedIndex = ['Lancar', 'Kurang Lancar', 'Ulang'].indexOf(currentQuality);
+                                  return Stack(
+                                    children: [
+                                      // Sliding Background
+                                      AnimatedAlign(
+                                        duration: const Duration(milliseconds: 250),
+                                        curve: Curves.easeInOutCubic,
+                                        alignment: Alignment(
+                                          selectedIndex == 0 ? -1.0 : (selectedIndex == 1 ? 0.0 : 1.0),
+                                          0,
+                                        ),
+                                        child: FractionallySizedBox(
+                                          widthFactor: 1 / 3,
+                                          child: Container(
+                                            margin: const EdgeInsets.all(2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(10),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(alpha: 0.08),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      // Options
+                                      Row(
+                                        children: [
+                                          _buildQualityOption('Lancar', currentQuality),
+                                          _buildQualityOption('Kurang Lancar', currentQuality),
+                                          _buildQualityOption('Ulang', currentQuality),
+                                        ],
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ),
                             const SizedBox(height: 20),
@@ -823,47 +849,66 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
       ),
-      child: TextField(
-        controller: controller,
-        keyboardType: TextInputType.number,
-        textAlign: TextAlign.center,
-        style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 14),
-        ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.black87,
+                fontWeight: FontWeight.w600,
+              ),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  int val = int.tryParse(controller.text) ?? 0;
+                  controller.text = (val + 1).toString();
+                },
+                child: Icon(Icons.arrow_drop_up_rounded, size: 22, color: Colors.grey[600]),
+              ),
+              GestureDetector(
+                onTap: () {
+                  int val = int.tryParse(controller.text) ?? 0;
+                  if (val > 0) controller.text = (val - 1).toString();
+                },
+                child: Icon(Icons.arrow_drop_down_rounded, size: 22, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
     );
   }
 
-  Widget _buildQualityOption(String label) {
-    bool isSelected = _quality == label;
+  Widget _buildQualityOption(String label, String currentQuality) {
+    bool isSelected = currentQuality == label;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _quality = label),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow:
-                isSelected
-                    ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                    : [],
-          ),
+        onTap: () {
+          if (!isSelected) _quality.value = label;
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          color: Colors.transparent, // Ensure full area is clickable
           child: Text(
             label,
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
               fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               color: isSelected ? Colors.blueAccent : Colors.grey[500],
             ),
           ),

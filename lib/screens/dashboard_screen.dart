@@ -370,10 +370,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final url = Uri.parse(
         "https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}&zoom=18&addressdetails=1",
       );
-      final response = await http.get(
-        url,
-        headers: {'User-Agent': 'DashboardApp/1.0'},
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(url, headers: {'User-Agent': 'DashboardApp/1.0'})
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200 && mounted) {
         final data = jsonDecode(response.body);
@@ -1663,7 +1662,11 @@ class HomeTab extends StatelessWidget {
                   color: Colors.blue.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.location_on_rounded, color: Colors.blue, size: 22),
+                child: const Icon(
+                  Icons.location_on_rounded,
+                  color: Colors.blue,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1714,22 +1717,23 @@ class HomeTab extends StatelessWidget {
                         imageUrl:
                             "https://static-maps.yandex.ru/1.x/?ll=${currentPosition!.longitude},${currentPosition!.latitude}&z=16&l=map&size=650,350",
                         fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: const Color(0xFFF1F5F9),
-                          child: const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => CustomPaint(
-                          painter: _MapGridPainter(),
-                        ),
+                        placeholder:
+                            (context, url) => Container(
+                              color: const Color(0xFFF1F5F9),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                        errorWidget:
+                            (context, url, error) =>
+                                CustomPaint(painter: _MapGridPainter()),
                       ),
                     )
                   else
                     Positioned.fill(
-                      child: CustomPaint(
-                        painter: _MapGridPainter(),
-                      ),
+                      child: CustomPaint(painter: _MapGridPainter()),
                     ),
                   // Pulse and Dot
                   const _LocationPulse(),
@@ -1747,7 +1751,11 @@ class HomeTab extends StatelessWidget {
                   color: Colors.green.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.gps_fixed_rounded, color: Colors.green, size: 16),
+                child: const Icon(
+                  Icons.gps_fixed_rounded,
+                  color: Colors.green,
+                  size: 16,
+                ),
               ),
               const SizedBox(width: 10),
               Column(
@@ -3121,7 +3129,6 @@ class HomeTab extends StatelessWidget {
   }
 }
 
-
 class _LocationPulse extends StatefulWidget {
   const _LocationPulse();
 
@@ -3161,7 +3168,9 @@ class _LocationPulseState extends State<_LocationPulse>
               height: 60 * _controller.value,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.blue.withValues(alpha: 0.2 * (1 - _controller.value)),
+                color: Colors.blue.withValues(
+                  alpha: 0.2 * (1 - _controller.value),
+                ),
               ),
             ),
             Container(
@@ -3204,13 +3213,22 @@ class _LocationPulseState extends State<_LocationPulse>
 class _MapGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.grey.withValues(alpha: 0.2)
-      ..strokeWidth = 1.5;
+    final paint =
+        Paint()
+          ..color = Colors.grey.withValues(alpha: 0.2)
+          ..strokeWidth = 1.5;
 
     canvas.drawLine(const Offset(0, 40), Offset(size.width, 100), paint);
-    canvas.drawLine(Offset(size.width * 0.3, 0), Offset(size.width * 0.4, size.height), paint);
-    canvas.drawLine(Offset(size.width * 0.7, 0), Offset(size.width * 0.6, size.height), paint);
+    canvas.drawLine(
+      Offset(size.width * 0.3, 0),
+      Offset(size.width * 0.4, size.height),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.7, 0),
+      Offset(size.width * 0.6, size.height),
+      paint,
+    );
     canvas.drawLine(const Offset(0, 120), Offset(size.width, 140), paint);
   }
 

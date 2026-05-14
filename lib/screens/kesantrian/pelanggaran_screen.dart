@@ -37,11 +37,11 @@ class _PelanggaranScreenState extends State<PelanggaranScreen> {
       int sedang = 0;
       int berat = 0;
       for (var v in list) {
-        if (v.namaKategori.toLowerCase() == 'ringan') {
+        if (v.tingkatKeparahan?.toLowerCase() == 'ringan') {
           ringan++;
-        } else if (v.namaKategori.toLowerCase() == 'sedang') {
+        } else if (v.tingkatKeparahan?.toLowerCase() == 'sedang') {
           sedang++;
-        } else if (v.namaKategori.toLowerCase() == 'berat') {
+        } else if (v.tingkatKeparahan?.toLowerCase() == 'berat') {
           berat++;
         }
       }
@@ -284,9 +284,9 @@ class _PelanggaranScreenState extends State<PelanggaranScreen> {
 
   Widget _buildViolationCard(Violation v) {
     Color severityColor = Colors.blue;
-    if (v.namaKategori.toLowerCase() == 'berat') {
+    if (v.tingkatKeparahan?.toLowerCase() == 'berat') {
       severityColor = Colors.red;
-    } else if (v.namaKategori.toLowerCase() == 'sedang') {
+    } else if (v.tingkatKeparahan?.toLowerCase() == 'sedang') {
       severityColor = Colors.orange;
     }
 
@@ -311,7 +311,7 @@ class _PelanggaranScreenState extends State<PelanggaranScreen> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  v.namaKategori,
+                  v.tingkatKeparahan ?? 'Umum',
                   style: GoogleFonts.poppins(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -481,7 +481,7 @@ class _ViolationDetailSheetState extends State<ViolationDetailSheet> {
                     ),
                   ],
                 ),
-                Text(_violation?.namaKategori ?? '', style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeight.bold)),
+                Text('${_violation?.namaKategori} (${_violation?.tingkatKeparahan ?? "Umum"})', style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeight.bold)),
                 const Divider(height: 32),
                 _buildInfoRow(Icons.event_note, 'Tanggal', _violation?.tanggalPelanggaran ?? '-'),
                 const SizedBox(height: 12),
@@ -699,7 +699,7 @@ class _AddViolationSheetState extends State<AddViolationSheet> {
                     value: _selectedCategory,
                     isExpanded: true,
                     decoration: InputDecoration(
-                      labelText: 'Kategori',
+                      labelText: 'Jenis Pelanggaran',
                       filled: true, fillColor: Colors.grey.shade50,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                       prefixIcon: const Icon(Icons.warning_amber_rounded),
@@ -709,7 +709,7 @@ class _AddViolationSheetState extends State<AddViolationSheet> {
                       child: Text(c.namaKategori, style: const TextStyle(fontSize: 13))
                     )).toList(),
                     onChanged: (val) => setState(() => _selectedCategory = val),
-                    validator: (v) => v == null ? 'Pilih kategori' : null,
+                    validator: (v) => v == null ? 'Pilih jenis pelanggaran' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(

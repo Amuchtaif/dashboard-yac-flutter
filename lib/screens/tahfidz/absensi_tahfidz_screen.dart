@@ -567,21 +567,6 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
                                   tooltip: 'Input Setoran',
                                 ),
                               IconButton(
-                                icon: const Icon(Icons.calendar_month_rounded),
-                                onPressed: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: _selectedDate,
-                                    firstDate: DateTime(2020),
-                                    lastDate: DateTime(2030),
-                                  );
-                                  if (picked != null) {
-                                    setState(() => _selectedDate = picked);
-                                  }
-                                },
-                                tooltip: 'Filter Tanggal',
-                              ),
-                              IconButton(
                                 icon: const Icon(
                                   Icons.person_add_alt_1_rounded,
                                 ),
@@ -959,35 +944,39 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Stack(
-            children: [
-              Container(
-                height: 6,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 500),
-                height: 6,
-                width: MediaQuery.of(context).size.width * 0.8 * progress,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-                  ),
-                  borderRadius: BorderRadius.circular(3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.indigo.withValues(alpha: 0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                children: [
+                  Container(
+                    height: 6,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(3),
                     ),
-                  ],
-                ),
-              ),
-            ],
+                  ),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 500),
+                    height: 6,
+                    width: constraints.maxWidth * progress,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                      ),
+                      borderRadius: BorderRadius.circular(3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.indigo.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
           Row(
@@ -1516,22 +1505,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
                   elevation: 0,
                   iconTheme: const IconThemeData(color: Colors.black87),
                   actions: [
-                    IconButton(
-                      icon: const Icon(Icons.calendar_month_rounded),
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedDate,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
-                        );
-                        if (picked != null) {
-                          setState(() => _selectedDate = picked);
-                          _fetchCoordinatorData();
-                        }
-                      },
-                      tooltip: 'Filter Tanggal',
-                    ),
+                    const SizedBox(width: 16),
                   ],
                 ),
                 SliverToBoxAdapter(

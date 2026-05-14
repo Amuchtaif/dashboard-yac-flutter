@@ -4,7 +4,8 @@ class Violation {
   final int santriId;
   final String namaSiswa;
   final int kategoriId;
-  final String namaKategori;
+  final String namaKategori; // Now holds type_name (e.g., Merokok)
+  final String? tingkatKeparahan; // Holds Ringan, Sedang, Berat
   final int poin;
   final String deskripsi;
   final String tanggalPelanggaran;
@@ -20,6 +21,7 @@ class Violation {
     required this.namaSiswa,
     required this.kategoriId,
     required this.namaKategori,
+    this.tingkatKeparahan,
     required this.poin,
     required this.deskripsi,
     required this.tanggalPelanggaran,
@@ -37,6 +39,7 @@ class Violation {
       namaSiswa: json['nama_siswa'] ?? '',
       kategoriId: int.tryParse(json['kategori_id'].toString()) ?? 0,
       namaKategori: json['nama_kategori'] ?? '',
+      tingkatKeparahan: json['category'],
       poin: int.tryParse(json['poin']?.toString() ?? '0') ?? 0,
       deskripsi: json['deskripsi'] ?? '',
       tanggalPelanggaran: json['tanggal_pelanggaran'] ?? '',
