@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:ui';
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -980,28 +981,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: pages[_currentIndex],
         ),
       ),
-      bottomNavigationBar: Container(
-        margin: const EdgeInsets.only(left: 15, right: 15, bottom: 10),
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(50),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(50),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildNavItem(Icons.home_rounded, "Beranda", 0),
+                  _buildNavItem(Icons.menu_book_rounded, "Berita", 1),
+                  _buildNavItem(Icons.access_time_filled_rounded, "Kinerja", 2),
+                  _buildNavItem(Icons.person_rounded, "Profil", 3),
+                ],
+              ),
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildNavItem(Icons.home_rounded, "Beranda", 0),
-            _buildNavItem(Icons.menu_book_rounded, "Berita", 1),
-            _buildNavItem(Icons.access_time_filled_rounded, "Kinerja", 2),
-            _buildNavItem(Icons.person_rounded, "Profil", 3),
-          ],
+          ),
         ),
       ),
     );
@@ -1025,7 +1035,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF2B83F6) : Colors.grey[400],
+              color: isSelected ? const Color(0xFF2B83F6) : Colors.black54,
               size: 24, // Slightly smaller to fit text
             ),
             const SizedBox(height: 4),
@@ -1034,7 +1044,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: GoogleFonts.poppins(
                 fontSize: 10, // Small text
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected ? const Color(0xFF2B83F6) : Colors.grey[400],
+                color: isSelected ? const Color(0xFF2B83F6) : Colors.black54,
               ),
             ),
           ],
@@ -1102,6 +1112,7 @@ class HomeTab extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: SafeArea(
+        bottom: false,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16.0),
@@ -1160,7 +1171,7 @@ class HomeTab extends StatelessWidget {
                 const SizedBox(height: 12),
                 _buildHomeroomMenuGrid(context),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 110),
             ],
           ),
         ),

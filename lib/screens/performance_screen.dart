@@ -102,6 +102,7 @@ class _PerformanceScreenState extends State<PerformanceScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             _buildHeader(),

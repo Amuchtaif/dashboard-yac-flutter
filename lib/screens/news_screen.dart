@@ -74,6 +74,7 @@ class _NewsScreenState extends State<NewsScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FB),
       body: SafeArea(
+        bottom: false,
         child: Stack(
           children: [
             RefreshIndicator(
