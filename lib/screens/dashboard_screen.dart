@@ -1,4 +1,4 @@
-import 'package:cached_network_image/cached_network_image.dart';
+﻿import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:ui';
 import 'dart:convert';
@@ -127,6 +127,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _positionName = '';
   String _profilePhoto = '';
   String _userId = "";
+  String _currentAddress = "Mencari lokasi...";
+  Position? _currentPosition;
 
   // Data Dashboard
   String _attendanceStatus = "BELUM_ABSEN";
@@ -164,12 +166,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // 1. Init Notification Service FIRST (must be before any showLocalNotification calls)
     _initNotifications();
+    _fetchCurrentLocation();
   }
 
   Future<void> _initNotifications() async {
     // Initialize local notification plugin FIRST
     await NotificationService().init();
-    debugPrint("✅ NotificationService initialized");
+    debugPrint("âœ… NotificationService initialized");
 
     // 2. Setup Interacted Message (Click handler for terminated/background)
     setupInteractedMessage();
@@ -178,14 +181,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _fcmSubscription = FirebaseMessaging.onMessage.listen((
       RemoteMessage message,
     ) {
-      debugPrint("🔥 FOREGROUND NOTIF RECEIVED!");
+      debugPrint("ðŸ”¥ FOREGROUND NOTIF RECEIVED!");
       debugPrint("Data: ${message.data}");
 
-      // ⚠️ SILENT CHECK: Don't show local notification if it's a maintenance type
+      // âš ï¸ SILENT CHECK: Don't show local notification if it's a maintenance type
       final String? type = message.data['type'];
       if (type == 'maintenance' || type == 'app_status') {
         debugPrint(
-          "🔇 Maintenance message detected, skipping local notification display.",
+          "ðŸ”‡ Maintenance message detected, skipping local notification display.",
         );
         return; // ABSOLUTELY STOP HERE for maintenance messages
       }
@@ -201,7 +204,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (!mounted) return;
 
         // Tampilkan Notifikasi Sistem (Floating / Heads Up)
-        debugPrint("🔔 Showing local notification for FCM message...");
+        debugPrint("ðŸ”” Showing local notification for FCM message...");
         FlutterLocalNotificationsPlugin().show(
           message.notification.hashCode,
           message.notification!.title ?? 'Notifikasi Baru',
@@ -220,7 +223,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       } else {
         // Fallback jika notifikasi null tapi ada data (kadang terjadi)
-        debugPrint("🔔 FCM notification is null, using data fields...");
+        debugPrint("ðŸ”” FCM notification is null, using data fields...");
         FlutterLocalNotificationsPlugin().show(
           message.hashCode,
           message.data['title'] ?? 'Notifikasi Baru',
@@ -247,7 +250,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _notificationSubscription = NotificationService().selectNotificationStream
         .listen((String? payload) {
           if (payload != null) {
-            debugPrint("🔔 Local Notification Tapped! Payload: $payload");
+            debugPrint("ðŸ”” Local Notification Tapped! Payload: $payload");
             try {
               final Map<String, dynamic> data = jsonDecode(payload);
               _handleNavigationData(data);
@@ -285,7 +288,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _handleNavigationData(Map<String, dynamic> data) {
-    debugPrint("🚀 Handling Navigation Data: $data");
+    debugPrint("ðŸš€ Handling Navigation Data: $data");
 
     // Check screen type
     String? screen = data['screen'];
@@ -353,6 +356,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
         context,
         MaterialPageRoute(builder: (context) => const AssignmentScreen()),
       );
+    }
+  }
+
+  Future<void> _fetchCurrentLocation() async {
+    try {
+      Position position = await _determinePosition();
+      if (!mounted) return;
+      setState(() {
+        _currentPosition = position;
+      });
+
+      final url = Uri.parse(
+        "https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}&zoom=18&addressdetails=1",
+      );
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'DashboardApp/1.0'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200 && mounted) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _currentAddress = data['display_name'] ?? "Alamat tidak ditemukan";
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching location: $e");
+      if (mounted) {
+        setState(() {
+          _currentAddress = "Gagal memuat alamat. Pastikan GPS aktif.";
+        });
+      }
     }
   }
 
@@ -931,9 +966,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         swapPartnerName: _swapPartnerName,
         canApprovePermits: _canApprovePermits,
         isWaliKelas: _isWaliKelas,
+        currentAddress: _currentAddress,
+        currentPosition: _currentPosition,
         onRefresh: () async {
           await _fetchDashboardData();
           await _fetchNewsData();
+          await _fetchCurrentLocation();
         },
         onSeeAllNews: () {
           setState(() {
@@ -1077,6 +1115,8 @@ class HomeTab extends StatelessWidget {
   final String? swapPartnerName;
   final bool canApprovePermits;
   final bool isWaliKelas;
+  final String currentAddress;
+  final Position? currentPosition;
   final Future<void> Function() onRefresh;
 
   const HomeTab({
@@ -1100,6 +1140,8 @@ class HomeTab extends StatelessWidget {
     this.swapPartnerName,
     required this.canApprovePermits,
     required this.isWaliKelas,
+    required this.currentAddress,
+    this.currentPosition,
     required this.onRefresh,
     required this.onSeeAllNews,
   });
@@ -1122,6 +1164,8 @@ class HomeTab extends StatelessWidget {
               _buildHeader(context),
               const SizedBox(height: 20),
               _buildStatusCard(),
+              const SizedBox(height: 16),
+              _buildLocationCard(),
               const SizedBox(height: 27),
               _buildSectionTitle('Aktivitas Terbaru'),
               const SizedBox(height: 20),
@@ -1588,6 +1632,148 @@ class HomeTab extends StatelessWidget {
           },
         );
       },
+    );
+  }
+
+  Widget _buildLocationCard() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.location_on_rounded, color: Colors.blue, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Lokasi Anda Saat Ini",
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      currentAddress,
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Map Section
+          Container(
+            height: 160,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+              color: const Color(0xFFF1F5F9),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Real Static Map from Yandex (More reliable for static images)
+                  if (currentPosition != null)
+                    Positioned.fill(
+                      child: CachedNetworkImage(
+                        imageUrl:
+                            "https://static-maps.yandex.ru/1.x/?ll=${currentPosition!.longitude},${currentPosition!.latitude}&z=16&l=map&size=650,350",
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: const Color(0xFFF1F5F9),
+                          child: const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => CustomPaint(
+                          painter: _MapGridPainter(),
+                        ),
+                      ),
+                    )
+                  else
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _MapGridPainter(),
+                      ),
+                    ),
+                  // Pulse and Dot
+                  const _LocationPulse(),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          // Footer
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.gps_fixed_rounded, color: Colors.green, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "GPS Akurat",
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                  Text(
+                    "Lokasi diperbarui saat ini",
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -2176,7 +2362,7 @@ class HomeTab extends StatelessWidget {
   }
 
   Widget _buildGeneralMenuGrid(BuildContext context) {
-    final row1 = [
+    final menus = [
       {'title': 'Izin Kerja', 'icon': Icons.work_outline, 'color': Colors.blue},
       {'title': 'Rapat Pertemuan', 'icon': Icons.groups, 'color': Colors.amber},
       {
@@ -2185,9 +2371,6 @@ class HomeTab extends StatelessWidget {
         'color': Colors.teal,
       },
       {'title': 'Penggajian', 'icon': Icons.payments, 'color': Colors.pink},
-    ];
-
-    final row2 = [
       {
         'title': 'Tukar Shift',
         'icon': Icons.swap_horiz,
@@ -2204,20 +2387,35 @@ class HomeTab extends StatelessWidget {
         'icon': Icons.assignment_turned_in,
         'color': Colors.deepOrange,
       },
+      {
+        'title': 'Lapor Pelanggaran',
+        'icon': Icons.gavel_rounded,
+        'color': Colors.redAccent,
+      },
     ];
 
     return Column(
       children: [
         Row(
           children:
-              row1
+              menus
+                  .sublist(0, 3)
                   .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
                   .toList(),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Row(
           children:
-              row2
+              menus
+                  .sublist(3, 6)
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children:
+              menus
+                  .sublist(6, 9)
                   .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
                   .toList(),
         ),
@@ -2419,16 +2617,16 @@ class HomeTab extends StatelessWidget {
   }
 
   Widget _buildKesantrianMenuGrid(BuildContext context) {
-    final otherMenus = [
+    final menus = [
+      {
+        'title': 'Absensi Asrama',
+        'icon': Icons.night_shelter_rounded,
+        'color': Colors.blueGrey,
+      },
       {
         'title': 'Absensi Makan',
         'icon': Icons.restaurant_rounded,
         'color': Colors.orange,
-      },
-      {
-        'title': 'Pelanggaran',
-        'icon': Icons.gavel_rounded,
-        'color': Colors.redAccent,
       },
       {'title': 'Kepulangan', 'icon': Icons.home_rounded, 'color': Colors.teal},
       {
@@ -2438,22 +2636,11 @@ class HomeTab extends StatelessWidget {
       },
     ];
 
-    return Column(
-      children: [
-        _buildFullWidthMenuCard(context, {
-          'title': 'Absensi Asrama',
-          'subtitle': 'Input absensi asrama santri',
-          'icon': Icons.night_shelter_rounded,
-          'color': Colors.blueGrey,
-        }),
-        const SizedBox(height: 12),
-        Row(
-          children:
-              otherMenus
-                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
-                  .toList(),
-        ),
-      ],
+    return Row(
+      children:
+          menus
+              .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+              .toList(),
     );
   }
 
@@ -2886,7 +3073,7 @@ class HomeTab extends StatelessWidget {
           ),
         );
       }
-    } else if (navTitle == 'Pelanggaran') {
+    } else if (navTitle == 'Lapor Pelanggaran') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const PelanggaranScreen()),
@@ -2932,4 +3119,101 @@ class HomeTab extends StatelessWidget {
       ).showSnackBar(SnackBar(content: Text('Menu $title akan segera hadir')));
     }
   }
+}
+
+
+class _LocationPulse extends StatefulWidget {
+  const _LocationPulse();
+
+  @override
+  State<_LocationPulse> createState() => _LocationPulseState();
+}
+
+class _LocationPulseState extends State<_LocationPulse>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 60 * _controller.value,
+              height: 60 * _controller.value,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.blue.withValues(alpha: 0.2 * (1 - _controller.value)),
+              ),
+            ),
+            Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.blue,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withValues(alpha: 0.3),
+                    blurRadius: 6,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MapGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.grey.withValues(alpha: 0.2)
+      ..strokeWidth = 1.5;
+
+    canvas.drawLine(const Offset(0, 40), Offset(size.width, 100), paint);
+    canvas.drawLine(Offset(size.width * 0.3, 0), Offset(size.width * 0.4, size.height), paint);
+    canvas.drawLine(Offset(size.width * 0.7, 0), Offset(size.width * 0.6, size.height), paint);
+    canvas.drawLine(const Offset(0, 120), Offset(size.width, 140), paint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
