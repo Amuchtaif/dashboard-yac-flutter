@@ -290,83 +290,76 @@ class _PelanggaranScreenState extends State<PelanggaranScreen> {
       severityColor = Colors.orange;
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: severityColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  v.tingkatKeparahan ?? 'Umum',
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: severityColor,
+    return InkWell(
+      onTap: () => _showViolationDetail(v),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: severityColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    v.tingkatKeparahan ?? 'Umum',
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: severityColor,
+                    ),
                   ),
                 ),
-              ),
-              Text(
-                v.tanggalPelanggaran,
-                style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            v.namaSiswa,
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            v.deskripsi,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: const Color(0xFF64748B),
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStatusBadge(v.status),
-              TextButton(
-                onPressed: () => _showViolationDetail(v),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 0),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                Text(
+                  v.tanggalPelanggaran,
+                  style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey),
                 ),
-                child: Text(
-                  'Lihat Detail',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFFE11D48),
-                  ),
-                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              v.namaSiswa,
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              v.deskripsi,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: const Color(0xFF64748B),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildStatusBadge(v.status),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.grey.shade400,
+                  size: 20,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -797,7 +790,7 @@ class _AddViolationSheetState extends State<AddViolationSheet> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isSubmitting = true);
       final success = await ViolationService.create(
-        santriId: _selectedStudent!['id'],
+        santriId: int.parse(_selectedStudent!['id'].toString()),
         kategoriId: _selectedCategory!.id,
         deskripsi: _deskripsiController.text,
         tanggal: DateFormat('yyyy-MM-dd').format(_selectedDate),
@@ -808,7 +801,14 @@ class _AddViolationSheetState extends State<AddViolationSheet> {
       setState(() => _isSubmitting = false);
       if (success && mounted) {
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Laporan berhasil disimpan')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Laporan berhasil disimpan'),
+            backgroundColor: Colors.green.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
       }
     }
   }

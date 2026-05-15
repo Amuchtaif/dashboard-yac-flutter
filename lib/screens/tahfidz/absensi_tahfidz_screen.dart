@@ -19,7 +19,7 @@ class AbsensiTahfidzScreen extends StatefulWidget {
 class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
   final TahfidzService _service = TahfidzService();
 
-  DateTime _selectedDate = DateTime.now();
+  final DateTime _selectedDate = DateTime.now();
   String _selectedSession = 'Pagi';
   List<dynamic> _students = [];
   final Map<int, String> _attendanceStatus = {};
@@ -579,8 +579,8 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
                         SliverPersistentHeader(
                           pinned: true,
                           delegate: _StickyHeaderDelegate(
-                            minHeight: 200,
-                            maxHeight: 200,
+                            minHeight: 240,
+                            maxHeight: 240,
                             child: Container(
                               color: Colors.grey[100],
                               padding: const EdgeInsets.only(
@@ -980,7 +980,6 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
           ),
           const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildModernStatItem(
                 "Hadir",
@@ -1019,34 +1018,39 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
     Color color,
     IconData icon,
   ) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(7),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, size: 22, color: color),
           ),
-          child: Icon(icon, size: 14, color: color),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
-        ),
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 9,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey[500],
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[500],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
