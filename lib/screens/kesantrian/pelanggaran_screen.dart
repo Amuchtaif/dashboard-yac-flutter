@@ -402,11 +402,11 @@ class _PelanggaranScreenState extends State<PelanggaranScreen> {
   }
 
   void _showAddViolationModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const AddViolationSheet(),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddViolationPage(),
+      ),
     ).then((value) {
       if (value == true) _fetchData();
     });
@@ -566,14 +566,14 @@ class _ViolationDetailSheetState extends State<ViolationDetailSheet> {
   }
 }
 
-class AddViolationSheet extends StatefulWidget {
-  const AddViolationSheet({super.key});
+class AddViolationPage extends StatefulWidget {
+  const AddViolationPage({super.key});
 
   @override
-  State<AddViolationSheet> createState() => _AddViolationSheetState();
+  State<AddViolationPage> createState() => _AddViolationPageState();
 }
 
-class _AddViolationSheetState extends State<AddViolationSheet> {
+class _AddViolationPageState extends State<AddViolationPage> {
   final _formKey = GlobalKey<FormState>();
   final _deskripsiController = TextEditingController();
   final _lokasiController = TextEditingController();
@@ -609,181 +609,356 @@ class _AddViolationSheetState extends State<AddViolationSheet> {
   }
 
   @override
+  void dispose() {
+    _deskripsiController.dispose();
+    _lokasiController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    return Scaffold(
+      backgroundColor: const Color(0xFFFFF1F2),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFFFF1F2),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          'Catat Pelanggaran',
+          style: GoogleFonts.poppins(
+            color: const Color(0xFF1E293B),
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF1E293B), size: 18),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
-      padding: EdgeInsets.only(
-        left: 24, right: 24, top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: _isLoading 
+      body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
         : Form(
             key: _formKey,
             child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)))),
-                  const SizedBox(height: 24),
-                  Text('Catat Pelanggaran', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 24),
-                  FormField<Map<String, dynamic>>(
-                    validator: (v) => _selectedStudent == null ? 'Pilih santri' : null,
-                    builder: (formState) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          InkWell(
-                            onTap: () => _showStudentPicker(),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
-                                borderRadius: BorderRadius.circular(16),
-                                border: formState.hasError
-                                    ? Border.all(color: Colors.red, width: 1)
-                                    : null,
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.person_outline, color: Colors.grey),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      _selectedStudent != null
-                                          ? '${_selectedStudent!['nama_siswa']} (${_selectedStudent!['kelas'] ?? '-'})'
-                                          : 'Pilih Santri',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: _selectedStudent != null
-                                            ? Colors.black87
-                                            : Colors.grey.shade600,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                  _buildSectionTitle('SISWA & KATEGORI'),
+                  const SizedBox(height: 12),
+                  _buildCardContainer([
+                    // Field Pilih Santri
+                    FormField<Map<String, dynamic>>(
+                      validator: (v) => _selectedStudent == null ? 'Pilih santri' : null,
+                      builder: (formState) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            InkWell(
+                              onTap: () => _showStudentPicker(),
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: formState.hasError ? Colors.red : Colors.grey.shade200,
                                   ),
-                                  Icon(Icons.search_rounded, color: Colors.grey.shade400, size: 20),
-                                ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.person_outline, color: Color(0xFFE11D48)),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _selectedStudent != null
+                                            ? '${_selectedStudent!['nama_siswa']} (${_selectedStudent!['kelas'] ?? '-'})'
+                                            : 'Pilih Santri',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          fontWeight: _selectedStudent != null
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                          color: _selectedStudent != null
+                                              ? const Color(0xFF1E293B)
+                                              : Colors.grey.shade500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 22),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          if (formState.hasError)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 12, top: 8),
+                            if (formState.hasError)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 12, top: 8),
+                                child: Text(
+                                  formState.errorText!,
+                                  style: GoogleFonts.poppins(color: Colors.red.shade700, fontSize: 12),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Field Pilih Jenis Pelanggaran
+                    FormField<ViolationCategory>(
+                      validator: (v) => _selectedCategory == null ? 'Pilih jenis pelanggaran' : null,
+                      builder: (formState) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            InkWell(
+                              onTap: () => _showCategoryPicker(),
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: formState.hasError ? Colors.red : Colors.grey.shade200,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFE11D48)),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _selectedCategory != null
+                                            ? '${_selectedCategory!.namaKategori} (${_selectedCategory!.poin} Poin)'
+                                            : 'Pilih Jenis Pelanggaran',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          fontWeight: _selectedCategory != null
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                          color: _selectedCategory != null
+                                              ? const Color(0xFF1E293B)
+                                              : Colors.grey.shade500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400, size: 22),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (formState.hasError)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 12, top: 8),
+                                child: Text(
+                                  formState.errorText!,
+                                  style: GoogleFonts.poppins(color: Colors.red.shade700, fontSize: 12),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ]),
+                  
+                  const SizedBox(height: 24),
+                  _buildSectionTitle('DETAIL KEJADIAN'),
+                  const SizedBox(height: 12),
+                  _buildCardContainer([
+                    // Deskripsi Pelanggaran
+                    TextFormField(
+                      controller: _deskripsiController,
+                      maxLines: 3,
+                      style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF1E293B)),
+                      decoration: InputDecoration(
+                        labelText: 'Deskripsi Pelanggaran',
+                        labelStyle: GoogleFonts.poppins(color: Colors.grey.shade500, fontSize: 14),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        alignLabelWithHint: true,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(color: Color(0xFFE11D48)),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(color: Colors.red),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(color: Colors.red, width: 2),
+                        ),
+                      ),
+                      validator: (v) => v!.isEmpty ? 'Deskripsi wajib diisi' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    // Lokasi
+                    TextFormField(
+                      controller: _lokasiController,
+                      style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF1E293B)),
+                      decoration: InputDecoration(
+                        labelText: 'Lokasi',
+                        labelStyle: GoogleFonts.poppins(color: Colors.grey.shade500, fontSize: 14),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        prefixIcon: const Icon(Icons.location_on_outlined, color: Color(0xFFE11D48)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: const BorderSide(color: Color(0xFFE11D48)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Tanggal
+                    InkWell(
+                      onTap: () async {
+                        final dt = await showDatePicker(
+                          context: context, 
+                          initialDate: _selectedDate, 
+                          firstDate: DateTime(2024), 
+                          lastDate: DateTime.now(),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: const ColorScheme.light(
+                                  primary: Color(0xFFE11D48),
+                                  onPrimary: Colors.white,
+                                  onSurface: Color(0xFF1E293B),
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          }
+                        );
+                        if (dt != null) setState(() => _selectedDate = dt);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 20, color: Color(0xFFE11D48)),
+                            const SizedBox(width: 12),
+                            Expanded(
                               child: Text(
-                                formState.errorText!,
-                                style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+                                DateFormat('dd MMMM yyyy').format(_selectedDate),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF1E293B),
+                                ),
                               ),
                             ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<ViolationCategory>(
-                    value: _selectedCategory,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: 'Jenis Pelanggaran',
-                      filled: true, fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      prefixIcon: const Icon(Icons.warning_amber_rounded),
-                    ),
-                    items: _categories.map((c) => DropdownMenuItem(
-                      value: c, 
-                      child: Text(c.namaKategori, style: const TextStyle(fontSize: 13))
-                    )).toList(),
-                    onChanged: (val) => setState(() => _selectedCategory = val),
-                    validator: (v) => v == null ? 'Pilih jenis pelanggaran' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _deskripsiController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: 'Deskripsi Pelanggaran',
-                      filled: true, fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                    ),
-                    validator: (v) => v!.isEmpty ? 'Wajib diisi' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _lokasiController,
-                    decoration: InputDecoration(
-                      labelText: 'Lokasi',
-                      filled: true, fillColor: Colors.grey.shade50,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      prefixIcon: const Icon(Icons.location_on_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  InkWell(
-                    onTap: () async {
-                      final dt = await showDatePicker(
-                        context: context, 
-                        initialDate: _selectedDate, 
-                        firstDate: DateTime(2024), 
-                        lastDate: DateTime.now()
-                      );
-                      if (dt != null) setState(() => _selectedDate = dt);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(16)),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calendar_today, size: 20, color: Colors.grey),
-                          const SizedBox(width: 12),
-                          Text(DateFormat('dd MMMM yyyy').format(_selectedDate)),
-                        ],
+                            Icon(Icons.edit_calendar_rounded, color: Colors.grey.shade400, size: 20),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE11D48),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      child: _isSubmitting 
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text('Simpan Laporan', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
+                  ]),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
           ),
+      bottomNavigationBar: Container(
+        color: Colors.transparent,
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+        child: SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: ElevatedButton(
+            onPressed: _isSubmitting || _isLoading ? null : _submit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE11D48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 0,
+            ),
+            child: _isSubmitting 
+              ? const CircularProgressIndicator(color: Colors.white)
+              : Text(
+                  'Simpan Laporan',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+          ),
+        ),
+      ),
     );
   }
 
-  void _showStudentPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return _StudentSearchSheet(
-          students: _students,
-          onSelected: (student) {
-            setState(() => _selectedStudent = student);
-          },
-        );
-      },
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        title,
+        style: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: const Color(0xFF64748B),
+          letterSpacing: 1.2,
+        ),
+      ),
     );
+  }
+
+  Widget _buildCardContainer(List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFE11D48).withValues(alpha: 0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    );
+  }
+
+  void _showStudentPicker() async {
+    final selected = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => _StudentSearchDialog(students: _students),
+    );
+    if (selected != null) {
+      setState(() => _selectedStudent = selected);
+    }
+  }
+
+  void _showCategoryPicker() async {
+    final selected = await showDialog<ViolationCategory>(
+      context: context,
+      builder: (context) => _CategorySearchDialog(categories: _categories),
+    );
+    if (selected != null) {
+      setState(() => _selectedCategory = selected);
+    }
   }
 
   void _submit() async {
@@ -885,20 +1060,16 @@ class _AddFollowupDialogState extends State<AddFollowupDialog> {
   }
 }
 
-class _StudentSearchSheet extends StatefulWidget {
+class _StudentSearchDialog extends StatefulWidget {
   final List<Map<String, dynamic>> students;
-  final ValueChanged<Map<String, dynamic>> onSelected;
 
-  const _StudentSearchSheet({
-    required this.students,
-    required this.onSelected,
-  });
+  const _StudentSearchDialog({required this.students});
 
   @override
-  State<_StudentSearchSheet> createState() => _StudentSearchSheetState();
+  State<_StudentSearchDialog> createState() => _StudentSearchDialogState();
 }
 
-class _StudentSearchSheetState extends State<_StudentSearchSheet> {
+class _StudentSearchDialogState extends State<_StudentSearchDialog> {
   final _searchController = TextEditingController();
   List<Map<String, dynamic>> _filtered = [];
 
@@ -931,81 +1102,82 @@ class _StudentSearchSheetState extends State<_StudentSearchSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.75,
-      ),
-      child: Column(
-        children: [
-          // Handle bar
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 8),
-            child: Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        width: double.infinity,
+        height: MediaQuery.of(context).size.height * 0.65,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title & Close Button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Pilih Santri',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1E293B),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Search Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                onChanged: _onSearch,
+                decoration: InputDecoration(
+                  hintText: 'Cari nama atau kelas...',
+                  hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFFE11D48), size: 20),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 16),
+                          onPressed: () {
+                            _searchController.clear();
+                            _onSearch('');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE11D48)),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ),
-          ),
-          // Title
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Text(
-              'Pilih Santri',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: TextField(
-              controller: _searchController,
-              autofocus: true,
-              onChanged: _onSearch,
-              decoration: InputDecoration(
-                hintText: 'Cari nama atau kelas...',
-                hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
-                prefixIcon: const Icon(Icons.search, color: Color(0xFFE11D48)),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          _onSearch('');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Result count
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Align(
-              alignment: Alignment.centerLeft,
+            const SizedBox(height: 12),
+            // Result Count
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Text(
                 '${_filtered.length} santri ditemukan',
                 style: GoogleFonts.poppins(
@@ -1014,78 +1186,281 @@ class _StudentSearchSheetState extends State<_StudentSearchSheet> {
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          // List
-          Expanded(
-            child: _filtered.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.person_off_outlined,
-                            size: 48, color: Colors.grey.shade300),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Santri tidak ditemukan',
-                          style: GoogleFonts.poppins(
-                            color: Colors.grey,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    itemCount: _filtered.length,
-                    separatorBuilder: (_, __) =>
-                        Divider(height: 1, color: Colors.grey.shade200),
-                    itemBuilder: (context, index) {
-                      final s = _filtered[index];
-                      return ListTile(
-                        dense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        leading: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: const Color(0xFFE11D48).withValues(alpha: 0.1),
-                          child: Text(
-                            (s['nama_siswa'] ?? '?')[0].toUpperCase(),
+            const SizedBox(height: 8),
+            // List
+            Expanded(
+              child: _filtered.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.person_off_outlined,
+                              size: 40, color: Colors.grey.shade300),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Santri tidak ditemukan',
                             style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFFE11D48),
-                              fontSize: 14,
+                              color: Colors.grey,
+                              fontSize: 12,
                             ),
                           ),
-                        ),
-                        title: Text(
-                          s['nama_siswa'] ?? '',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: _filtered.length,
+                      separatorBuilder: (_, __) =>
+                          Divider(height: 1, color: Colors.grey.shade100),
+                      itemBuilder: (context, index) {
+                        final s = _filtered[index];
+                        return ListTile(
+                          dense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          'Kelas: ${s['kelas'] ?? '-'}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 11,
-                            color: Colors.grey,
+                          leading: CircleAvatar(
+                            radius: 16,
+                            backgroundColor: const Color(0xFFE11D48).withValues(alpha: 0.1),
+                            child: Text(
+                              (s['nama_siswa'] ?? '?')[0].toUpperCase(),
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFE11D48),
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
-                        ),
-                        onTap: () {
-                          widget.onSelected(s);
-                          Navigator.pop(context);
-                        },
-                      );
-                    },
+                          title: Text(
+                            s['nama_siswa'] ?? '',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1E293B),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            'Kelas: ${s['kelas'] ?? '-'}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context, s);
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategorySearchDialog extends StatefulWidget {
+  final List<ViolationCategory> categories;
+
+  const _CategorySearchDialog({required this.categories});
+
+  @override
+  State<_CategorySearchDialog> createState() => _CategorySearchDialogState();
+}
+
+class _CategorySearchDialogState extends State<_CategorySearchDialog> {
+  final _searchController = TextEditingController();
+  List<ViolationCategory> _filtered = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filtered = widget.categories;
+  }
+
+  void _onSearch(String query) {
+    final q = query.toLowerCase().trim();
+    setState(() {
+      if (q.isEmpty) {
+        _filtered = widget.categories;
+      } else {
+        _filtered = widget.categories.where((c) {
+          final name = c.namaKategori.toLowerCase();
+          final point = c.poin.toString();
+          return name.contains(q) || point.contains(q);
+        }).toList();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      backgroundColor: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        width: double.infinity,
+        height: MediaQuery.of(context).size.height * 0.65,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title & Close Button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Pilih Jenis Pelanggaran',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1E293B),
+                    ),
                   ),
-          ),
-        ],
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Search Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                onChanged: _onSearch,
+                decoration: InputDecoration(
+                  hintText: 'Cari jenis pelanggaran atau poin...',
+                  hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFFE11D48), size: 20),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 16),
+                          onPressed: () {
+                            _searchController.clear();
+                            _onSearch('');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE11D48)),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Result Count
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                '${_filtered.length} jenis pelanggaran ditemukan',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // List
+            Expanded(
+              child: _filtered.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.warning_amber_rounded,
+                              size: 40, color: Colors.grey.shade300),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Jenis pelanggaran tidak ditemukan',
+                            style: GoogleFonts.poppins(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: _filtered.length,
+                      separatorBuilder: (_, __) =>
+                          Divider(height: 1, color: Colors.grey.shade100),
+                      itemBuilder: (context, index) {
+                        final c = _filtered[index];
+                        return ListTile(
+                          dense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          leading: CircleAvatar(
+                            radius: 16,
+                            backgroundColor: const Color(0xFFE11D48).withValues(alpha: 0.1),
+                            child: Text(
+                              c.poin.toString(),
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFE11D48),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            c.namaKategori,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF1E293B),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            'Poin Pelanggaran: ${c.poin}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context, c);
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

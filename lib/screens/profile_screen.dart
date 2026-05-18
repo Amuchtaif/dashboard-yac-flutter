@@ -54,7 +54,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Load app version
     final packageInfo = await PackageInfo.fromPlatform();
     setState(() {
-      _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+      _appVersion = packageInfo.version;
     });
 
     // Debug: Print loaded data
