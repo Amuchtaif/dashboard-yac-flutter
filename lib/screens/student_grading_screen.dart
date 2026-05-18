@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/grading_service.dart';
 import 'input_grading_screen.dart';
+import 'grade_recap_full_screen.dart';
 import 'package:intl/intl.dart';
+
 
 class StudentGradingScreen extends StatefulWidget {
   const StudentGradingScreen({super.key});
@@ -256,6 +258,57 @@ class _StudentGradingScreenState extends State<StudentGradingScreen> {
               ],
             ),
           ),
+          if (_assessments.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => GradeRecapFullScreen(
+                      assessments: _assessments,
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.bar_chart_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Lihat Rekap Lengkap',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: Colors.white,
+                      size: 12,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -292,13 +345,14 @@ class _StudentGradingScreenState extends State<StudentGradingScreen> {
         final assessment = _assessments[index];
         final avgScore =
             double.tryParse(assessment['avg_score']?.toString() ?? '0') ?? 0.0;
-        final idToPass = (assessment['id'] ??
-                assessment['assessment_id'] ??
-                assessment['grading_id'] ??
-                assessment['id_grading'] ??
-                assessment['id_penilaian'] ??
-                '')
-            .toString();
+        final idToPass =
+            (assessment['id'] ??
+                    assessment['assessment_id'] ??
+                    assessment['grading_id'] ??
+                    assessment['id_grading'] ??
+                    assessment['id_penilaian'] ??
+                    '')
+                .toString();
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
@@ -312,7 +366,11 @@ class _StudentGradingScreenState extends State<StudentGradingScreen> {
                 color: Colors.redAccent,
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: const Icon(Icons.delete_rounded, color: Colors.white, size: 28),
+              child: const Icon(
+                Icons.delete_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
             ),
             confirmDismiss: (direction) async {
               return await showDialog(
@@ -380,7 +438,8 @@ class _StudentGradingScreenState extends State<StudentGradingScreen> {
                       context,
                       MaterialPageRoute(
                         builder:
-                            (context) => GradingDetailScreen(assessmentId: idToPass),
+                            (context) =>
+                                GradingDetailScreen(assessmentId: idToPass),
                       ),
                     );
                     if (result != null) {
@@ -439,7 +498,9 @@ class _StudentGradingScreenState extends State<StudentGradingScreen> {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                                color: const Color(
+                                  0xFF10B981,
+                                ).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
@@ -689,15 +750,20 @@ class _GradingDetailScreenState extends State<GradingDetailScreen> {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: IconButton(
-                icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF7C3AED), size: 28),
+                icon: const Icon(
+                  Icons.edit_note_rounded,
+                  color: Color(0xFF7C3AED),
+                  size: 28,
+                ),
                 onPressed: () async {
                   final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => InputGradingScreen(
-                        editId: widget.assessmentId,
-                        editData: _assessmentDetail,
-                      ),
+                      builder:
+                          (context) => InputGradingScreen(
+                            editId: widget.assessmentId,
+                            editData: _assessmentDetail,
+                          ),
                     ),
                   );
                   if (result == true) {

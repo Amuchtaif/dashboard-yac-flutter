@@ -672,15 +672,13 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                           if (_hasAttended && !_isFinished)
                             _buildAttendedBanner(),
 
-                          // Participants List Section - always shown
-                          _buildParticipantsSection(),
-
-                          const SizedBox(height: 24),
-                          const Divider(),
-                          const SizedBox(height: 24),
-
                           // Notes Section
                           _buildNotesSection(),
+
+                          const SizedBox(height: 32),
+
+                          // Participants List Section - always shown
+                          _buildParticipantsSection(),
                         ],
                       ),
                     ),
@@ -840,7 +838,6 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 28),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1363,7 +1360,8 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
               icon: Icon(
                 Icons.add_comment_outlined,
                 size: 18,
-                color: _isMeetingStarted ? const Color(0xFF3B82F6) : Colors.grey,
+                color:
+                    _isMeetingStarted ? const Color(0xFF3B82F6) : Colors.grey,
               ),
               label: Text(
                 'Tambah',
@@ -1396,7 +1394,11 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
             ),
             child: Column(
               children: [
-                Icon(Icons.note_alt_outlined, color: Colors.grey[400], size: 40),
+                Icon(
+                  Icons.note_alt_outlined,
+                  color: Colors.grey[400],
+                  size: 40,
+                ),
                 const SizedBox(height: 12),
                 Text(
                   'Belum ada catatan rapat',
@@ -1423,9 +1425,7 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFFE5E7EB),
-                  ),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.02),

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../core/api_constants.dart';
 import 'login_screen.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
 import 'help_support_screen.dart';
@@ -27,6 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _profilePhoto = '';
   int _positionLevel = 99;
   bool _pushNotifications = true;
+  String _appVersion = '1.5.1';
 
   @override
   void initState() {
@@ -47,6 +49,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _address = prefs.getString('address') ?? '';
       _profilePhoto = prefs.getString('profilePhoto') ?? '';
       _positionLevel = prefs.getInt('positionLevel') ?? 99;
+    });
+
+    // Load app version
+    final packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
     });
 
     // Debug: Print loaded data
@@ -191,36 +199,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             shape: BoxShape.circle,
                           ),
                           child: ClipOval(
-                            child:
-                                () {
-                                  final photoUrl = ApiConstants.getProfilePhotoUrl(_profilePhoto);
-                                  return (photoUrl != null && photoUrl.isNotEmpty)
-                                      ? CachedNetworkImage(
-                                        key: ValueKey(photoUrl),
-                                        imageUrl: photoUrl,
-                                        width: 48,
-                                        height: 48,
-                                        fit: BoxFit.cover,
-                                        placeholder: (context, url) =>
-                                            const SizedBox(
-                                              width: 48,
-                                              height: 48,
-                                              child:
-                                                  CircularProgressIndicator(
-                                                    strokeWidth: 2,
-                                                  ),
-                                            ),
-                                        errorWidget: (context, url, error) =>
-                                            const Icon(
-                                              Icons.person,
-                                              color: Colors.white,
-                                            ),
-                                      )
-                                      : const Icon(
-                                        Icons.person,
-                                        color: Colors.white,
-                                      );
-                                }(),
+                            child: () {
+                              final photoUrl = ApiConstants.getProfilePhotoUrl(
+                                _profilePhoto,
+                              );
+                              return (photoUrl != null && photoUrl.isNotEmpty)
+                                  ? CachedNetworkImage(
+                                    key: ValueKey(photoUrl),
+                                    imageUrl: photoUrl,
+                                    width: 48,
+                                    height: 48,
+                                    fit: BoxFit.cover,
+                                    placeholder:
+                                        (context, url) => const SizedBox(
+                                          width: 48,
+                                          height: 48,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                    errorWidget:
+                                        (context, url, error) => const Icon(
+                                          Icons.person,
+                                          color: Colors.white,
+                                        ),
+                                  )
+                                  : const Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                  );
+                            }(),
                           ),
                         ),
                       ],
@@ -381,7 +389,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     Text(
-                      'Versi 1.0.0 (Build 001)',
+                      'Versi $_appVersion',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: Colors.grey[400],
