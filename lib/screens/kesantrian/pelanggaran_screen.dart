@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/violation_model.dart';
 import '../../services/violation_service.dart';
 
@@ -485,6 +488,45 @@ class _ViolationDetailSheetState extends State<ViolationDetailSheet> {
                 Text('Deskripsi:', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 8),
                 Text(_violation?.deskripsi ?? '', style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87)),
+                if (_violation?.attachment != null && _violation!.attachment!.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Text('Bukti Foto:', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => _showFullscreenImage(context, _violation!.attachment!),
+                    child: Container(
+                      width: double.infinity,
+                      height: 180,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(15),
+                        child: CachedNetworkImage(
+                          imageUrl: _violation!.attachment!,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFE11D48)),
+                          ),
+                          errorWidget: (context, url, error) => Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.broken_image_outlined, size: 40, color: Colors.grey),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Gagal memuat gambar',
+                                  style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const Divider(height: 48),
                 Text('RIWAYAT TINDAK LANJUT', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
                 const SizedBox(height: 16),
@@ -564,6 +606,52 @@ class _ViolationDetailSheetState extends State<ViolationDetailSheet> {
       if (value == true) _loadDetail();
     });
   }
+
+  void _showFullscreenImage(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFE11D48)),
+                  ),
+                  errorWidget: (context, url, error) => const Icon(Icons.broken_image, size: 50, color: Colors.white),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class AddViolationPage extends StatefulWidget {
@@ -587,6 +675,8 @@ class _AddViolationPageState extends State<AddViolationPage> {
   
   bool _isLoading = true;
   bool _isSubmitting = false;
+  File? _imageFile;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -871,6 +961,12 @@ class _AddViolationPageState extends State<AddViolationPage> {
                       ),
                     ),
                   ]),
+                  const SizedBox(height: 24),
+                  _buildSectionTitle('FOTO BUKTI (OPSIONAL)'),
+                  const SizedBox(height: 12),
+                  _buildCardContainer([
+                    _buildImagePickerSection(),
+                  ]),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -961,6 +1057,162 @@ class _AddViolationPageState extends State<AddViolationPage> {
     }
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: source,
+        imageQuality: 70,
+      );
+      if (image != null) {
+        setState(() {
+          _imageFile = File(image.path);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+    }
+  }
+
+  void _showImageSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
+            child: Wrap(
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFFE11D48).withValues(alpha: 0.1),
+                    child: const Icon(Icons.photo_library_rounded, color: Color(0xFFE11D48)),
+                  ),
+                  title: Text(
+                    'Pilih dari Galeri',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.gallery);
+                  },
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0xFFE11D48).withValues(alpha: 0.1),
+                    child: const Icon(Icons.camera_alt_rounded, color: Color(0xFFE11D48)),
+                  ),
+                  title: Text(
+                    'Ambil Foto Kamera',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.camera);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildImagePickerSection() {
+    return Center(
+      child: Stack(
+        children: [
+          GestureDetector(
+            onTap: _showImageSourceSheet,
+            child: Container(
+              width: double.infinity,
+              height: 180,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.grey.shade200,
+                  width: 1.5,
+                ),
+              ),
+              child: _imageFile != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Image.file(
+                        _imageFile!,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_a_photo_outlined,
+                          size: 40,
+                          color: const Color(0xFFE11D48).withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          "Pilih Bukti Foto",
+                          style: GoogleFonts.poppins(
+                            color: const Color(0xFF1E293B),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "Kamera atau Galeri",
+                          style: GoogleFonts.poppins(
+                            color: Colors.grey.shade500,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+          if (_imageFile != null)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: GestureDetector(
+                onTap: () => setState(() => _imageFile = null),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   void _submit() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isSubmitting = true);
@@ -971,6 +1223,7 @@ class _AddViolationPageState extends State<AddViolationPage> {
         tanggal: DateFormat('yyyy-MM-dd').format(_selectedDate),
         lokasi: _lokasiController.text,
         status: _status,
+        imageFile: _imageFile,
       );
       
       setState(() => _isSubmitting = false);

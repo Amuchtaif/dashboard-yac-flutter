@@ -15,6 +15,7 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
   final TeacherService _teacherService = TeacherService();
   List<Map<String, dynamic>> schedules = [];
   bool isLoading = true;
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -22,9 +23,27 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
     _fetchSchedule();
   }
 
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year && date.month == now.month && date.day == now.day;
+  }
+
+  bool _isPastDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final compareDate = DateTime(date.year, date.month, date.day);
+    return compareDate.isBefore(today);
+  }
+
   Future<void> _fetchSchedule() async {
-    // Get current day name in English
-    final String englishDay = DateFormat('EEEE').format(DateTime.now());
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+      });
+    }
+
+    // Get selected day name in English
+    final String englishDay = DateFormat('EEEE').format(_selectedDate);
 
     // Map to Indonesian day names for API
     final Map<String, String> dayMap = {
@@ -38,11 +57,12 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
     };
 
     final String day = dayMap[englishDay] ?? 'Senin';
+    final String formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
 
-    debugPrint('Fetching schedule for day: $day ($englishDay)');
+    debugPrint('Fetching schedule for day: $day ($englishDay), date: $formattedDate');
 
     try {
-      final data = await _teacherService.getDailySchedule(day);
+      final data = await _teacherService.getDailySchedule(day, date: formattedDate);
       if (mounted) {
         setState(() {
           schedules = data;
@@ -86,24 +106,30 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
         ),
         centerTitle: true,
       ),
-      body:
-          isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : schedules.isEmpty
-              ? Center(
-                child: Text(
-                  'Tidak ada jadwal hari ini',
-                  style: GoogleFonts.poppins(color: Colors.grey, fontSize: 16),
+      body: Column(
+        children: [
+          _buildDateSelector(),
+          Expanded(
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : schedules.isEmpty
+                ? Center(
+                  child: Text(
+                    'Tidak ada jadwal pada tanggal ini',
+                    style: GoogleFonts.poppins(color: Colors.grey, fontSize: 16),
+                  ),
+                )
+                : ListView.builder(
+                  padding: const EdgeInsets.only(left: 20, right: 20, bottom: 20, top: 8),
+                  itemCount: schedules.length,
+                  itemBuilder: (context, index) {
+                    final item = schedules[index];
+                    return _buildScheduleCard(context, item);
+                  },
                 ),
-              )
-              : ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: schedules.length,
-                itemBuilder: (context, index) {
-                  final item = schedules[index];
-                  return _buildScheduleCard(context, item);
-                },
-              ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -139,9 +165,9 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
     final startTime = _formatTime(item['start_time'] ?? '');
     final endTime = _formatTime(item['end_time'] ?? '');
 
-    // Check if current time is within schedule range
-    // Check if current time is within schedule range
-    final bool isActive = _isWithinTimeRange(
+    // Check if current time is within schedule range on the selected date
+    final bool isTodaySelected = _isToday(_selectedDate);
+    final bool isActive = isTodaySelected && _isWithinTimeRange(
       item['start_time'] ?? '00:00:00',
       item['end_time'] ?? '23:59:59',
     );
@@ -149,15 +175,18 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
     final bool isJournalFilled =
         (item['is_journal_filled'] ?? 0).toString() != '0';
     final bool hasAttendance = (item['has_attendance'] ?? 0).toString() != '0';
-    final bool canAccess = isActive || isJournalFilled || hasAttendance;
+    final bool isPast = _isPastDate(_selectedDate);
+    final bool canAccess = isPast
+        ? (isJournalFilled || hasAttendance)
+        : (isActive || isJournalFilled || hasAttendance);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: isActive ? Colors.white : const Color(0xFFF1F5F9),
+        color: canAccess ? Colors.white : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          if (isActive)
+          if (canAccess)
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 20,
@@ -179,7 +208,7 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
                               scheduleId: item['id'].toString(),
                               date: DateFormat(
                                 'yyyy-MM-dd',
-                              ).format(DateTime.now()),
+                              ).format(_selectedDate),
                               subjectName:
                                   item['subject_name'] ?? 'Mata Pelajaran',
                               className: item['class_name'] ?? 'Kelas',
@@ -191,10 +220,13 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
                     });
                   }
                   : () {
+                    final String snackbarText = isPast
+                        ? 'Tidak ada data absensi dan jurnal untuk tanggal ini'
+                        : 'Jadwal ini hanya dapat diakses pada jam $startTime - $endTime';
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'Jadwal ini hanya dapat diakses pada jam $startTime - $endTime',
+                          snackbarText,
                           style: GoogleFonts.poppins(),
                         ),
                         backgroundColor: const Color(0xFF475569),
@@ -207,7 +239,7 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
                   },
           borderRadius: BorderRadius.circular(20),
           child: Opacity(
-            opacity: isActive ? 1.0 : 0.6,
+            opacity: canAccess ? 1.0 : 0.6,
             child: IntrinsicHeight(
               child: Row(
                 children: [
@@ -274,6 +306,14 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
                                         label: 'Anda belum isi jurnal',
                                         bgColor: const Color(0xFFFFF3E0),
                                         textColor: const Color(0xFFE65100),
+                                      ),
+                                    ] else if (isPast) ...[
+                                      const SizedBox(height: 8),
+                                      _buildBadge(
+                                        icon: Icons.cancel_outlined,
+                                        label: 'Tidak ada data',
+                                        bgColor: const Color(0xFFFFEBEE),
+                                        textColor: const Color(0xFFC62828),
                                       ),
                                     ],
                                   ],
@@ -395,5 +435,184 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildDateSelector() {
+    final bool isTodaySelected = _isToday(_selectedDate);
+    final String formattedDate = _formatSelectedDate(_selectedDate);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left, color: Color(0xFF475569)),
+            onPressed: () {
+              setState(() {
+                _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+              });
+              _fetchSchedule();
+            },
+            tooltip: 'Hari Sebelumnya',
+          ),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  onTap: () => _selectDate(context),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Text(
+                      formattedDate,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF1E293B),
+                      ),
+                    ),
+                  ),
+                ),
+                if (!isTodaySelected) ...[
+                  const SizedBox(height: 2),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedDate = DateTime.now();
+                      });
+                      _fetchSchedule();
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      child: Text(
+                        'Kembali ke Hari Ini',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1E88E5),
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.chevron_right,
+              color: isTodaySelected ? Colors.grey[300] : const Color(0xFF475569),
+            ),
+            onPressed: isTodaySelected
+                ? null
+                : () {
+                    setState(() {
+                      _selectedDate = _selectedDate.add(const Duration(days: 1));
+                    });
+                    _fetchSchedule();
+                  },
+            tooltip: 'Hari Berikutnya',
+          ),
+          const SizedBox(width: 4),
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFE3F2FD),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: IconButton(
+              icon: const Icon(
+                Icons.calendar_month_rounded,
+                color: Color(0xFF1E88E5),
+                size: 20,
+              ),
+              onPressed: () => _selectDate(context),
+              tooltip: 'Pilih Tanggal',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatSelectedDate(DateTime date) {
+    final List<String> days = [
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+      'Ahad'
+    ];
+    final List<String> months = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember'
+    ];
+
+    final String dayName = days[date.weekday - 1];
+    final String monthName = months[date.month - 1];
+
+    return '$dayName, ${date.day} $monthName ${date.year}';
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime now = DateTime.now();
+    final DateTime initial = _selectedDate.isAfter(now) ? now : _selectedDate;
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: now,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF1E88E5),
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF1E293B),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF1E88E5),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+      _fetchSchedule();
+    }
   }
 }

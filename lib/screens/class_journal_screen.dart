@@ -35,6 +35,19 @@ class ClassJournalScreen extends StatefulWidget {
 
 class _ClassJournalScreenState extends State<ClassJournalScreen> {
   final TeacherService _teacherService = TeacherService();
+
+  bool get _isPast {
+    try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final date = DateTime.parse(widget.date);
+      final compareDate = DateTime(date.year, date.month, date.day);
+      return compareDate.isBefore(today);
+    } catch (e) {
+      return false;
+    }
+  }
+
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _topicController = TextEditingController();
   final TextEditingController _summaryController = TextEditingController();
@@ -47,6 +60,9 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
   void initState() {
     super.initState();
     _loadTeacherName();
+    if (_isPast) {
+      isReadOnly = true;
+    }
     if (widget.existingJournal != null) {
       final topic = widget.existingJournal!['topic'] ?? '';
       final notes = widget.existingJournal!['notes'] ?? '';

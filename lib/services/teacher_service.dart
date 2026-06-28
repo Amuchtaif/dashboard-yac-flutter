@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_constants.dart';
 
 class TeacherService {
-  Future<List<Map<String, dynamic>>> getDailySchedule(String day) async {
+  Future<List<Map<String, dynamic>>> getDailySchedule(String day, {String? date}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
 
@@ -20,9 +20,17 @@ class TeacherService {
         }
       }
 
+      final Map<String, String> queryParams = {
+        'employee_id': employeeId,
+        'day': day,
+      };
+      if (date != null) {
+        queryParams['date'] = date;
+      }
+
       final uri = Uri.parse(
         ApiConstants.teacherSchedule,
-      ).replace(queryParameters: {'employee_id': employeeId, 'day': day});
+      ).replace(queryParameters: queryParams);
 
       debugPrint('TeacherService: Fetching schedule from $uri');
 

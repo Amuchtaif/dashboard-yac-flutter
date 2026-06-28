@@ -89,6 +89,13 @@ class ApiConstants {
     return "$rootUrl/uploads/permits/$filename";
   }
 
+  static String? getViolationAttachmentUrl(String? filename) {
+    if (filename == null || filename.isEmpty || filename == 'null') return null;
+    if (filename.startsWith('http')) return filename;
+    final rootUrl = ApiConfig.baseUrl.replaceAll('/api', '');
+    return "$rootUrl/uploads/violations/$filename";
+  }
+
   // Shift Exchange Endpoints
   static const String shiftGetList = '${baseUrl}shift_exchange/get_list.php';
   static const String shiftCreate = '${baseUrl}shift_exchange/create.php';

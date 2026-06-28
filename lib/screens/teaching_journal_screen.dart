@@ -28,6 +28,19 @@ class TeachingJournalScreen extends StatefulWidget {
 
 class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
   final TeacherService _teacherService = TeacherService();
+  
+  bool get _isPast {
+    try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final date = DateTime.parse(widget.date);
+      final compareDate = DateTime(date.year, date.month, date.day);
+      return compareDate.isBefore(today);
+    } catch (e) {
+      return false;
+    }
+  }
+
   final _formKey = GlobalKey<FormState>();
 
   // Controllers
@@ -247,13 +260,13 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _navigateToJournal,
                     icon: Icon(
-                      isJournalFilled
+                      (isJournalFilled || _isPast)
                           ? Icons.description_outlined
                           : Icons.arrow_forward,
                       color: Colors.white,
                     ),
                     label: Text(
-                      isJournalFilled
+                      (isJournalFilled || _isPast)
                           ? 'Lihat Detail Jurnal'
                           : 'Lanjut Isi Jurnal',
                       style: GoogleFonts.poppins(
@@ -447,7 +460,7 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
                           padding: const EdgeInsets.only(right: 8),
                           child: InkWell(
                             onTap:
-                                isJournalFilled
+                                (isJournalFilled || _isPast)
                                     ? null
                                     : () {
                                       setState(() {

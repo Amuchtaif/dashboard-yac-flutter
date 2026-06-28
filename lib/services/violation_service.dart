@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
@@ -180,27 +181,57 @@ class ViolationService {
     required String tanggal,
     String? lokasi,
     required String status,
+    File? imageFile,
   }) async {
     try {
       final userId = await _getUserId();
-      final response = await http.post(
-        Uri.parse("$endpoint/create.php"),
-        body: json.encode({
-          'user_id': userId,
-          'santri_id': santriId,
-          'kategori_id': kategoriId,
-          'deskripsi': deskripsi,
-          'tanggal': tanggal,
-          'lokasi': lokasi,
-          'status': status,
-        }),
-        headers: await _headers(),
-      );
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['success'] == true;
+      if (imageFile != null) {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse("$endpoint/create.php"),
+        );
+        request.headers.addAll({
+          'ngrok-skip-browser-warning': 'true',
+        });
+        request.fields['user_id'] = userId;
+        request.fields['santri_id'] = santriId.toString();
+        request.fields['kategori_id'] = kategoriId.toString();
+        request.fields['deskripsi'] = deskripsi;
+        request.fields['tanggal'] = tanggal;
+        if (lokasi != null) request.fields['lokasi'] = lokasi;
+        request.fields['status'] = status;
+
+        request.files.add(
+          await http.MultipartFile.fromPath('attachment', imageFile.path),
+        );
+
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          return data['success'] == true;
+        }
+        return false;
+      } else {
+        final response = await http.post(
+          Uri.parse("$endpoint/create.php"),
+          body: json.encode({
+            'user_id': userId,
+            'santri_id': santriId,
+            'kategori_id': kategoriId,
+            'deskripsi': deskripsi,
+            'tanggal': tanggal,
+            'lokasi': lokasi,
+            'status': status,
+          }),
+          headers: await _headers(),
+        );
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          return data['success'] == true;
+        }
+        return false;
       }
-      return false;
     } catch (e) {
       return false;
     }

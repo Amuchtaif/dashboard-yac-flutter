@@ -1196,17 +1196,19 @@ class _StaffMultiSelectDialogState extends State<StaffMultiSelectDialog> {
                 return n != 'administrator' && n != 'admin';
               }).toList();
 
-          if (mounted) {
-            setState(() {
-              _displayStaff = searchResults;
-              _buildGroupedList(_displayStaff);
-              _isSearching = false;
-            });
+          if (searchResults.isNotEmpty) {
+            if (mounted) {
+              setState(() {
+                _displayStaff = searchResults;
+                _buildGroupedList(_displayStaff);
+                _isSearching = false;
+              });
+            }
+            return;
           }
-          return;
         }
       }
-      // Fallback ke client search jika API gagal
+      // Fallback ke client search jika API gagal atau mengembalikan hasil kosong
       _fallbackClientSearch(query);
     } catch (e) {
       debugPrint("Error searching employees: $e");
@@ -1217,18 +1219,21 @@ class _StaffMultiSelectDialogState extends State<StaffMultiSelectDialog> {
   void _fallbackClientSearch(String query) {
     final q = query.toLowerCase().trim();
     final words = q.split(RegExp(r'\s+'));
+    final sourceList = _allStaffLoaded ? _allStaffComplete : widget.allStaff;
 
     final filtered =
-        widget.allStaff.where((s) {
+        sourceList.where((s) {
           final sName = s.name.toLowerCase();
           final sDiv = s.division.toLowerCase();
           final sUnit = s.unit.toLowerCase();
+          final sPos = s.position.toLowerCase();
 
           return words.every(
             (word) =>
                 sName.contains(word) ||
                 sDiv.contains(word) ||
-                sUnit.contains(word),
+                sUnit.contains(word) ||
+                sPos.contains(word),
           );
         }).toList();
 
@@ -1575,6 +1580,16 @@ class _StaffMultiSelectDialogState extends State<StaffMultiSelectDialog> {
                                               ],
                                             ),
                                           ),
+                                          if (staff.position.isNotEmpty) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              staff.position,
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 11,
+                                                color: Colors.blueGrey[600],
+                                              ),
+                                            ),
+                                          ],
                                         ],
                                       ),
                                     ),

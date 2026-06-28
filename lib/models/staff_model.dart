@@ -5,12 +5,14 @@ class Staff {
 
   final String division;
   final String unit;
+  final String position;
 
   Staff({
     required this.id,
     required this.name,
     this.division = '',
     this.unit = '',
+    this.position = '',
     this.isSelected = false,
   });
 
@@ -26,6 +28,7 @@ class Staff {
           'No Name',
       division: json['division_name'] ?? json['division'] ?? '',
       unit: json['unit_name'] ?? json['unit'] ?? '',
+      position: json['position_name'] ?? json['position'] ?? json['jabatan'] ?? '',
     );
   }
 

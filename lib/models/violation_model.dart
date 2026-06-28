@@ -1,3 +1,4 @@
+import '../core/api_constants.dart';
 
 class Violation {
   final int id;
@@ -14,6 +15,7 @@ class Violation {
   final String? pelaporName;
   final String status;
   final String createdAt;
+  final String? attachment;
 
   Violation({
     required this.id,
@@ -30,6 +32,7 @@ class Violation {
     this.pelaporName,
     required this.status,
     required this.createdAt,
+    this.attachment,
   });
 
   factory Violation.fromJson(Map<String, dynamic> json) {
@@ -48,6 +51,9 @@ class Violation {
       pelaporName: json['pelapor_name'],
       status: json['status'] ?? 'draft',
       createdAt: json['created_at'] ?? '',
+      attachment: ApiConstants.getViolationAttachmentUrl(
+        json['attachment'] ?? json['foto'] ?? json['bukti'] ?? json['image_url'],
+      ),
     );
   }
 }
