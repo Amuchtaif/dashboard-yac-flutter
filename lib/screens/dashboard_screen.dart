@@ -1,4 +1,4 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:ui';
 import 'dart:convert';
@@ -28,8 +28,11 @@ import 'inventory_category_screen.dart'; // Import Inventory Screen
 import 'payroll_history_screen.dart'; // Import Payroll Screen
 import 'tahfidz/absensi_tahfidz_screen.dart';
 import 'tahfidz/absensi_pengampu_screen.dart';
-import 'tahfidz/setoran_tahfidz_screen.dart';
+import 'tahfidz/baseline_tahfidz_screen.dart';
+import 'tahfidz/catatan_setoran_screen.dart';
+import 'tahfidz/profil_santri_screen.dart';
 import 'tahfidz/penilaian_tahfidz_screen.dart';
+import 'tahfidz/dashboard_tahfidz_pimpinan_screen.dart';
 import 'teaching_schedule_screen.dart';
 import 'rpp_screen.dart';
 import 'kabid/data_presensi_screen.dart';
@@ -42,6 +45,7 @@ import 'kesantrian/pelanggaran_screen.dart';
 import 'kesantrian/kepulangan_screen.dart';
 import 'kesantrian/izin_santri_screen.dart';
 import 'absensi_makan_pendidikan_screen.dart';
+import 'student_activity/student_activity_list_screen.dart';
 import 'class_list_screen.dart';
 import '../services/attendance_service.dart';
 import '../models/location_model.dart';
@@ -142,6 +146,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _swapPartnerName;
   bool _canApprovePermits = false;
   bool _isWaliKelas = false;
+  int _positionLevel = 99;
 
   StreamSubscription<RemoteMessage>? _fcmSubscription;
   StreamSubscription<String?>? _notificationSubscription;
@@ -402,6 +407,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _divisionName = prefs.getString('divisionName') ?? '';
       _positionName = prefs.getString('positionName') ?? '';
       _profilePhoto = prefs.getString('profilePhoto') ?? '';
+      _positionLevel = prefs.getInt('positionLevel') ?? 99;
       int id =
           prefs.getInt('user_id') ??
           prefs.getInt('userId') ??
@@ -965,6 +971,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         swapPartnerName: _swapPartnerName,
         canApprovePermits: _canApprovePermits,
         isWaliKelas: _isWaliKelas,
+        positionLevel: _positionLevel,
         currentAddress: _currentAddress,
         currentPosition: _currentPosition,
         onRefresh: () async {
@@ -1107,6 +1114,7 @@ class HomeTab extends StatelessWidget {
   final String attendanceStatus;
   final String timeIn;
   final String timeOut;
+  final int positionLevel;
 
   final String todaySchedule;
   final bool isKoordinator;
@@ -1139,6 +1147,7 @@ class HomeTab extends StatelessWidget {
     this.swapPartnerName,
     required this.canApprovePermits,
     required this.isWaliKelas,
+    required this.positionLevel,
     required this.currentAddress,
     this.currentPosition,
     required this.onRefresh,
@@ -2472,13 +2481,13 @@ class HomeTab extends StatelessWidget {
         'icon': Icons.meeting_room_outlined,
         'color': Colors.orange,
       },
+    ];
+    final row2 = [
       {
         'title': 'Mata Pelajaran',
         'icon': Icons.book_outlined,
         'color': Colors.purple,
       },
-    ];
-    final row2 = [
       {
         'title': 'RPP',
         'subtitle': 'Rencana Pembelajaran',
@@ -2490,6 +2499,8 @@ class HomeTab extends StatelessWidget {
         'icon': Icons.assignment_ind_outlined,
         'color': Colors.redAccent,
       },
+    ];
+    final row3 = [
       {
         'title': 'Kalender Akademik',
         'icon': Icons.event_note_outlined,
@@ -2499,6 +2510,11 @@ class HomeTab extends StatelessWidget {
         'title': 'Absensi Makan',
         'icon': Icons.restaurant_rounded,
         'color': Colors.orange,
+      },
+      {
+        'title': 'Aktivitas Siswa',
+        'icon': Icons.local_activity_outlined,
+        'color': Colors.teal,
       },
     ];
 
@@ -2539,98 +2555,103 @@ class HomeTab extends StatelessWidget {
                   .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
                   .toList(),
         ),
+        const SizedBox(height: 8),
+        Row(
+          children:
+              row3
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
+        ),
       ],
     );
   }
 
   Widget _buildTahfidzMenuGrid(BuildContext context) {
-    if (isKoordinator || AccessControl.can('is_koordinator')) {
-      // COORDINATOR VIEW
-      // Rows: Absensi (2 cols), Penilaian (Full), Setoran (Full)
-      final absensiMenus = [
-        {
-          'title': 'Absensi Tahfidz',
-          'icon': Icons.how_to_reg,
-          'color': Colors.indigo,
-        },
-        {
-          'title': 'Absensi Pengampu',
-          'icon': Icons.co_present,
-          'color': Colors.deepPurple,
-        },
-      ];
+    final bool isMudirOrKepalaUnit =
+        positionLevel == 1 ||
+        positionLevel == 3 ||
+        positionName.toLowerCase().contains('mudir') ||
+        positionName.toLowerCase().contains('kepala unit');
 
+    if (isMudirOrKepalaUnit) {
       return Column(
         children: [
-          Row(
-            children:
-                absensiMenus
-                    .map(
-                      (menu) => Expanded(child: _buildMenuCard(context, menu)),
-                    )
-                    .toList(),
-          ),
-          const SizedBox(height: 8),
           _buildFullWidthMenuCard(context, {
-            'title': 'Setoran',
-            'subtitle': 'Pantau hafalan baru santri',
-            'icon': Icons.edit_note_rounded,
+            'title': 'Dashboard Tahfidz',
+            'subtitle': 'Monitoring & analisis tahfidz bertingkat',
+            'icon': Icons.dashboard_customize_outlined,
             'color': Colors.teal,
-          }),
-          const SizedBox(height: 12),
-          _buildFullWidthMenuCard(context, {
-            'title': 'Penilaian',
-            'subtitle': 'Pantau penilaian santri',
-            'icon': Icons.assignment_turned_in_rounded,
-            'color': Colors.orangeAccent,
-          }),
-        ],
-      );
-    } else {
-      // NON-COORDINATOR VIEW
-      final mainMenus = [
-        {
-          'title': 'Absensi Tahfidz',
-          'icon': Icons.how_to_reg,
-          'color': Colors.indigo,
-        },
-        {
-          'title': 'Penilaian',
-          'subtitle': 'Input penilaian santri',
-          'icon': Icons.assignment_turned_in_rounded,
-          'color': Colors.orangeAccent,
-        },
-      ];
-
-      return Column(
-        children: [
-          Row(
-            children:
-                mainMenus
-                    .map(
-                      (menu) => Expanded(child: _buildMenuCard(context, menu)),
-                    )
-                    .toList(),
-          ),
-          const SizedBox(height: 12),
-          _buildFullWidthMenuCard(context, {
-            'title': 'Setoran',
-            'subtitle': 'Input hafalan baru santri',
-            'icon': Icons.edit_note_rounded,
-            'color': Colors.teal,
+            'gradientColors': [Colors.teal.shade700, Colors.cyan.shade600],
+            'textColor': Colors.white,
+            'iconColor': Colors.white,
+            'iconBgColor': Colors.white.withValues(alpha: 0.2),
           }),
         ],
       );
     }
+
+    final mainMenus = [
+      {
+        'title': 'Absensi Tahfidz',
+        'icon': Icons.how_to_reg,
+        'color': Colors.indigo,
+      },
+      {
+        'title': 'Baseline Hafalan',
+        'icon': Icons.flag,
+        'color': Colors.orangeAccent,
+      },
+      {
+        'title': 'Penilaian',
+        'icon': Icons.grade_rounded,
+        'color': Colors.amber,
+      },
+      {'title': 'Profil Santri', 'icon': Icons.person, 'color': Colors.purple},
+    ];
+
+    return Column(
+      children: [
+        if (positionLevel <= 3) ...[
+          _buildFullWidthMenuCard(context, {
+            'title': 'Dashboard Tahfidz',
+            'subtitle': 'Monitoring & analisis tahfidz bertingkat',
+            'icon': Icons.dashboard_customize_outlined,
+            'color': Colors.teal,
+            'gradientColors': [Colors.teal.shade700, Colors.cyan.shade600],
+            'textColor': Colors.white,
+            'iconColor': Colors.white,
+            'iconBgColor': Colors.white.withValues(alpha: 0.2),
+          }),
+          const SizedBox(height: 12),
+        ],
+        Row(
+          children:
+              mainMenus
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
+        ),
+        const SizedBox(height: 12),
+        _buildFullWidthMenuCard(context, {
+          'title': 'Setoran',
+          'subtitle': 'Input hafalan baru santri',
+          'icon': Icons.edit_note_rounded,
+          'color': Colors.teal,
+        }),
+        if (isKoordinator || AccessControl.can('is_koordinator')) ...[
+          const SizedBox(height: 12),
+          _buildFullWidthMenuCard(context, {
+            'title': 'Absensi Pengampu',
+            'subtitle': 'Absensi kehadiran guru/pengampu',
+            'icon': Icons.co_present,
+            'color': Colors.deepPurple,
+          }),
+        ],
+      ],
+    );
   }
 
   Widget _buildKesantrianMenuGrid(BuildContext context) {
-    final menus = [
-      {
-        'title': 'Absensi Asrama',
-        'icon': Icons.night_shelter_rounded,
-        'color': Colors.blueGrey,
-      },
+    final remainingMenus = [
       {
         'title': 'Absensi Makan',
         'icon': Icons.restaurant_rounded,
@@ -2642,13 +2663,29 @@ class HomeTab extends StatelessWidget {
         'icon': Icons.fact_check_rounded,
         'color': Colors.green,
       },
+      {
+        'title': 'Aktivitas Siswa',
+        'icon': Icons.local_activity_outlined,
+        'color': Colors.teal,
+      },
     ];
 
-    return Row(
-      children:
-          menus
-              .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
-              .toList(),
+    return Column(
+      children: [
+        _buildFullWidthMenuCard(context, {
+          'title': 'Absensi Asrama',
+          'subtitle': 'Kehadiran santri di asrama harian',
+          'icon': Icons.night_shelter_rounded,
+          'color': Colors.blueGrey,
+        }),
+        const SizedBox(height: 12),
+        Row(
+          children:
+              remainingMenus
+                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
+                  .toList(),
+        ),
+      ],
     );
   }
 
@@ -2898,13 +2935,25 @@ class HomeTab extends StatelessWidget {
 
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const SetoranTahfidzScreen()),
+      MaterialPageRoute(builder: (context) => const CatatanSetoranScreen()),
     );
   }
 
   void _handleMenuNavigation(BuildContext context, String title) {
     String navTitle = title.trim();
-    if (navTitle == 'Absensi Tahfidz') {
+    if (navTitle == 'Dashboard Tahfidz') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const TahfidzDashboardScreen()),
+      );
+    } else if (navTitle == 'Aktivitas Siswa') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const StudentActivityListScreen(),
+        ),
+      );
+    } else if (navTitle == 'Absensi Tahfidz') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const AbsensiTahfidzScreen()),
@@ -2943,10 +2992,20 @@ class HomeTab extends StatelessWidget {
       }
 
       _proceedToSetoran(context, provider);
+    } else if (navTitle == 'Baseline Hafalan') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const BaselineTahfidzScreen()),
+      );
     } else if (navTitle == 'Penilaian') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const PenilaianTahfidzScreen()),
+      );
+    } else if (navTitle == 'Profil Santri') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ProfilSantriScreen()),
       );
     } else if (navTitle == 'RPP') {
       Navigator.push(

@@ -17,6 +17,8 @@ class ApiConstants {
       '${baseUrl}teacher/get_students_by_schedule.php';
   static const String submitTeacherAttendance =
       '${baseUrl}teacher/submit_attendance.php';
+  static const String teacherTeachingInfo =
+      '${baseUrl}teacher/get_my_teaching_info.php';
 
   // Performance Endpoints
   static const String performanceData = '${baseUrl}get_performance_data.php';

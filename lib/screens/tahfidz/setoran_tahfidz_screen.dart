@@ -29,7 +29,8 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
 
   List<Surah> _surahList = [];
   List<Surah> _filteredSurahs = [];
-  String? _selectedSurah;
+  String? _selectedSurahStart;
+  String? _selectedSurahEnd;
 
   final TextEditingController _ayatStartController = TextEditingController();
   final TextEditingController _ayatEndController = TextEditingController();
@@ -130,6 +131,7 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
   }
 
   void _showStudentPicker() {
+    _filteredStudents = _studentsList;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -142,8 +144,8 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
                 ),
               ),
               child: Column(
@@ -158,15 +160,31 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
                     child: TextField(
+                      style: GoogleFonts.poppins(fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'Cari nama siswa...',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        hintText: 'Cari nama santri...',
+                        hintStyle: GoogleFonts.poppins(
+                          color: const Color(0xFF94A3B8),
+                          fontSize: 14,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: Color(0xFF94A3B8),
+                          size: 22,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                        filled: true,
+                        fillColor: Colors.white,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25),
+                          borderSide: BorderSide(color: Colors.grey[300]!, width: 1.2),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25),
+                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+                        ),
                       ),
                       onChanged: (value) {
                         setModalState(() {
@@ -192,7 +210,7 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                         _filteredStudents.isEmpty
                             ? Center(
                               child: Text(
-                                "Anda belum memiliki daftar santri binaan.",
+                                "Santri tidak ditemukan.",
                                 style: GoogleFonts.poppins(color: Colors.grey),
                               ),
                             )
@@ -200,61 +218,44 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                               itemCount: _filteredStudents.length,
                               itemBuilder: (context, index) {
                                 final student = _filteredStudents[index];
+                                final name = student['nama_siswa'] ??
+                                    student['nama_santri'] ??
+                                    student['nama_lengkap'] ??
+                                    student['full_name'] ??
+                                    student['name'] ??
+                                    'No Name';
+                                final klass = student['kelas'] ??
+                                    student['nama_kelas'] ??
+                                    student['tingkat'] ??
+                                    student['unit_name'] ??
+                                    student['nama_unit'] ??
+                                    student['division_name'] ??
+                                    student['nama_halaqah'] ??
+                                    student['halaqah'] ??
+                                    student['nama_halaqoh'] ??
+                                    student['rombel'] ??
+                                    student['jenjang'] ??
+                                    '-';
                                 return ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: Colors.blue[50],
-                                    child: Text(
-                                      (student['nama_siswa'] ??
-                                              student['nama_santri'] ??
-                                              student['nama_lengkap'] ??
-                                              student['full_name'] ??
-                                              student['name'] ??
-                                              '?')
-                                          .toString()
-                                          .substring(0, 1)
-                                          .toUpperCase(),
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.blueAccent,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                                  title: Text(
+                                    name,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      fontStyle: FontStyle.italic,
+                                      color: const Color(0xFF1F2937),
                                     ),
                                   ),
-                                  title: Text(
-                                    student['nama_siswa'] ??
-                                        student['nama_santri'] ??
-                                        student['nama_lengkap'] ??
-                                        student['full_name'] ??
-                                        student['name'] ??
-                                        'No Name',
+                                  trailing: Text(
+                                    klass,
                                     style: GoogleFonts.poppins(
+                                      fontSize: 13,
+                                      color: Colors.grey[500],
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                  subtitle: Text(
-                                    "Kelas: ${student['kelas'] ?? student['nama_kelas'] ?? student['tingkat'] ?? student['unit_name'] ?? student['nama_unit'] ?? student['division_name'] ?? student['nama_halaqah'] ?? student['halaqah'] ?? student['nama_halaqoh'] ?? student['halaqoh'] ?? student['rombel'] ?? student['jenjang'] ?? '-'}",
-                                    style: GoogleFonts.poppins(fontSize: 12),
-                                  ),
                                   onTap: () {
-                                    final name =
-                                        student['nama_siswa'] ??
-                                        student['nama_santri'] ??
-                                        student['nama_lengkap'] ??
-                                        student['full_name'] ??
-                                        student['name'] ??
-                                        'No Name';
-                                    final klass =
-                                        student['kelas'] ??
-                                        student['nama_kelas'] ??
-                                        student['tingkat'] ??
-                                        student['unit_name'] ??
-                                        student['nama_unit'] ??
-                                        student['division_name'] ??
-                                        student['nama_halaqah'] ??
-                                        student['halaqah'] ??
-                                        student['nama_halaqoh'] ??
-                                        student['halaqoh'] ??
-                                        student['rombel'] ??
-                                        student['jenjang'];
                                     setState(() {
                                       _selectedStudentId = int.tryParse(
                                         student['id'].toString(),
@@ -277,7 +278,8 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
     );
   }
 
-  void _showSurahPicker() {
+  void _showSurahPicker({required bool isStart}) {
+    _filteredSurahs = _surahList;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -290,8 +292,8 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
                 ),
               ),
               child: Column(
@@ -306,15 +308,31 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
                     child: TextField(
+                      style: GoogleFonts.poppins(fontSize: 14),
                       decoration: InputDecoration(
                         hintText: 'Cari nama surah...',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        hintStyle: GoogleFonts.poppins(
+                          color: const Color(0xFF94A3B8),
+                          fontSize: 14,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: Color(0xFF94A3B8),
+                          size: 22,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                        filled: true,
+                        fillColor: Colors.white,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25),
+                          borderSide: BorderSide(color: Colors.grey[300]!, width: 1.2),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25),
+                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+                        ),
                       ),
                       onChanged: (value) {
                         setModalState(() {
@@ -331,25 +349,50 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                     ),
                   ),
                   Expanded(
-                    child: ListView.builder(
-                      itemCount: _filteredSurahs.length,
-                      itemBuilder: (context, index) {
-                        final surah = _filteredSurahs[index];
-                        return ListTile(
-                          title: Text(surah.namaLatin),
-                          trailing: Text(
-                            surah.nama,
-                            style: GoogleFonts.amiri(fontSize: 18),
+                    child: _filteredSurahs.isEmpty
+                        ? Center(
+                            child: Text(
+                              "Surah tidak ditemukan.",
+                              style: GoogleFonts.poppins(color: Colors.grey),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: _filteredSurahs.length,
+                            itemBuilder: (context, index) {
+                              final surah = _filteredSurahs[index];
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                                title: Text(
+                                  surah.namaLatin,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: FontStyle.italic,
+                                    color: const Color(0xFF1F2937),
+                                  ),
+                                ),
+                                trailing: Text(
+                                  surah.nama,
+                                  style: GoogleFonts.amiri(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF1F2937),
+                                  ),
+                                ),
+                                onTap: () {
+                                  setState(() {
+                                    if (isStart) {
+                                      _selectedSurahStart = surah.namaLatin;
+                                      _selectedSurahEnd ??= surah.namaLatin;
+                                    } else {
+                                      _selectedSurahEnd = surah.namaLatin;
+                                    }
+                                  });
+                                  Navigator.pop(context);
+                                },
+                              );
+                            },
                           ),
-                          onTap: () {
-                            setState(() {
-                              _selectedSurah = surah.namaLatin;
-                            });
-                            Navigator.pop(context);
-                          },
-                        );
-                      },
-                    ),
                   ),
                 ],
               ),
@@ -372,11 +415,15 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
     }
 
     if (_selectedStudentId == null) {
-      _showError('Pilih siswa terlebih dahulu');
+      _showError('Pilih santri terlebih dahulu');
       return;
     }
-    if (_selectedSurah == null) {
-      _showError('Pilih surah terlebih dahulu');
+    if (_selectedSurahStart == null) {
+      _showError('Pilih surah awal terlebih dahulu');
+      return;
+    }
+    if (_selectedSurahEnd == null) {
+      _showError('Pilih surah akhir terlebih dahulu');
       return;
     }
 
@@ -387,10 +434,10 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
     final data = {
       "student_id": _selectedStudentId,
       "date": DateFormat('yyyy-MM-dd').format(DateTime.now()),
-      "surah_start": _selectedSurah,
+      "surah_start": _selectedSurahStart,
       "ayat_start": int.tryParse(_ayatStartController.text) ?? 1,
       "total_baris": int.tryParse(_totalBarisController.text) ?? 0,
-      "surah_end": _selectedSurah,
+      "surah_end": _selectedSurahEnd,
       "ayat_end": int.tryParse(_ayatEndController.text) ?? 1,
       "status": _quality.value,
       "notes": _notesController.text,
@@ -496,15 +543,15 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                       ),
                       const SizedBox(height: 20),
                       Container(
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(30),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 15,
+                              offset: const Offset(0, 5),
                             ),
                           ],
                         ),
@@ -517,29 +564,37 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                               builder: (context, provider, child) {
                                 return _buildReadOnlyField(
                                   provider.teacherName ?? 'Memuat...',
-                                  icon: Icons.person_pin_rounded,
+                                  icon: Icons.assignment_ind_rounded,
                                 );
                               },
                             ),
                             const SizedBox(height: 20),
-                            _buildLabel('Pilih Siswa'),
+                             _buildLabel('Pilih Santri'),
                             const SizedBox(height: 8),
                             _buildSelectionField(
                               _selectedStudentName != null
                                   ? (_selectedStudentClass != null
                                       ? '$_selectedStudentName - $_selectedStudentClass'
                                       : _selectedStudentName!)
-                                  : 'Cari nama siswa...',
+                                  : 'Cari nama santri...',
                               _showStudentPicker,
                               icon: Icons.person_search_rounded,
                             ),
                             const SizedBox(height: 20),
-                            _buildLabel('Nama Surah'),
+                            _buildLabel('Surah Awal'),
                             const SizedBox(height: 8),
                             _buildSelectionField(
-                              _selectedSurah ?? 'Cari nama surah...',
-                              _showSurahPicker,
-                              icon: Icons.menu_book_rounded,
+                              _selectedSurahStart ?? 'Cari nama surah awal...',
+                              () => _showSurahPicker(isStart: true),
+                              icon: Icons.menu_book_outlined,
+                            ),
+                            const SizedBox(height: 20),
+                            _buildLabel('Surah Akhir'),
+                            const SizedBox(height: 8),
+                            _buildSelectionField(
+                              _selectedSurahEnd ?? 'Cari nama surah akhir...',
+                              () => _showSurahPicker(isStart: false),
+                              icon: Icons.menu_book_outlined,
                             ),
                             const SizedBox(height: 20),
                             Row(
@@ -584,49 +639,18 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                             Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF9FAFB),
-                                borderRadius: BorderRadius.circular(12),
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(color: const Color(0xFFF1F5F9)),
                               ),
                               child: ValueListenableBuilder<String>(
                                 valueListenable: _quality,
                                 builder: (context, currentQuality, _) {
-                                  int selectedIndex = ['Lancar', 'Kurang Lancar', 'Ulang'].indexOf(currentQuality);
-                                  return Stack(
+                                  return Row(
                                     children: [
-                                      // Sliding Background
-                                      AnimatedAlign(
-                                        duration: const Duration(milliseconds: 250),
-                                        curve: Curves.easeInOutCubic,
-                                        alignment: Alignment(
-                                          selectedIndex == 0 ? -1.0 : (selectedIndex == 1 ? 0.0 : 1.0),
-                                          0,
-                                        ),
-                                        child: FractionallySizedBox(
-                                          widthFactor: 1 / 3,
-                                          child: Container(
-                                            margin: const EdgeInsets.all(2),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius: BorderRadius.circular(10),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black.withValues(alpha: 0.08),
-                                                  blurRadius: 8,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      // Options
-                                      Row(
-                                        children: [
-                                          _buildQualityOption('Lancar', currentQuality),
-                                          _buildQualityOption('Kurang Lancar', currentQuality),
-                                          _buildQualityOption('Ulang', currentQuality),
-                                        ],
-                                      ),
+                                      _buildQualityOption('Lancar', currentQuality),
+                                      _buildQualityOption('Kurang Lancar', currentQuality),
+                                      _buildQualityOption('Ulang', currentQuality),
                                     ],
                                   );
                                 },
@@ -638,12 +662,12 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                             _buildTextField(
                               _notesController,
                               'Catatan tambahan...',
-                              maxLines: 2,
+                              maxLines: 3,
                             ),
                             const SizedBox(height: 30),
                             SizedBox(
                               width: double.infinity,
-                              height: 50,
+                              height: 54,
                               child: ElevatedButton.icon(
                                 onPressed:
                                     _isSubmitting ? null : _submitSetoran,
@@ -673,9 +697,9 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                                   ),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blueAccent,
+                                  backgroundColor: const Color(0xFF3B82F6),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(15),
                                   ),
                                   elevation: 0,
                                 ),
@@ -701,14 +725,14 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: const Color(0xFFF1F5F9)),
         ),
         child: Row(
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 20, color: Colors.grey[400]),
+              Icon(icon, size: 20, color: const Color(0xFF94A3B8)),
               const SizedBox(width: 12),
             ],
             Expanded(
@@ -717,11 +741,11 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   color:
-                      text.contains('...') ? Colors.grey[400] : Colors.black87,
+                      text.contains('...') ? const Color(0xFF94A3B8) : Colors.black87,
                 ),
               ),
             ),
-            Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey[400]),
+            const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF94A3B8)),
           ],
         ),
       ),
@@ -730,19 +754,26 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
 
   Widget _buildReadOnlyField(String text, {IconData? icon}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
       ),
       child: Row(
         children: [
           if (icon != null) ...[
-            Icon(
-              icon,
-              size: 20,
-              color: Colors.blueAccent.withValues(alpha: 0.7),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3B82F6),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(width: 12),
           ],
@@ -751,12 +782,12 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
               text,
               style: GoogleFonts.poppins(
                 fontSize: 14,
-                color: Colors.grey[700],
+                color: const Color(0xFF4B5563),
                 fontWeight: FontWeight.w500,
               ),
             ),
           ),
-          Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey[400]),
+          const Icon(Icons.lock_outline_rounded, size: 16, color: Color(0xFF94A3B8)),
         ],
       ),
     );
@@ -821,9 +852,9 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
       ),
       child: TextField(
         controller: controller,
@@ -831,7 +862,7 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
         style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: GoogleFonts.poppins(color: Colors.grey[400], fontSize: 14),
+          hintStyle: GoogleFonts.poppins(color: const Color(0xFF94A3B8), fontSize: 14),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             vertical: 14,
@@ -844,10 +875,11 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
 
   Widget _buildNumberInput(TextEditingController controller) {
     return Container(
+      height: 54,
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
       ),
       child: Row(
         children: [
@@ -863,30 +895,32 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
               ),
               decoration: const InputDecoration(
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 14),
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                onTap: () {
-                  int val = int.tryParse(controller.text) ?? 0;
-                  controller.text = (val + 1).toString();
-                },
-                child: Icon(Icons.arrow_drop_up_rounded, size: 22, color: Colors.grey[600]),
-              ),
-              GestureDetector(
-                onTap: () {
-                  int val = int.tryParse(controller.text) ?? 0;
-                  if (val > 0) controller.text = (val - 1).toString();
-                },
-                child: Icon(Icons.arrow_drop_down_rounded, size: 22, color: Colors.grey[600]),
-              ),
-            ],
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    int val = int.tryParse(controller.text) ?? 0;
+                    controller.text = (val + 1).toString();
+                  },
+                  child: const Icon(Icons.arrow_drop_up_rounded, size: 20, color: Color(0xFF64748B)),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    int val = int.tryParse(controller.text) ?? 0;
+                    if (val > 0) controller.text = (val - 1).toString();
+                  },
+                  child: const Icon(Icons.arrow_drop_down_rounded, size: 20, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: 4),
         ],
       ),
     );
@@ -909,7 +943,7 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
             style: GoogleFonts.poppins(
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: isSelected ? Colors.blueAccent : Colors.grey[500],
+              color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFF94A3B8),
             ),
           ),
         ),

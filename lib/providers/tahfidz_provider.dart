@@ -64,6 +64,7 @@ class TahfidzProvider with ChangeNotifier {
         final attendanceHistory = await _service.getStudentAttendanceHistory(
           date: today,
           session: _activeSession,
+          teacherId: _teacherId,
         );
         _isAttendanceSubmitted = attendanceHistory.isNotEmpty;
       } else {

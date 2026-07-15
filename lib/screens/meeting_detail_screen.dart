@@ -12,6 +12,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../models/meeting_model.dart';
 import '../models/meeting_note_model.dart';
+import '../models/staff_model.dart';
+import '../models/employee_group_model.dart';
+import 'create_meeting_screen.dart';
 import 'scan/scan_qr_screen.dart';
 import '../core/api_constants.dart';
 
@@ -264,6 +267,77 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
         ),
       ),
     );
+  }
+
+  void _showSuccessSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message, style: GoogleFonts.poppins())),
+          ],
+        ),
+        backgroundColor: const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  void _showAddParticipantsBottomSheet() async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => const ParticipantSelectionBottomSheet(
+        initialSelectedGroups: [],
+        initialSelectedEmployees: [],
+      ),
+    );
+
+    if (result != null) {
+      final groups = List<EmployeeGroup>.from(result['groups']);
+      final employees = List<Staff>.from(result['employees']);
+      _addParticipants(groups, employees);
+    }
+  }
+
+  Future<void> _addParticipants(List<EmployeeGroup> groups, List<Staff> employees) async {
+    if (groups.isEmpty && employees.isEmpty) return;
+
+    setState(() => _isLoadingAttendees = true);
+    try {
+      final url = Uri.parse("${ApiConfig.baseUrl}/add_meeting_participants.php");
+      final body = jsonEncode({
+        "meeting_id": widget.meeting.id,
+        "group_ids": groups.map((g) => g.id).toList(),
+        "employee_ids": employees.map((e) => e.id).toList(),
+      });
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: body,
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['success'] == true) {
+        _showSuccessSnackbar(data['message'] ?? "Peserta berhasil ditambahkan");
+        _fetchAttendees();
+      } else {
+        _showErrorSnackbar(data['message'] ?? "Gagal menambahkan peserta");
+      }
+    } catch (e) {
+      _showErrorSnackbar("Terjadi kesalahan koneksi: $e");
+    } finally {
+      setState(() => _isLoadingAttendees = false);
+    }
   }
 
   Future<void> _fetchAttendees() async {
@@ -849,20 +923,32 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                 color: const Color(0xFF1F2937),
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '$presentCount/$totalCount Hadir',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF3B82F6),
+            Row(
+              children: [
+                if (_currentUserId == widget.meeting.creatorId) ...[
+                  IconButton(
+                    icon: const Icon(Icons.person_add_alt_1, color: Color(0xFF3B82F6), size: 20),
+                    onPressed: _showAddParticipantsBottomSheet,
+                    tooltip: 'Tambah Peserta',
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$presentCount/$totalCount Hadir',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF3B82F6),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),

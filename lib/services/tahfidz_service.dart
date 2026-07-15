@@ -160,6 +160,7 @@ class TahfidzService {
     String? studentId,
     String? session,
     int? groupId,
+    int? teacherId,
   }) async {
     try {
       String query = "";
@@ -174,6 +175,9 @@ class TahfidzService {
       }
       if (groupId != null) {
         query += "${query.isEmpty ? "" : "&"}group_id=$groupId";
+      }
+      if (teacherId != null) {
+        query += "${query.isEmpty ? "" : "&"}teacher_id=$teacherId";
       }
 
       final response = await http.get(

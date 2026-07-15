@@ -348,7 +348,7 @@ class _NewsScreenState extends State<NewsScreen> {
 
   Widget _buildFloatingButton() {
     return Positioned(
-      bottom: 20,
+      bottom: 110,
       right: 20,
       child: Container(
         decoration: BoxDecoration(

@@ -295,4 +295,27 @@ class TeacherService {
       return [];
     }
   }
+
+  Future<List<Map<String, dynamic>>> getTeacherTeachingInfo(String teacherId) async {
+    try {
+      final uri = Uri.parse(
+        ApiConstants.teacherTeachingInfo,
+      ).replace(queryParameters: {'employee_id': teacherId});
+
+      debugPrint('TeacherService: Fetching teaching info from $uri');
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+        // get_my_teaching_info.php returns {"status": "success", "data": [...]}
+        if (result['status'] == 'success' && result['data'] != null) {
+          return List<Map<String, dynamic>>.from(result['data']);
+        }
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Error fetching teaching info: $e');
+      return [];
+    }
+  }
 }

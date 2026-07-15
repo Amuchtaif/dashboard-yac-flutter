@@ -13,6 +13,8 @@ import 'services/permission_service.dart';
 import 'providers/tahfidz_provider.dart';
 import 'providers/quran_provider.dart';
 import 'providers/app_status_provider.dart';
+import 'providers/tahfidz_dashboard_provider.dart';
+import 'providers/student_activity_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -128,6 +130,8 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => TahfidzProvider()),
         ChangeNotifierProvider(create: (_) => QuranProvider()),
+        ChangeNotifierProvider(create: (_) => StudentActivityProvider()),
+        ChangeNotifierProvider(create: (_) => TahfidzDashboardProvider()),
         ChangeNotifierProvider(
           create:
               (_) => AppStatusProvider(

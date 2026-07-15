@@ -8,6 +8,7 @@ import '../../services/tahfidz_service.dart';
 import '../../providers/tahfidz_provider.dart';
 import '../../utils/access_control.dart';
 import './setoran_tahfidz_screen.dart';
+import './catatan_setoran_screen.dart';
 
 class AbsensiTahfidzScreen extends StatefulWidget {
   const AbsensiTahfidzScreen({super.key});
@@ -295,6 +296,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
       final attendanceHistory = await _service.getStudentAttendanceHistory(
         date: dateStr,
         session: _selectedSession,
+        teacherId: _teacherId,
       );
 
       if (mounted) {
@@ -485,6 +487,10 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
         );
         setState(() => _isAttendanceSubmitted = true);
         Provider.of<TahfidzProvider>(context, listen: false).checkHalaqohStatus();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const CatatanSetoranScreen()),
+        );
       }
     } else {
       if (mounted) {
@@ -579,13 +585,13 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
                         SliverPersistentHeader(
                           pinned: true,
                           delegate: _StickyHeaderDelegate(
-                            minHeight: 240,
-                            maxHeight: 240,
+                            minHeight: 195,
+                            maxHeight: 195,
                             child: Container(
                               color: Colors.grey[100],
                               padding: const EdgeInsets.only(
-                                top: 16,
-                                bottom: 8,
+                                top: 8,
+                                bottom: 4,
                               ),
                               child: _buildSummaryCard(useMargin: false),
                             ),
@@ -884,7 +890,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
           useMargin
               ? const EdgeInsets.fromLTRB(16, 8, 16, 16)
               : const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -943,7 +949,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           LayoutBuilder(
             builder: (context, constraints) {
               return Stack(
@@ -978,7 +984,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
               );
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Row(
             children: [
               _buildModernStatItem(
@@ -1031,7 +1037,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
             ),
             child: Icon(icon, size: 22, color: color),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             value,
             style: GoogleFonts.outfit(
@@ -1141,6 +1147,9 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
+          border: Border(
+            left: BorderSide(color: statusColor, width: 4),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.03),
@@ -1337,7 +1346,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? color : Colors.grey[50],
+            color: isSelected ? color : color.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14),
             boxShadow:
                 isSelected
@@ -1355,7 +1364,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
               Icon(
                 icon,
                 size: 18,
-                color: isSelected ? Colors.white : Colors.grey[400],
+                color: isSelected ? Colors.white : color.withValues(alpha: 0.6),
               ),
               const SizedBox(height: 6),
               Text(
@@ -1363,7 +1372,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
                 style: GoogleFonts.outfit(
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  color: isSelected ? Colors.white : Colors.grey[500],
+                  color: isSelected ? Colors.white : color.withValues(alpha: 0.7),
                   letterSpacing: 0.5,
                 ),
               ),
