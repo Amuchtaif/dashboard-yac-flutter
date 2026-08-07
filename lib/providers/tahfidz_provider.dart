@@ -45,7 +45,7 @@ class TahfidzProvider with ChangeNotifier {
     try {
       final String today = DateTime.now().toIso8601String().split('T')[0];
       
-      // 1. Check if Halaqoh is opened (Teacher Check-in)
+      // 1. Check if Halaqoh is opened (Teacher Check-in) for today
       final history = await _service.getTeacherAttendanceHistory(
         teacherId: _teacherId,
         date: today,
@@ -60,10 +60,20 @@ class TahfidzProvider with ChangeNotifier {
         _isHalaqohOpened = true;
         _activeSession = activeSession['notes'] ?? 'Pagi';
         
-        // 2. Check if Student Attendance submitted for this session
+        // Check if Student Attendance submitted for this active session
         final attendanceHistory = await _service.getStudentAttendanceHistory(
           date: today,
           session: _activeSession,
+          teacherId: _teacherId,
+        );
+        _isAttendanceSubmitted = attendanceHistory.isNotEmpty;
+      } else if (history.isNotEmpty) {
+        // Teacher has checked in for at least one session today
+        _isHalaqohOpened = true;
+        _activeSession = history.last['notes'] ?? 'Pagi';
+        
+        final attendanceHistory = await _service.getStudentAttendanceHistory(
+          date: today,
           teacherId: _teacherId,
         );
         _isAttendanceSubmitted = attendanceHistory.isNotEmpty;

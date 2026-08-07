@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../services/tahfidz_service.dart';
 import '../../providers/tahfidz_provider.dart';
@@ -29,7 +30,15 @@ class _RiwayatSetoranScreenState extends State<RiwayatSetoranScreen> {
     setState(() => _isLoading = true);
     try {
       final provider = Provider.of<TahfidzProvider>(context, listen: false);
-      final int? teacherId = provider.teacherId;
+      int? teacherId = provider.teacherId;
+      if (teacherId == null) {
+        final prefs = await SharedPreferences.getInstance();
+        teacherId = prefs.getInt('userId');
+        final String? teacherName = prefs.getString('fullName');
+        if (teacherId != null && mounted) {
+          provider.setTeacherInfo(teacherId, teacherName);
+        }
+      }
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
 
       final data = await _service.getMemorizationHistory(

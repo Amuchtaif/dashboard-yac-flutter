@@ -74,25 +74,14 @@ void main() async {
 
   final prefs = await SharedPreferences.getInstance();
   await prefs.reload();
-  final int? loginTimestamp = prefs.getInt('login_timestamp');
   final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 
   bool isSessionValid = false;
 
-  if (isLoggedIn && loginTimestamp != null) {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final diff = now - loginTimestamp;
-    const sessionTimeout = 172800000;
-
-    if (diff < sessionTimeout) {
-      debugPrint("✅ SESSION VALID");
-      isSessionValid = true;
-      await PermissionService().loadFromCache();
-      await prefs.setInt('login_timestamp', now);
-    } else {
-      debugPrint("❌ SESSION EXPIRED");
-      await prefs.clear();
-    }
+  if (isLoggedIn) {
+    debugPrint("✅ SESSION VALID");
+    isSessionValid = true;
+    await PermissionService().loadFromCache();
   } else {
     debugPrint("ℹ️ NO ACTIVE SESSION");
     await prefs.clear();

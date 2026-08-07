@@ -68,6 +68,7 @@ class _CatatanSetoranScreenState extends State<CatatanSetoranScreen> {
         'date': dateStr,
         'start_date': dateStr,
         'end_date': dateStr,
+        'limit': '1000',
       });
 
       if (mounted) {

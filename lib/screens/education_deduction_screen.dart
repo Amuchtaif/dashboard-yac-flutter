@@ -129,7 +129,10 @@ class _EducationDeductionScreenState extends State<EducationDeductionScreen> {
   String _formatDate(dynamic value) {
     if (value == null || value == '-') return '-';
     try {
-      final date = DateTime.parse(value.toString());
+      final date = DateTime.parse(value.toString()).toLocal();
+      if (widget.period.isNotEmpty) {
+        return '${date.day} ${widget.period}';
+      }
       return DateFormat('dd MMM yyyy', 'id_ID').format(date);
     } catch (_) {
       return value.toString();
@@ -139,7 +142,7 @@ class _EducationDeductionScreenState extends State<EducationDeductionScreen> {
   String _formatMonthYear(dynamic value) {
     if (value == null || value == '-') return '-';
     try {
-      final date = DateTime.parse(value.toString());
+      final date = DateTime.parse(value.toString()).toLocal();
       return DateFormat('MMMM yyyy', 'id_ID').format(date);
     } catch (_) {
       return value.toString();
@@ -408,7 +411,7 @@ class _EducationDeductionScreenState extends State<EducationDeductionScreen> {
                         _formatCurrency(item['DAFTAR ULANG']),
                       ),
                       _buildDetailRow(
-                        'SPP Lama',
+                        'Paket Buku',
                         _formatCurrency(item['SPP LAMA']),
                       ),
                       _buildDetailRow(
@@ -457,7 +460,7 @@ class _EducationDeductionScreenState extends State<EducationDeductionScreen> {
                         _formatCurrency(item['HUT DAFTAR ULANG']),
                       ),
                       _buildDetailRow(
-                        'Hut. SPP Lama',
+                        'Hut. Paket Buku',
                         _formatCurrency(item['HUT SPP LAMA']),
                       ),
                       _buildDetailRow(

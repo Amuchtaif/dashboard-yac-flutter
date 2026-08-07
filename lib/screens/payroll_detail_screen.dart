@@ -327,6 +327,18 @@ class PayrollDetailScreen extends StatelessWidget {
               double.tryParse(payrollData['tunj_pph21'].toString()) ?? 0,
             ),
           ),
+          _buildDetailRow(
+            'BPJS TK bg PT',
+            formatter.format(
+              double.tryParse((payrollData['bpjs_tk_jht_lp'] ?? payrollData['bpjs_tk_jht_ip'] ?? payrollData['bpjs_tk_bg_pt'] ?? 0).toString()) ?? 0,
+            ),
+          ),
+          _buildDetailRow(
+            'BPJS Kesehatan',
+            formatter.format(
+              double.tryParse((payrollData['bpjs_keshtn'] ?? payrollData['bpjs_kes_tunjangan'] ?? 0).toString()) ?? 0,
+            ),
+          ),
           const SizedBox(height: 12),
           _buildTotalRow(
             'TOTAL PENERIMAAN',
@@ -995,8 +1007,14 @@ class PayrollDetailScreen extends StatelessWidget {
                                 'Lembur',
                                 formatCurrency(payrollData['lembur']),
                               ),
-                              _pdfItemValueRow('BPJS TK bg PT', '0'),
-                              _pdfItemValueRow('BPJS Kesehatan', '0'),
+                              _pdfItemValueRow(
+                                'BPJS TK bg PT',
+                                formatCurrency(payrollData['bpjs_tk_jht_lp'] ?? payrollData['bpjs_tk_jht_ip'] ?? payrollData['bpjs_tk_bg_pt']),
+                              ),
+                              _pdfItemValueRow(
+                                'BPJS Kesehatan',
+                                formatCurrency(payrollData['bpjs_keshtn'] ?? payrollData['bpjs_kes_tunjangan']),
+                              ),
                             ],
                           ),
                         ),

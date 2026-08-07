@@ -15,15 +15,23 @@ class PermissionService {
   // Cache permission di memory untuk akses cepat
   bool _canCreateMeeting = false;
   bool _canApprovePermits = false;
+  bool _canAccessTahfidzMonitoring = false;
   bool _isWaliKelas = false;
   bool _isLoaded = false;
   bool _usingFallback = false;
+  List<String> _allowedTahfidzUnits = [];
 
   /// Getter untuk mengecek apakah user bisa membuat rapat
   bool get canCreateMeeting => _canCreateMeeting;
 
   /// Getter untuk mengecek apakah user bisa menyetujui izin
   bool get canApprovePermits => _canApprovePermits;
+
+  /// Getter untuk mengecek apakah user diizinkan mengakses Dashboard Monitoring Tahfidz (Pimpinan)
+  bool get canAccessTahfidzMonitoring => _canAccessTahfidzMonitoring;
+
+  /// Getter untuk list unit Tahfidz yang diizinkan untuk user
+  List<String> get allowedTahfidzUnits => _allowedTahfidzUnits;
 
   /// Getter untuk mengecek apakah user adalah Wali Kelas
   bool get isWaliKelas => _isWaliKelas;
@@ -43,14 +51,16 @@ class PermissionService {
     final prefs = await SharedPreferences.getInstance();
     _canCreateMeeting = prefs.getBool('can_create_meeting') ?? false;
     _canApprovePermits = prefs.getBool('can_approve_permits') ?? false;
+    _canAccessTahfidzMonitoring = prefs.getBool('can_access_tahfidz_monitoring') ?? false;
     _isWaliKelas = prefs.getBool('is_wali_kelas') ?? false;
     _activePermissions = prefs.getStringList('user_permissions') ?? [];
+    _allowedTahfidzUnits = prefs.getStringList('allowed_tahfidz_units') ?? [];
     _usingFallback = prefs.getBool('using_fallback') ?? false;
     _isLoaded = true;
     debugPrint(
-      "📋 Permission Loaded from Cache: canCreateMeeting=$_canCreateMeeting, canApprovePermits=$_canApprovePermits, usingFallback=$_usingFallback",
+      "📋 Permission Loaded from Cache: canCreateMeeting=$_canCreateMeeting, canApprovePermits=$_canApprovePermits, canAccessTahfidzMonitoring=$_canAccessTahfidzMonitoring, usingFallback=$_usingFallback",
     );
-    debugPrint("📋 Active Permissions from Cache: $_activePermissions");
+    debugPrint("📋 Active Permissions from Cache: $_activePermissions, Allowed Units: $_allowedTahfidzUnits");
   }
 
   /// Fetch permission dari API dan simpan ke cache
@@ -69,7 +79,6 @@ class PermissionService {
       );
 
       debugPrint("🌐 Permission API Status: ${response.statusCode}");
-      // debugPrint("🌐 Permission API Raw Body: ${response.body}");
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -82,7 +91,16 @@ class PermissionService {
           // Parse permission values
           _canCreateMeeting = _parseBool(permissions['can_create_meeting']);
           _canApprovePermits = _parseBool(permissions['can_approve_permits']);
+          _canAccessTahfidzMonitoring = _parseBool(permissions['can_access_tahfidz_monitoring']);
           _isWaliKelas = _parseBool(permissions['is_wali_kelas']);
+
+          if (responseData['allowed_tahfidz_units'] != null) {
+            _allowedTahfidzUnits = List<String>.from(
+              responseData['allowed_tahfidz_units'].map((x) => x.toString()),
+            );
+          } else {
+            _allowedTahfidzUnits = [];
+          }
 
           // Populate active permissions list
           _activePermissions.clear();
@@ -188,8 +206,10 @@ class PermissionService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('can_create_meeting', _canCreateMeeting);
     await prefs.setBool('can_approve_permits', _canApprovePermits);
+    await prefs.setBool('can_access_tahfidz_monitoring', _canAccessTahfidzMonitoring);
     await prefs.setBool('is_wali_kelas', _isWaliKelas);
     await prefs.setStringList('user_permissions', _activePermissions);
+    await prefs.setStringList('allowed_tahfidz_units', _allowedTahfidzUnits);
     await prefs.setBool('using_fallback', _usingFallback);
     debugPrint("💾 Permissions saved to cache");
   }
@@ -205,11 +225,15 @@ class PermissionService {
   Future<void> clear() async {
     _canCreateMeeting = false;
     _canApprovePermits = false;
+    _canAccessTahfidzMonitoring = false;
+    _allowedTahfidzUnits = [];
     _isLoaded = false;
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('can_create_meeting');
     await prefs.remove('can_approve_permits');
+    await prefs.remove('can_access_tahfidz_monitoring');
+    await prefs.remove('allowed_tahfidz_units');
     await prefs.remove('user_permissions');
     debugPrint("🗑️ Permissions cleared");
   }
@@ -235,12 +259,34 @@ class PermissionService {
       return true;
     }
 
+    // Alias checking for Tahfidz Monitoring
+    if (permissionName == 'can_access_tahfidz_monitoring' || permissionName == 'access_tahfidz_monitoring') {
+      if (_canAccessTahfidzMonitoring ||
+          _activePermissions.contains('can_access_tahfidz_monitoring') ||
+          _activePermissions.contains('access_tahfidz_monitoring')) {
+        debugPrint("🔐 ✅ Tahfidz Monitoring FOUND via alias check");
+        return true;
+      }
+    }
+
+    // Alias checking for Tahfidz
+    if (permissionName == 'can_access_tahfidz' || permissionName == 'access_tahfidz') {
+      if (_activePermissions.contains('can_access_tahfidz') ||
+          _activePermissions.contains('access_tahfidz')) {
+        debugPrint("🔐 ✅ Tahfidz FOUND via alias check");
+        return true;
+      }
+    }
+
     // Fallback untuk backward compatibility jika diperlukan
     switch (permissionName) {
       case 'create_meeting':
         return _canCreateMeeting;
       case 'approve_permits':
         return _canApprovePermits;
+      case 'can_access_tahfidz_monitoring':
+      case 'access_tahfidz_monitoring':
+        return _canAccessTahfidzMonitoring;
       default:
         debugPrint("🔐 ❌ '$permissionName' NOT FOUND in activePermissions");
         return false;

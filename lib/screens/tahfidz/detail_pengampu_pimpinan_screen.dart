@@ -35,10 +35,11 @@ class _DetailPengampuPimpinanScreenState extends State<DetailPengampuPimpinanScr
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('access_token') ?? '';
+      final int userId = prefs.getInt('userId') ?? 0;
       final baseUrl = ApiConfig.baseUrl;
 
       final response = await http.get(
-        Uri.parse("$baseUrl/tahfidz/dashboard_pimpinan?action=detail_pengampu&id=${widget.teacherId}"),
+        Uri.parse("$baseUrl/tahfidz/dashboard_pimpinan?action=detail_pengampu&id=${widget.teacherId}&user_id=$userId"),
         headers: {
           'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true',
@@ -50,9 +51,9 @@ class _DetailPengampuPimpinanScreenState extends State<DetailPengampuPimpinanScr
         final res = jsonDecode(response.body);
         if (res['success'] == true) {
           setState(() {
-            _teacherData = res['data']?['teacher'] ?? {};
+            _teacherData = res['data']?['profile'] ?? res['data']?['teacher'] ?? {};
             _halaqahs = res['data']?['halaqahs'] ?? [];
-            _recentLogs = res['data']?['recent_logs'] ?? [];
+            _recentLogs = res['data']?['recent_activities'] ?? res['data']?['recent_logs'] ?? [];
             _isLoading = false;
           });
           return;

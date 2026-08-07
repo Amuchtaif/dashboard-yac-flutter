@@ -431,15 +431,29 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
 
     final int? teacherId = provider.teacherId;
 
+    int? startSurahId;
+    int? endSurahId;
+    for (var s in _surahList) {
+      if (s.namaLatin == _selectedSurahStart) startSurahId = s.nomor;
+      if (s.namaLatin == _selectedSurahEnd) endSurahId = s.nomor;
+    }
+
     final data = {
       "student_id": _selectedStudentId,
       "date": DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      "start_surah_id": startSurahId,
       "surah_start": _selectedSurahStart,
+      "surah_id": startSurahId,
+      "start_ayah": int.tryParse(_ayatStartController.text) ?? 1,
       "ayat_start": int.tryParse(_ayatStartController.text) ?? 1,
+      "line_count": int.tryParse(_totalBarisController.text) ?? 0,
       "total_baris": int.tryParse(_totalBarisController.text) ?? 0,
+      "end_surah_id": endSurahId ?? startSurahId,
       "surah_end": _selectedSurahEnd,
+      "end_ayah": int.tryParse(_ayatEndController.text) ?? 1,
       "ayat_end": int.tryParse(_ayatEndController.text) ?? 1,
       "status": _quality.value,
+      "entry_type": "HAFALAN_BARU",
       "notes": _notesController.text,
       "teacher_id": teacherId,
     };

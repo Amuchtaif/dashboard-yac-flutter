@@ -462,12 +462,12 @@ class _DaftarSetoranScreenState extends State<DaftarSetoranScreen> {
                                 final item = _entries[index];
                                 final int id = int.tryParse(item['id']?.toString() ?? '') ?? 0;
                                 final studentName = item['student_name'] ?? 'Santri';
-                                final dateStr = item['tanggal'] ?? '';
-                                final type = item['jenis_setoran'] ?? '';
-                                final surahStart = item['surah_awal'] ?? '';
-                                final surahEnd = item['surah_akhir'] ?? '';
-                                final ayatStart = item['ayat_awal'] ?? '';
-                                final ayatEnd = item['ayat_akhir'] ?? '';
+                                final dateStr = item['tanggal'] ?? item['date'] ?? '';
+                                final type = item['jenis_setoran'] ?? item['entry_type'] ?? '';
+                                final surahStart = item['surah_awal'] ?? item['surah_start'] ?? '';
+                                final surahEnd = item['surah_akhir'] ?? item['surah_end'] ?? '';
+                                final ayatStart = item['ayat_awal'] ?? item['start_ayah'] ?? item['ayat_start'] ?? '';
+                                final ayatEnd = item['ayat_akhir'] ?? item['end_ayah'] ?? item['ayat_end'] ?? '';
 
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 12),

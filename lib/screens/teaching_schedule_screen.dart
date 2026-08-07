@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/teacher_service.dart';
 import 'teaching_journal_screen.dart';
+import 'class_journal_screen.dart';
 
 class TeachingScheduleScreen extends StatefulWidget {
   const TeachingScheduleScreen({super.key});
@@ -199,26 +200,113 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
         child: InkWell(
           onTap:
               canAccess
-                  ? () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => TeachingJournalScreen(
+                  ? () async {
+                      if (isJournalFilled) {
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(32.0),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: const CircularProgressIndicator(
+                                color: Color(0xFF42A5F5),
+                                strokeWidth: 3,
+                              ),
+                            ),
+                          ),
+                        );
+
+                        try {
+                          final data = await _teacherService.getStudentsBySchedule(
+                            item['id'].toString(),
+                            DateFormat('yyyy-MM-dd').format(_selectedDate),
+                          );
+
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                          }
+
+                          final students = data['students'] != null && data['students'] is List
+                              ? List<Map<String, dynamic>>.from(data['students'])
+                              : [];
+
+                          final Map<String, String> dbToUi = {
+                            'present': 'Hadir',
+                            'sick': 'Sakit',
+                            'permit': 'Izin',
+                            'absent': 'Alpha',
+                            'late': 'Alpha',
+                          };
+
+                          final Map<String, String> uiToDb = {
+                            'Hadir': 'present',
+                            'Sakit': 'sick',
+                            'Izin': 'permit',
+                            'Alpha': 'absent',
+                          };
+
+                          final Map<String, String> attendanceStatus = {};
+                          for (var student in students) {
+                            final dbStatus = student['status']?.toString() ?? '';
+                            attendanceStatus[student['student_id'].toString()] = dbToUi[dbStatus] ?? 'Hadir';
+                          }
+
+                          if (context.mounted) {
+                            Navigator.push(
+                              context,
+                              _createRoute(
+                                ClassJournalScreen(
+                                  scheduleId: item['id'].toString(),
+                                  date: DateFormat('yyyy-MM-dd').format(_selectedDate),
+                                  subjectName: item['subject_name'] ?? 'Mata Pelajaran',
+                                  className: item['class_name'] ?? 'Kelas',
+                                  teacherName: item['teacher_name'] ?? 'Guru',
+                                  attendanceStatus: attendanceStatus,
+                                  uiToDbMapping: uiToDb,
+                                  totalStudents: students.length,
+                                  existingJournal: data['journal'],
+                                ),
+                              ),
+                            ).then((value) {
+                              _fetchSchedule();
+                            });
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Gagal memuat detail jurnal: $e')),
+                            );
+                          }
+                        }
+                      } else {
+                        Navigator.push(
+                          context,
+                          _createRoute(
+                            TeachingJournalScreen(
                               scheduleId: item['id'].toString(),
-                              date: DateFormat(
-                                'yyyy-MM-dd',
-                              ).format(_selectedDate),
-                              subjectName:
-                                  item['subject_name'] ?? 'Mata Pelajaran',
+                              date: DateFormat('yyyy-MM-dd').format(_selectedDate),
+                              subjectName: item['subject_name'] ?? 'Mata Pelajaran',
                               className: item['class_name'] ?? 'Kelas',
                               teacherName: item['teacher_name'] ?? 'Guru',
                             ),
-                      ),
-                    ).then((value) {
-                      _fetchSchedule();
-                    });
-                  }
+                          ),
+                        ).then((value) {
+                          _fetchSchedule();
+                        });
+                      }
+                    }
                   : () {
                     final String snackbarText = isPast
                         ? 'Tidak ada data absensi dan jurnal untuk tanggal ini'
@@ -614,5 +702,28 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
       });
       _fetchSchedule();
     }
+  }
+
+  Route _createRoute(Widget screen) {
+    return PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => screen,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        const begin = Offset(1.0, 0.0);
+        const end = Offset.zero;
+        const curve = Curves.easeInOutCubic;
+
+        var slideTween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+        var fadeTween = Tween<double>(begin: 0.0, end: 1.0).chain(CurveTween(curve: curve));
+
+        return SlideTransition(
+          position: animation.drive(slideTween),
+          child: FadeTransition(
+            opacity: animation.drive(fadeTween),
+            child: child,
+          ),
+        );
+      },
+      transitionDuration: const Duration(milliseconds: 450),
+    );
   }
 }

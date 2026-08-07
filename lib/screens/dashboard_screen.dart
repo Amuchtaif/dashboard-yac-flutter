@@ -1195,8 +1195,10 @@ class HomeTab extends StatelessWidget {
                 const SizedBox(height: 12),
                 _buildEducationMenuGrid(context),
               ],
-              // Show Tahfidz Menu Only If User Has Permission
-              if (AccessControl.can('can_access_tahfidz')) ...[
+              // Show Tahfidz Menu If User Has Tahfidz or Tahfidz Monitoring Permission
+              if (AccessControl.can('can_access_tahfidz') ||
+                  AccessControl.can('can_access_tahfidz_monitoring') ||
+                  AccessControl.can('access_tahfidz_monitoring')) ...[
                 const SizedBox(height: 24),
                 _buildSectionTitle('Menu Tahfidz'),
                 const SizedBox(height: 12),
@@ -2567,28 +2569,15 @@ class HomeTab extends StatelessWidget {
   }
 
   Widget _buildTahfidzMenuGrid(BuildContext context) {
-    final bool isMudirOrKepalaUnit =
-        positionLevel == 1 ||
-        positionLevel == 3 ||
-        positionName.toLowerCase().contains('mudir') ||
-        positionName.toLowerCase().contains('kepala unit');
-
-    if (isMudirOrKepalaUnit) {
-      return Column(
-        children: [
-          _buildFullWidthMenuCard(context, {
-            'title': 'Dashboard Tahfidz',
-            'subtitle': 'Monitoring & analisis tahfidz bertingkat',
-            'icon': Icons.dashboard_customize_outlined,
-            'color': Colors.teal,
-            'gradientColors': [Colors.teal.shade700, Colors.cyan.shade600],
-            'textColor': Colors.white,
-            'iconColor': Colors.white,
-            'iconBgColor': Colors.white.withValues(alpha: 0.2),
-          }),
-        ],
-      );
-    }
+    final bool canAccessMonitoring =
+        AccessControl.can('can_access_tahfidz_monitoring') ||
+        AccessControl.can('access_tahfidz_monitoring');
+    final bool canAccessTahfidzOps =
+        AccessControl.can('can_access_tahfidz') ||
+        AccessControl.can('access_tahfidz') ||
+        !canAccessMonitoring; // Fallback so ops are shown if monitoring is off
+    final bool isUserKoordinator =
+        isKoordinator || AccessControl.can('is_koordinator');
 
     final mainMenus = [
       {
@@ -2611,10 +2600,10 @@ class HomeTab extends StatelessWidget {
 
     return Column(
       children: [
-        if (positionLevel <= 3) ...[
+        if (canAccessMonitoring) ...[
           _buildFullWidthMenuCard(context, {
             'title': 'Dashboard Tahfidz',
-            'subtitle': 'Monitoring & analisis tahfidz bertingkat',
+            'subtitle': 'Monitoring Hafalan Santri',
             'icon': Icons.dashboard_customize_outlined,
             'color': Colors.teal,
             'gradientColors': [Colors.teal.shade700, Colors.cyan.shade600],
@@ -2622,22 +2611,26 @@ class HomeTab extends StatelessWidget {
             'iconColor': Colors.white,
             'iconBgColor': Colors.white.withValues(alpha: 0.2),
           }),
-          const SizedBox(height: 12),
+          if (canAccessTahfidzOps) const SizedBox(height: 12),
         ],
-        Row(
-          children:
-              mainMenus
-                  .map((menu) => Expanded(child: _buildMenuCard(context, menu)))
-                  .toList(),
-        ),
-        const SizedBox(height: 12),
-        _buildFullWidthMenuCard(context, {
-          'title': 'Setoran',
-          'subtitle': 'Input hafalan baru santri',
-          'icon': Icons.edit_note_rounded,
-          'color': Colors.teal,
-        }),
-        if (isKoordinator || AccessControl.can('is_koordinator')) ...[
+        if (canAccessTahfidzOps) ...[
+          Row(
+            children:
+                mainMenus
+                    .map(
+                      (menu) => Expanded(child: _buildMenuCard(context, menu)),
+                    )
+                    .toList(),
+          ),
+          const SizedBox(height: 12),
+          _buildFullWidthMenuCard(context, {
+            'title': 'Setoran',
+            'subtitle': 'Input hafalan baru santri',
+            'icon': Icons.edit_note_rounded,
+            'color': Colors.teal,
+          }),
+        ],
+        if (isUserKoordinator) ...[
           const SizedBox(height: 12),
           _buildFullWidthMenuCard(context, {
             'title': 'Absensi Pengampu',
