@@ -438,9 +438,18 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
       if (s.namaLatin == _selectedSurahEnd) endSurahId = s.nomor;
     }
 
+    final activeSession =
+        provider.activeSession ?? (DateTime.now().hour < 12 ? 'Pagi' : 'Sore');
+    final now = DateTime.now();
+
     final data = {
       "student_id": _selectedStudentId,
-      "date": DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      "date": DateFormat('yyyy-MM-dd').format(now),
+      "session": activeSession,
+      "session_name": activeSession,
+      "waktu_setoran": DateFormat('HH:mm:ss').format(now),
+      "time": DateFormat('HH:mm:ss').format(now),
+      "created_at": DateFormat('yyyy-MM-dd HH:mm:ss').format(now),
       "start_surah_id": startSurahId,
       "surah_start": _selectedSurahStart,
       "surah_id": startSurahId,
@@ -454,6 +463,7 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
       "ayat_end": int.tryParse(_ayatEndController.text) ?? 1,
       "status": _quality.value,
       "entry_type": "HAFALAN_BARU",
+      "jenis_setoran": "HAFALAN_BARU",
       "notes": _notesController.text,
       "teacher_id": teacherId,
     };

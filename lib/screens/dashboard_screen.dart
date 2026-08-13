@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:ui';
+import 'dart:math' as math;
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -1204,10 +1205,10 @@ class HomeTab extends StatelessWidget {
                 const SizedBox(height: 12),
                 _buildTahfidzMenuGrid(context),
               ],
-              // Show Kepala Bidang Menu Only If User Has Permission
+              // Show Kepala Bidang / Jabatan Menu Only If User Has Permission
               if (AccessControl.can('can_access_kabid')) ...[
                 const SizedBox(height: 24),
-                _buildSectionTitle('Menu Kepala Bidang'),
+                _buildSectionTitle(_getKabidMenuTitle()),
                 const SizedBox(height: 12),
                 _buildKabidMenuGrid(context),
               ],
@@ -1707,51 +1708,8 @@ class HomeTab extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          // Map Section
-          Container(
-            height: 160,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
-              color: const Color(0xFFF1F5F9),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Real Static Map from Yandex (More reliable for static images)
-                  if (currentPosition != null)
-                    Positioned.fill(
-                      child: CachedNetworkImage(
-                        imageUrl:
-                            "https://static-maps.yandex.ru/1.x/?ll=${currentPosition!.longitude},${currentPosition!.latitude}&z=16&l=map&size=650,350",
-                        fit: BoxFit.cover,
-                        placeholder:
-                            (context, url) => Container(
-                              color: const Color(0xFFF1F5F9),
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            ),
-                        errorWidget:
-                            (context, url, error) =>
-                                CustomPaint(painter: _MapGridPainter()),
-                      ),
-                    )
-                  else
-                    Positioned.fill(
-                      child: CustomPaint(painter: _MapGridPainter()),
-                    ),
-                  // Pulse and Dot
-                  const _LocationPulse(),
-                ],
-              ),
-            ),
-          ),
+          // Map Section (Google Maps style view with POIs, Zoom controls, Recenter, and Google Logo)
+          _GoogleMapLocationCard(currentPosition: currentPosition),
           const SizedBox(height: 18),
           // Footer
           Row(
@@ -2682,6 +2640,30 @@ class HomeTab extends StatelessWidget {
     );
   }
 
+  String _getKabidMenuTitle() {
+    String title = positionName.trim();
+    if (title.isEmpty) {
+      if (positionLevel == 1) {
+        title = 'Mudir';
+      } else if (positionLevel == 2) {
+        title = 'Kepala Bidang';
+      } else if (positionLevel == 3) {
+        title = 'Kepala Unit';
+      } else if (positionLevel == 4) {
+        title = 'Guru';
+      } else if (positionLevel == 5) {
+        title = 'Staf';
+      } else {
+        title = 'Kepala Bidang';
+      }
+    }
+
+    if (title.toLowerCase().startsWith('menu ')) {
+      return title;
+    }
+    return 'Menu $title';
+  }
+
   Widget _buildKabidMenuGrid(BuildContext context) {
     final menus = [
       {
@@ -3286,4 +3268,220 @@ class _MapGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
+
+class _GoogleMapLocationCard extends StatefulWidget {
+  final Position? currentPosition;
+
+  const _GoogleMapLocationCard({this.currentPosition});
+
+  @override
+  State<_GoogleMapLocationCard> createState() => _GoogleMapLocationCardState();
+}
+
+class _GoogleMapLocationCardState extends State<_GoogleMapLocationCard> {
+  int _zoom = 16;
+
+  void _zoomIn() {
+    if (_zoom < 19) {
+      setState(() {
+        _zoom++;
+      });
+    }
+  }
+
+  void _zoomOut() {
+    if (_zoom > 12) {
+      setState(() {
+        _zoom--;
+      });
+    }
+  }
+
+  void _recenter() {
+    setState(() {
+      _zoom = 16;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pos = widget.currentPosition;
+
+    return Container(
+      height: 165,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+        color: const Color(0xFFF1F5F9),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Map Tiles Layer (Google Maps Roadmap Tiles)
+            if (pos != null)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final w = constraints.maxWidth;
+                  final h = constraints.maxHeight;
+
+                  final lat = pos.latitude;
+                  final lon = pos.longitude;
+
+                  final n = 1 << _zoom; // 2^_zoom
+                  final latRad = lat * math.pi / 180.0;
+                  final exactX = (lon + 180.0) / 360.0 * n;
+                  final exactY =
+                      (1.0 -
+                          (math.log(
+                                math.tan(latRad) + (1.0 / math.cos(latRad)),
+                              ) /
+                              math.pi)) /
+                      2.0 *
+                      n;
+
+                  final tileX = exactX.floor();
+                  final tileY = exactY.floor();
+
+                  final fracX = exactX - tileX;
+                  final fracY = exactY - tileY;
+
+                  final centerTileLeft = w / 2.0 - fracX * 256.0;
+                  final centerTileTop = h / 2.0 - fracY * 256.0;
+
+                  List<Widget> tileWidgets = [];
+
+                  for (int dx = -2; dx <= 2; dx++) {
+                    for (int dy = -2; dy <= 2; dy++) {
+                      final curTileX = tileX + dx;
+                      final curTileY = tileY + dy;
+                      final left = centerTileLeft + dx * 256.0;
+                      final top = centerTileTop + dy * 256.0;
+
+                      final tileUrl =
+                          "https://mt1.google.com/vt/lyrs=m&x=$curTileX&y=$curTileY&z=$_zoom";
+
+                      tileWidgets.add(
+                        Positioned(
+                          left: left,
+                          top: top,
+                          width: 256.0,
+                          height: 256.0,
+                          child: CachedNetworkImage(
+                            imageUrl: tileUrl,
+                            fit: BoxFit.cover,
+                            placeholder:
+                                (context, url) =>
+                                    Container(color: const Color(0xFFF1F5F9)),
+                            errorWidget:
+                                (context, url, error) =>
+                                    CustomPaint(painter: _MapGridPainter()),
+                          ),
+                        ),
+                      );
+                    }
+                  }
+
+                  return Stack(children: tileWidgets);
+                },
+              )
+            else
+              Positioned.fill(child: CustomPaint(painter: _MapGridPainter())),
+
+            // Center User Location Pulse
+            const _LocationPulse(),
+
+            // Top-Right Recenter Button
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Material(
+                color: Colors.white,
+                shape: const CircleBorder(),
+                elevation: 2,
+                child: InkWell(
+                  onTap: _recenter,
+                  customBorder: const CircleBorder(),
+                  child: const Padding(
+                    padding: EdgeInsets.all(7.0),
+                    child: Icon(
+                      Icons.my_location_rounded,
+                      size: 18,
+                      color: Color(0xFF5F6368),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Bottom-Right Zoom Controls (+ / -)
+            Positioned(
+              bottom: 10,
+              right: 10,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: _zoomIn,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(8),
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8.0,
+                          vertical: 6.0,
+                        ),
+                        child: Icon(
+                          Icons.add_rounded,
+                          size: 18,
+                          color: Color(0xFF5F6368),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 22,
+                      height: 1,
+                      color: const Color(0xFFE0E0E0),
+                    ),
+                    InkWell(
+                      onTap: _zoomOut,
+                      borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(8),
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8.0,
+                          vertical: 6.0,
+                        ),
+                        child: Icon(
+                          Icons.remove_rounded,
+                          size: 18,
+                          color: Color(0xFF5F6368),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

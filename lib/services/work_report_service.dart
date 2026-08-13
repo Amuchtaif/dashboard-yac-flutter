@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,20 +12,45 @@ class WorkReportService {
     return userId?.toString() ?? '0';
   }
 
-  Future<Map<String, dynamic>> saveReport(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> saveReport(
+    Map<String, dynamic> data, {
+    File? imageFile,
+  }) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiConstants.workReportSave),
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: jsonEncode(data),
-      );
+      if (imageFile != null) {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse(ApiConstants.workReportSave),
+        );
+        request.headers['ngrok-skip-browser-warning'] = 'true';
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        return jsonDecode(response.body);
+        data.forEach((key, value) {
+          if (value != null) {
+            request.fields[key] = value.toString();
+          }
+        });
+
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'evidence_photo',
+            imageFile.path,
+          ),
+        );
+
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+        final result = jsonDecode(response.body);
+        return result;
       } else {
+        final response = await http.post(
+          Uri.parse(ApiConstants.workReportSave),
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+          },
+          body: jsonEncode(data),
+        );
+
         final result = jsonDecode(response.body);
         return result;
       }

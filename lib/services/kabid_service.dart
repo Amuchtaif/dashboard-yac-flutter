@@ -9,10 +9,14 @@ class KabidService {
   Future<List<StaffAttendance>> getStaffAttendance({
     required int userId,
     String? date,
+    String? unit,
   }) async {
     try {
       final queryParams = {'user_id': userId.toString()};
       if (date != null) queryParams['date'] = date;
+      if (unit != null && unit.isNotEmpty && unit != 'Semua Unit') {
+        queryParams['unit'] = unit;
+      }
 
       final uri = Uri.parse(
         ApiConstants.kabidStaffAttendance,
@@ -78,24 +82,36 @@ class KabidService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getStaffList(int userId) async {
+  Future<Map<String, dynamic>> getStaffListData(int userId, {String? unit}) async {
     try {
+      final queryParams = {'user_id': userId.toString()};
+      if (unit != null && unit.isNotEmpty && unit != 'Semua Unit') {
+        queryParams['unit'] = unit;
+      }
       final uri = Uri.parse(
         ApiConstants.kabidStaffList,
-      ).replace(queryParameters: {'user_id': userId.toString()});
+      ).replace(queryParameters: queryParams);
 
       final response = await http.get(uri);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
-          return List<Map<String, dynamic>>.from(data['data'] ?? []);
+          return {
+            'staff': List<Map<String, dynamic>>.from(data['data'] ?? []),
+            'units': List<Map<String, dynamic>>.from(data['units'] ?? []),
+          };
         }
       }
-      return [];
+      return {'staff': <Map<String, dynamic>>[], 'units': <Map<String, dynamic>>[]};
     } catch (e) {
-      debugPrint("Error fetching staff list: $e");
-      return [];
+      debugPrint("Error fetching staff list data: $e");
+      return {'staff': <Map<String, dynamic>>[], 'units': <Map<String, dynamic>>[]};
     }
+  }
+
+  Future<List<Map<String, dynamic>>> getStaffList(int userId, {String? unit}) async {
+    final res = await getStaffListData(userId, unit: unit);
+    return res['staff'] as List<Map<String, dynamic>>;
   }
 
   Future<Map<String, dynamic>> saveManualAttendance(

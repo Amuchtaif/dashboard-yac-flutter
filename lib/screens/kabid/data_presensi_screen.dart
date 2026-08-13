@@ -17,6 +17,11 @@ class DataPresensiScreen extends StatefulWidget {
 class _DataPresensiScreenState extends State<DataPresensiScreen> {
   final KabidService _kabidService = KabidService();
   List<StaffAttendance> _attendanceList = [];
+  List<String> _availableUnits = ['Semua Unit'];
+  String _selectedUnit = 'Semua Unit';
+  String _departmentName = 'Semua Unit';
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
 
@@ -26,31 +31,94 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
     _fetchAttendance();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  bool _isExcludedUnit(String unitName) {
+    final normalized = unitName.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    if (normalized.contains('pengawas')) return true;
+    if (normalized.contains('sub kurikulum') ||
+        normalized.contains('sub-kurikulum') ||
+        (normalized.contains('sub') && normalized.contains('kurikulum'))) {
+      return true;
+    }
+    return false;
+  }
+
   Future<void> _fetchAttendance() async {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt('user_id') ?? prefs.getInt('userId') ?? 0;
+      final positionLevel = prefs.getInt('positionLevel') ?? 99;
+      final positionName =
+          (prefs.getString('positionName') ?? '').trim().toLowerCase();
+      final divisionName = (prefs.getString('divisionName') ?? '').trim();
+      final unitName = (prefs.getString('unitName') ?? '').trim();
+
+      // Detect if user is a Kepala Unit (Kanit)
+      final bool isKepalaUnit =
+          positionLevel == 3 ||
+          positionName.contains('kepala unit') ||
+          positionName.contains('kanit');
+
+      String departmentName = 'Semua Unit';
+      if (isKepalaUnit && unitName.isNotEmpty) {
+        departmentName = unitName;
+      } else if (divisionName.isNotEmpty) {
+        departmentName = divisionName;
+      } else if (unitName.isNotEmpty) {
+        departmentName = unitName;
+      }
+
+      if (_selectedUnit == 'Semua Unit' || _selectedUnit == _departmentName) {
+        _selectedUnit = departmentName;
+      }
+      _departmentName = departmentName;
+
+      final String? queryUnit =
+          (_selectedUnit == _departmentName || _selectedUnit == 'Semua Unit')
+              ? null
+              : _selectedUnit;
 
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final results = await Future.wait([
-        _kabidService.getStaffList(userId),
-        _kabidService.getStaffAttendance(userId: userId, date: dateStr),
+        _kabidService.getStaffListData(userId, unit: queryUnit),
+        _kabidService.getStaffAttendance(
+          userId: userId,
+          date: dateStr,
+          unit: queryUnit,
+        ),
       ]);
 
+      final Map<String, dynamic> staffData = results[0] as Map<String, dynamic>;
       final List<Map<String, dynamic>> staffList =
-          results[0] as List<Map<String, dynamic>>;
+          staffData['staff'] as List<Map<String, dynamic>>;
+      final List<Map<String, dynamic>> backendUnits =
+          staffData['units'] as List<Map<String, dynamic>>;
       final List<StaffAttendance> attendanceList =
           results[1] as List<StaffAttendance>;
 
-      // Merge: Map all staff to their attendance if it exists, otherwise use default Alpha status
+      // Merge: Map all staff under Kabid/Kanit to their attendance status
       List<StaffAttendance> mergedList =
           staffList.map((s) {
             final sId =
                 s['id'] is int
                     ? s['id']
                     : int.tryParse(s['id']?.toString() ?? '0') ?? 0;
-            return attendanceList.firstWhere(
+            final staffUnit =
+                (s['unit_name'] ??
+                        s['unit'] ??
+                        s['division_name'] ??
+                        s['division'] ??
+                        '')
+                    .toString()
+                    .trim();
+            final found = attendanceList.firstWhere(
               (a) => a.id == sId,
               orElse:
                   () => StaffAttendance(
@@ -60,12 +128,58 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
                     photo: s['profile_photo'] ?? s['photo'],
                     time: '-',
                     status: 'Alpha',
+                    unit: staffUnit,
                   ),
+            );
+
+            return StaffAttendance(
+              id: found.id,
+              name: found.name.isNotEmpty ? found.name : (s['name'] ?? ''),
+              position:
+                  found.position.isNotEmpty
+                      ? found.position
+                      : (s['position_name'] ?? s['position'] ?? ''),
+              photo: found.photo ?? s['profile_photo'] ?? s['photo'],
+              time: found.time,
+              status: found.status,
+              unit: found.unit.isNotEmpty ? found.unit : staffUnit,
             );
           }).toList();
 
+      // Check if there is sub-structure (child units) below this Kepala Unit
+      bool hasSubStructure = false;
+      for (var u in backendUnits) {
+        final name = (u['unit_name'] ?? u['name'] ?? '').toString().trim();
+        if (name.isNotEmpty &&
+            !_isExcludedUnit(name) &&
+            name.toLowerCase() != departmentName.toLowerCase()) {
+          hasSubStructure = true;
+          break;
+        }
+      }
+
+      // Build available units list
+      // If user is a Kepala Unit without child structure, only display their unit
+      final Set<String> unitSet = {departmentName};
+      if (!isKepalaUnit || hasSubStructure) {
+        for (var u in backendUnits) {
+          final name = (u['unit_name'] ?? u['name'] ?? '').toString().trim();
+          if (name.isNotEmpty && !_isExcludedUnit(name)) unitSet.add(name);
+        }
+        for (var item in mergedList) {
+          if (item.unit.isNotEmpty && !_isExcludedUnit(item.unit)) {
+            unitSet.add(item.unit);
+          }
+        }
+      }
+      final availableUnits = unitSet.toList();
+
       setState(() {
         _attendanceList = mergedList;
+        _availableUnits = availableUnits;
+        if (!_availableUnits.contains(_selectedUnit)) {
+          _selectedUnit = departmentName;
+        }
         _isLoading = false;
       });
     } catch (e) {
@@ -76,6 +190,21 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
         ).showSnackBar(SnackBar(content: Text('Gagal memuat data: $e')));
       }
     }
+  }
+
+  List<StaffAttendance> get _filteredAttendanceList {
+    return _attendanceList.where((item) {
+      final matchesUnit =
+          _selectedUnit == _departmentName ||
+          _selectedUnit == 'Semua Unit' ||
+          item.unit.trim().toLowerCase() == _selectedUnit.trim().toLowerCase();
+      final matchesSearch =
+          _searchQuery.isEmpty ||
+          item.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          item.position.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          item.unit.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesUnit && matchesSearch;
+    }).toList();
   }
 
   Future<void> _pickDate() async {
@@ -101,7 +230,7 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
         child: Column(
           children: [
             _buildAppBar(),
-            _buildDateFilter(),
+            _buildFilterSection(),
             if (!_isLoading && _attendanceList.isNotEmpty) _buildSummaryCards(),
             Expanded(
               child: _isLoading ? _buildLoadingState() : _buildAttendanceList(),
@@ -130,7 +259,7 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
           ),
           const SizedBox(width: 12),
           Text(
-            'Data Presensi Staf',
+            'Data Presensi Pegawai',
             style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -142,10 +271,10 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
     );
   }
 
-  Widget _buildDateFilter() {
+  Widget _buildFilterSection() {
     return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      margin: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -157,44 +286,155 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // Row 1: Date Filter
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'TANGGAL',
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF64748B),
-                  letterSpacing: 1,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'TANGGAL',
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF64748B),
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate),
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1E293B),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate),
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1E293B),
+              ElevatedButton.icon(
+                onPressed: _pickDate,
+                icon: const Icon(Icons.calendar_month, size: 18),
+                label: const Text('Ganti'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEFF6FF),
+                  foregroundColor: const Color(0xFF2563EB),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ],
           ),
-          ElevatedButton.icon(
-            onPressed: _pickDate,
-            icon: const Icon(Icons.calendar_month, size: 18),
-            label: const Text('Ganti'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEFF6FF),
-              foregroundColor: const Color(0xFF2563EB),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          const SizedBox(height: 12),
+          // Row 2: Unit Filter & Search
+          Row(
+            children: [
+              // Unit Dropdown
+              Expanded(
+                flex: 5,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedUnit,
+                      isExpanded: true,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: Color(0xFF64748B),
+                        size: 20,
+                      ),
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1E293B),
+                      ),
+                      items:
+                          _availableUnits.map((String unit) {
+                            return DropdownMenuItem<String>(
+                              value: unit,
+                              child: Text(
+                                unit,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null && newValue != _selectedUnit) {
+                          setState(() {
+                            _selectedUnit = newValue;
+                          });
+                          _fetchAttendance();
+                        }
+                      },
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              // Search Field
+              Expanded(
+                flex: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (val) {
+                      setState(() {
+                        _searchQuery = val;
+                      });
+                    },
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: const Color(0xFF1E293B),
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Cari nama...',
+                      hintStyle: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: const Color(0xFF94A3B8),
+                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      icon: const Icon(
+                        Icons.search,
+                        size: 18,
+                        color: Color(0xFF64748B),
+                      ),
+                      suffixIcon:
+                          _searchQuery.isNotEmpty
+                              ? GestureDetector(
+                                onTap: () {
+                                  _searchController.clear();
+                                  setState(() {
+                                    _searchQuery = '';
+                                  });
+                                },
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: Color(0xFF64748B),
+                                ),
+                              )
+                              : null,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -202,15 +442,13 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
   }
 
   Widget _buildSummaryCards() {
-    int hadir = _attendanceList.where((e) => e.status == 'Hadir').length;
-    int terlambat =
-        _attendanceList.where((e) => e.status == 'Terlambat').length;
+    final list = _filteredAttendanceList;
+    int hadir = list.where((e) => e.status == 'Hadir').length;
+    int terlambat = list.where((e) => e.status == 'Terlambat').length;
     int izin =
-        _attendanceList
-            .where((e) => ['Izin', 'Sakit', 'Cuti'].contains(e.status))
-            .length;
+        list.where((e) => ['Izin', 'Sakit', 'Cuti'].contains(e.status)).length;
     int alpha =
-        _attendanceList
+        list
             .where(
               (e) =>
                   ![
@@ -224,7 +462,7 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
             .length;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: Row(
         children: [
           _buildStatItem('HADIR', hadir, const Color(0xFF10B981)),
@@ -288,7 +526,9 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
   }
 
   Widget _buildAttendanceList() {
-    if (_attendanceList.isEmpty) {
+    final list = _filteredAttendanceList;
+
+    if (list.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -296,7 +536,9 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
             Icon(Icons.person_off_outlined, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 16),
             Text(
-              'Tidak ada data presensi',
+              _attendanceList.isEmpty
+                  ? 'Tidak ada data presensi'
+                  : 'Tidak ada staf yang sesuai filter',
               style: GoogleFonts.poppins(color: Colors.grey[500]),
             ),
           ],
@@ -306,9 +548,9 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: _attendanceList.length,
+      itemCount: list.length,
       itemBuilder: (context, index) {
-        final item = _attendanceList[index];
+        final item = list[index];
         Color statusColor;
         switch (item.status) {
           case 'Hadir':
@@ -336,26 +578,62 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: const Color(0xFFF1F5F9),
-                backgroundImage: () {
-                  final url = ApiConstants.getProfilePhotoUrl(item.photo);
-                  return (url != null && url.isNotEmpty)
-                      ? CachedNetworkImageProvider(url)
-                      : null;
-                }(),
-                child:
-                    (ApiConstants.getProfilePhotoUrl(item.photo) == null)
-                        ? Text(
-                          item.name.isNotEmpty ? item.name[0] : '?',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                            fontSize: 18,
-                          ),
-                        )
-                        : null,
+              Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFF1F5F9),
+                ),
+                child: ClipOval(
+                  child: () {
+                    final photoUrl = ApiConstants.getProfilePhotoUrl(
+                      item.photo,
+                    );
+                    if (photoUrl != null && photoUrl.isNotEmpty) {
+                      return CachedNetworkImage(
+                        imageUrl: photoUrl,
+                        fit: BoxFit.cover,
+                        placeholder:
+                            (context, url) => Center(
+                              child: Text(
+                                item.name.isNotEmpty
+                                    ? item.name[0].toUpperCase()
+                                    : '?',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                        errorWidget:
+                            (context, url, error) => Center(
+                              child: Text(
+                                item.name.isNotEmpty
+                                    ? item.name[0].toUpperCase()
+                                    : '?',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                      );
+                    }
+                    return Center(
+                      child: Text(
+                        item.name.isNotEmpty ? item.name[0].toUpperCase() : '?',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                          fontSize: 18,
+                        ),
+                      ),
+                    );
+                  }(),
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -376,6 +654,27 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
                         color: const Color(0xFF64748B),
                       ),
                     ),
+                    if (item.unit.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          item.unit,
+                          style: GoogleFonts.poppins(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF2563EB),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

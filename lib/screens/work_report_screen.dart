@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/api_constants.dart';
 import '../services/work_report_service.dart';
 import 'input_work_report_screen.dart';
 
@@ -400,6 +402,82 @@ class _WorkReportScreenState extends State<WorkReportScreen>
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
+            if (report['evidence_photo'] != null &&
+                report['evidence_photo'].toString().trim().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () {
+                  final photoUrl = ApiConstants.getWorkReportPhotoUrl(
+                    report['evidence_photo'],
+                  );
+                  if (photoUrl != null) {
+                    showDialog(
+                      context: context,
+                      builder:
+                          (context) => Dialog(
+                            backgroundColor: Colors.transparent,
+                            insetPadding: const EdgeInsets.all(12),
+                            child: Stack(
+                              alignment: Alignment.topRight,
+                              children: [
+                                InteractiveViewer(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: CachedNetworkImage(
+                                      imageUrl: photoUrl,
+                                      fit: BoxFit.contain,
+                                      placeholder:
+                                          (context, url) => const Center(
+                                            child: CircularProgressIndicator(),
+                                          ),
+                                      errorWidget:
+                                          (context, url, error) => const Icon(
+                                            Icons.broken_image,
+                                            size: 48,
+                                            color: Colors.white,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                  onPressed: () => Navigator.pop(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                    );
+                  }
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: CachedNetworkImage(
+                    imageUrl:
+                        ApiConstants.getWorkReportPhotoUrl(
+                          report['evidence_photo'],
+                        ) ??
+                        '',
+                    height: 140,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    placeholder:
+                        (context, url) => Container(
+                          height: 140,
+                          color: Colors.grey.shade100,
+                          child: const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                    errorWidget:
+                        (context, url, error) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            ],
             if (!isMyReport) ...[
               const SizedBox(height: 12),
               const Divider(),

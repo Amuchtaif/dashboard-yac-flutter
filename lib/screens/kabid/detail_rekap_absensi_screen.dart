@@ -224,20 +224,39 @@ class _DetailRekapAbsensiScreenState extends State<DetailRekapAbsensiScreen> {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: const Color(0xFFF1F5F9),
-                    backgroundImage:
-                        (photoUrl != null) ? CachedNetworkImageProvider(photoUrl) : null,
-                    child:
-                        (photoUrl == null)
-                            ? Text(
-                              (item['name'] as String).isNotEmpty
-                                  ? (item['name'] as String)[0]
-                                  : '?',
-                              style: const TextStyle(fontSize: 12),
-                            )
-                            : null,
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFFF1F5F9),
+                    ),
+                    child: ClipOval(
+                      child: () {
+                        if (photoUrl != null && photoUrl.isNotEmpty) {
+                          return CachedNetworkImage(
+                            imageUrl: photoUrl,
+                            fit: BoxFit.cover,
+                            errorWidget: (context, url, error) => Center(
+                              child: Text(
+                                (item['name'] as String).isNotEmpty
+                                    ? (item['name'] as String)[0]
+                                    : '?',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          );
+                        }
+                        return Center(
+                          child: Text(
+                            (item['name'] as String).isNotEmpty
+                                ? (item['name'] as String)[0]
+                                : '?',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        );
+                      }(),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

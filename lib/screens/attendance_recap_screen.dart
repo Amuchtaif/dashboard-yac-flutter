@@ -18,6 +18,7 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
   String? _selectedUnit;
   String? _selectedClassName;
   String? _selectedClassId;
+  DateTime _selectedDate = DateTime.now();
   bool _isLoading = true;
 
   @override
@@ -29,7 +30,8 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
   Future<void> _fetchUnits() async {
     setState(() => _isLoading = true);
     try {
-      final data = await _teacherService.getAttendanceRecap();
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final data = await _teacherService.getAttendanceRecap(date: dateStr);
       if (mounted) {
         // Sort units based on user requirement
         const order = [
@@ -76,7 +78,11 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
       _isLoading = true;
     });
     try {
-      final data = await _teacherService.getAttendanceRecap(unit: unit);
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final data = await _teacherService.getAttendanceRecap(
+        unit: unit,
+        date: dateStr,
+      );
       if (mounted) {
         setState(() {
           _classes = data;
@@ -100,7 +106,11 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
       _isLoading = true;
     });
     try {
-      final data = await _teacherService.getAttendanceRecap(classId: classId);
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final data = await _teacherService.getAttendanceRecap(
+        classId: classId,
+        date: dateStr,
+      );
       if (mounted) {
         setState(() {
           _subjects = data;
@@ -114,6 +124,46 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
           SnackBar(content: Text('Gagal memuat mata pelajaran: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+      _refreshCurrentData();
+    }
+  }
+
+  void _changeDateByDays(int days) {
+    final newDate = _selectedDate.add(Duration(days: days));
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final targetDate = DateTime(newDate.year, newDate.month, newDate.day);
+
+    if (targetDate.isAfter(today)) return;
+
+    setState(() {
+      _selectedDate = newDate;
+    });
+    _refreshCurrentData();
+  }
+
+  void _refreshCurrentData() {
+    if (_selectedClassId != null && _selectedClassName != null) {
+      _fetchSubjects(_selectedClassId!, _selectedClassName!);
+    } else if (_selectedUnit != null) {
+      _fetchClasses(_selectedUnit!);
+    } else {
+      _fetchUnits();
     }
   }
 
@@ -132,6 +182,97 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
     } else {
       Navigator.pop(context);
     }
+  }
+
+  Widget _buildDateHeader() {
+    final formattedDate = DateFormat('EEEE, dd MMM yyyy', 'id_ID').format(_selectedDate);
+    final now = DateTime.now();
+    final bool isToday =
+        _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(
+              Icons.chevron_left,
+              color: Color(0xFF3B82F6),
+              size: 24,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => _changeDateByDays(-1),
+            tooltip: 'Hari Sebelumnya',
+          ),
+          Expanded(
+            child: InkWell(
+              onTap: _pickDate,
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.calendar_today_rounded,
+                      color: Color(0xFF3B82F6),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        formattedDate + (isToday ? ' (Hari Ini)' : ''),
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          color: const Color(0xFF1E293B),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    const Icon(
+                      Icons.arrow_drop_down,
+                      color: Color(0xFF64748B),
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.chevron_right,
+              color: isToday ? Colors.grey[300] : const Color(0xFF3B82F6),
+              size: 24,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: isToday ? null : () => _changeDateByDays(1),
+            tooltip: 'Hari Berikutnya',
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -173,15 +314,33 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
             ),
           ),
           centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(
+                Icons.calendar_today_rounded,
+                color: Color(0xFF3B82F6),
+                size: 20,
+              ),
+              onPressed: _pickDate,
+              tooltip: 'Pilih Tanggal',
+            ),
+          ],
         ),
-        body:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _selectedClassId != null
-                ? _buildSubjectList()
-                : _selectedUnit == null
-                ? _buildUnitList()
-                : _buildClassList(),
+        body: Column(
+          children: [
+            _buildDateHeader(),
+            Expanded(
+              child:
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _selectedClassId != null
+                      ? _buildSubjectList()
+                      : _selectedUnit == null
+                      ? _buildUnitList()
+                      : _buildClassList(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -310,32 +469,6 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  DateFormat(
-                    'EEEE, dd MMM yyyy',
-                    'id_ID',
-                  ).format(DateTime.now()),
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
           ..._classes.map((cls) {
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
@@ -426,7 +559,7 @@ class _AttendanceRecapScreenState extends State<AttendanceRecapScreen> {
             Icon(Icons.book_outlined, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 16),
             Text(
-              'Tidak ada jadwal mata pelajaran hari ini',
+              'Tidak ada jadwal mata pelajaran pada tanggal ini',
               style: GoogleFonts.poppins(color: Colors.grey, fontSize: 16),
             ),
             TextButton(

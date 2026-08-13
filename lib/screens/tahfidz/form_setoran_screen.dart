@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../../services/tahfidz_repository.dart';
 import '../../services/tahfidz_service.dart';
 import '../../services/quran_service.dart';
 import '../../models/surah_model.dart';
+import '../../providers/tahfidz_provider.dart';
 import '../../screens/login_screen.dart';
 
 class FormSetoranScreen extends StatefulWidget {
@@ -493,9 +495,19 @@ class _FormSetoranScreenState extends State<FormSetoranScreen> {
 
     setState(() => _isSubmitting = true);
 
+    final provider = Provider.of<TahfidzProvider>(context, listen: false);
+    final activeSession =
+        provider.activeSession ?? (DateTime.now().hour < 12 ? 'Pagi' : 'Sore');
+    final now = DateTime.now();
+
     final payload = {
       'student_id': _selectedStudentId,
       'date': DateFormat('yyyy-MM-dd').format(_selectedDate),
+      'session': activeSession,
+      'session_name': activeSession,
+      'waktu_setoran': DateFormat('HH:mm:ss').format(now),
+      'time': DateFormat('HH:mm:ss').format(now),
+      'created_at': DateFormat('yyyy-MM-dd HH:mm:ss').format(now),
       'entry_type': _selectedJenisSetoran,
       'jenis_setoran': _selectedJenisSetoran,
       'start_surah_id': _selectedSurahAwal,

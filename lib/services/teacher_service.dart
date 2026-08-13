@@ -267,6 +267,7 @@ class TeacherService {
   Future<List<Map<String, dynamic>>> getAttendanceRecap({
     String? unit,
     String? classId,
+    String? date,
   }) async {
     try {
       final queryParams = <String, String>{};
@@ -275,6 +276,9 @@ class TeacherService {
       }
       if (classId != null) {
         queryParams['class_id'] = classId;
+      }
+      if (date != null) {
+        queryParams['date'] = date;
       }
       final uri = Uri.parse(
         ApiConstants.getAttendanceRecap,
