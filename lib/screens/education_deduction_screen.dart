@@ -126,27 +126,49 @@ class _EducationDeductionScreenState extends State<EducationDeductionScreen> {
     ).format(number);
   }
 
-  String _formatDate(dynamic value) {
+  String _formatDate(dynamic value, {dynamic bulanAwal}) {
     if (value == null || value == '-') return '-';
     try {
       final date = DateTime.parse(value.toString()).toLocal();
-      if (widget.period.isNotEmpty) {
-        return '${date.day} ${widget.period}';
+      final dayStr = date.day.toString();
+
+      if (bulanAwal != null &&
+          bulanAwal != '-' &&
+          bulanAwal.toString().trim().isNotEmpty) {
+        try {
+          final bulanAwalDate = DateTime.parse(bulanAwal.toString()).toLocal();
+          final sppMonthYear = DateFormat('MMMM yyyy', 'id_ID').format(bulanAwalDate);
+          return '$dayStr $sppMonthYear';
+        } catch (_) {
+          final sppMonthYear = bulanAwal.toString().trim();
+          return '$dayStr $sppMonthYear';
+        }
       }
-      return DateFormat('dd MMM yyyy', 'id_ID').format(date);
+
+      return DateFormat('dd MMMM yyyy', 'id_ID').format(date);
     } catch (_) {
       return value.toString();
     }
   }
 
   String _formatMonthYear(dynamic value) {
-    if (value == null || value == '-') return '-';
+    if (value == null || value == '-' || value.toString().trim().isEmpty) return '-';
     try {
       final date = DateTime.parse(value.toString()).toLocal();
       return DateFormat('MMMM yyyy', 'id_ID').format(date);
     } catch (_) {
       return value.toString();
     }
+  }
+
+  String _formatPeriodeSpp(dynamic bulanAwal, dynamic bulanAkhir) {
+    final awal = _formatMonthYear(bulanAwal);
+    final akhir = _formatMonthYear(bulanAkhir);
+
+    if (awal == '-' && akhir == '-') return '-';
+    if (akhir == '-' || akhir == awal) return awal;
+    if (awal == '-') return akhir;
+    return '$awal - $akhir';
   }
 
   @override
@@ -354,7 +376,10 @@ class _EducationDeductionScreenState extends State<EducationDeductionScreen> {
                               ),
                             ),
                             Text(
-                              _formatDate(item['TANGGAL '] ?? item['TANGGAL']),
+                              _formatDate(
+                                item['TANGGAL '] ?? item['TANGGAL'],
+                                bulanAwal: item['BULAN AWAL'],
+                              ),
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -403,7 +428,7 @@ class _EducationDeductionScreenState extends State<EducationDeductionScreen> {
                       ),
                       _buildDetailRow(
                         'Periode SPP',
-                        '${_formatMonthYear(item['BULAN AWAL'])} - ${_formatMonthYear(item['BULAN AKHIR'])}',
+                        _formatPeriodeSpp(item['BULAN AWAL'], item['BULAN AKHIR']),
                       ),
                       _buildDetailRow('PPDB', _formatCurrency(item['PPDB'])),
                       _buildDetailRow(

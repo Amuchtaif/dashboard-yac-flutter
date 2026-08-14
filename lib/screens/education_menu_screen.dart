@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'teaching_schedule_screen.dart';
 import 'attendance_recap_screen.dart';
 import 'student_activity/student_activity_list_screen.dart';
+import 'student_data_screen.dart';
 
 class EducationMenuScreen extends StatelessWidget {
   const EducationMenuScreen({super.key});
@@ -133,6 +134,13 @@ class EducationMenuScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => const StudentActivityListScreen(),
+                ),
+              );
+            } else if (item['title'] == 'Data Siswa') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const StudentDataScreen(),
                 ),
               );
             } else {
