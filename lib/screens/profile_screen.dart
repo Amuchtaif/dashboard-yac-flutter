@@ -27,7 +27,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _profilePhoto = '';
   int _positionLevel = 99;
   bool _pushNotifications = true;
-  final String _appVersion = '1.5.4';
+  final String _appVersion = '1.5.5';
 
   @override
   void initState() {

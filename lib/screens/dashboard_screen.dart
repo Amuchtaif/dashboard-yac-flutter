@@ -9,7 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'profile_screen.dart'; // import profile
+import 'profile_screen.dart';
 import 'main_permit_screen.dart';
 import 'qibla_screen.dart';
 import 'quran_list_screen.dart';
@@ -17,16 +17,17 @@ import 'dzikir_doa_screen.dart';
 import 'assunnah_tv_screen.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'meeting_list_screen.dart'; // import meeting list screen
+import 'meeting_list_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/tahfidz_provider.dart';
 
 import '../services/notification_service.dart';
 import '../services/permission_service.dart';
+import '../widgets/notification_popup_dialog.dart';
 import '../config/api_config.dart';
 import '../core/api_constants.dart';
-import 'inventory_category_screen.dart'; // Import Inventory Screen
-import 'payroll_history_screen.dart'; // Import Payroll Screen
+import 'inventory_category_screen.dart';
+import 'payroll_history_screen.dart';
 import 'tahfidz/absensi_tahfidz_screen.dart';
 import 'tahfidz/absensi_pengampu_screen.dart';
 import 'tahfidz/baseline_tahfidz_screen.dart';
@@ -151,6 +152,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   StreamSubscription<RemoteMessage>? _fcmSubscription;
   StreamSubscription<String?>? _notificationSubscription;
+  StreamSubscription<List<dynamic>>? _notificationsListSubscription;
+  final Set<String> _shownPopupNotificationIds = {};
+  bool _isPopupOpen = false;
 
   final String baseUrl = ApiConfig.baseUrl;
   List<LocationModel> _locations = [];
@@ -161,6 +165,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void dispose() {
     _fcmSubscription?.cancel();
     _notificationSubscription?.cancel();
+    _notificationsListSubscription?.cancel();
     super.dispose();
   }
 
@@ -266,8 +271,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         });
 
-    // 5. Start Polling (fetch from API every 30s)
+    // 5. Start Polling (fetch from API every 5m)
     NotificationService().startPolling();
+
+    // 6. Listen to incoming notifications stream to trigger popup
+    _notificationsListSubscription = NotificationService().notificationsStream
+        .listen((notifications) {
+          _checkAndShowNotificationPopup(notifications);
+        });
+
+    // 7. Initial check after dashboard loads
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) {
+        _checkAndShowNotificationPopup();
+      }
+    });
 
     _fetchLocations();
   }
@@ -275,6 +293,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _fetchLocations() async {
     _locations = await AttendanceService().getLocations();
     if (mounted) setState(() {});
+  }
+
+  Future<void> _checkAndShowNotificationPopup([
+    List<dynamic>? fetchedNotifs,
+  ]) async {
+    if (!mounted || _isPopupOpen) return;
+
+    List<dynamic> notifs = fetchedNotifs ?? [];
+    if (fetchedNotifs == null) {
+      try {
+        notifs = await NotificationService().getNotifications();
+      } catch (e) {
+        debugPrint("Error fetching notifications for popup: $e");
+        return;
+      }
+    }
+
+    if (!mounted || _isPopupOpen || notifs.isEmpty) return;
+
+    // Filter unshown notifications
+    final unshownNotifs =
+        notifs.where((n) {
+          final id = n['id']?.toString() ?? '';
+          return id.isNotEmpty && !_shownPopupNotificationIds.contains(id);
+        }).toList();
+
+    if (unshownNotifs.isEmpty) return;
+
+    // Record as shown
+    for (var n in unshownNotifs) {
+      final id = n['id']?.toString();
+      if (id != null && id.isNotEmpty) {
+        _shownPopupNotificationIds.add(id);
+      }
+    }
+
+    _isPopupOpen = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return NotificationPopupDialog(
+          notifications: notifs,
+          onNotificationTap: (notif) {
+            handleNotificationNavigation(context, notif);
+          },
+          onViewAll: () {
+            showAppNotificationSheet(context);
+          },
+          onDismiss: () {},
+        );
+      },
+    ).then((_) {
+      _isPopupOpen = false;
+    });
   }
 
   // --- LOGIC: HANDLE NOTIFICATION CLICK ---
@@ -1100,6 +1174,302 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 // ==========================================================
+// NOTIFICATION NAVIGATION & SHEET HELPER
+// ==========================================================
+
+void handleNotificationNavigation(
+  BuildContext context,
+  Map<String, dynamic> n,
+) {
+  // Dismiss this notification from server & badge
+  final notifKey = n['id']?.toString() ?? '';
+  if (notifKey.isNotEmpty) {
+    NotificationService().dismissNotification(notifKey);
+  }
+
+  final String type = n['type'] ?? '';
+  final String? screen = n['screen'];
+
+  if (type == 'assignment') {
+    final taskId = n['task_id']?.toString() ?? n['reference_id']?.toString();
+    if (taskId != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TaskDetailScreen(taskId: int.parse(taskId)),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AssignmentScreen()),
+      );
+    }
+  } else if (screen == 'approval' || screen == 'permit_approval') {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MainPermitScreen(initialIndex: 1),
+      ),
+    );
+  } else if (screen == 'izin_santri') {
+    final String? id = n['id']?.toString() ?? n['permit_id']?.toString();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => IzinSantriScreen(initialPermitId: id),
+      ),
+    );
+  } else if (screen == 'meeting') {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MeetingListScreen()),
+    );
+  } else {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MainPermitScreen()),
+    );
+  }
+}
+
+void showAppNotificationSheet(BuildContext context) {
+  final future = NotificationService().getNotifications();
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) {
+      return FutureBuilder<List<dynamic>>(
+        future: future,
+        builder: (sheetContext, snapshot) {
+          final isLoading = snapshot.connectionState == ConnectionState.waiting;
+          final notifs = snapshot.data ?? [];
+          final isEmpty = !isLoading && notifs.isEmpty;
+
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Notifikasi",
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF1F2937),
+                        ),
+                      ),
+                      if (!isLoading && notifs.isNotEmpty)
+                        TextButton(
+                          onPressed: () async {
+                            await NotificationService().clearNotifications();
+                            if (sheetContext.mounted) {
+                              Navigator.pop(sheetContext);
+                            }
+                          },
+                          child: Text(
+                            "Hapus Semua",
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF2563EB),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.notifications_none_rounded,
+                          size: 48,
+                          color: Colors.grey[300],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          "Tidak ada notifikasi",
+                          style: GoogleFonts.poppins(
+                            color: Colors.grey[500],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                      itemCount: notifs.length,
+                      itemBuilder: (sheetContext, index) {
+                        final n = notifs[index];
+                        final String title = n['title'] ?? 'Title';
+                        final String body = n['body'] ?? 'Body';
+                        final String date = n['created_at'] ?? '';
+                        final String status = n['status'] ?? '';
+                        final String type = n['type'] ?? '';
+
+                        Color iconBg = Colors.grey[200]!;
+                        Color iconColor = Colors.grey;
+                        IconData icon = Icons.notifications;
+
+                        if (type == 'incoming' || status == 'Pending') {
+                          iconBg = const Color(0xFFFEF3C7);
+                          iconColor = const Color(0xFFD97706);
+                          icon = Icons.access_time_filled;
+                        } else if (status == 'Approved') {
+                          iconBg = const Color(0xFFDCFCE7);
+                          iconColor = const Color(0xFF166534);
+                          icon = Icons.check_circle;
+                        } else if (status == 'Rejected') {
+                          iconBg = const Color(0xFFFEE2E2);
+                          iconColor = const Color(0xFFDC2626);
+                          icon = Icons.cancel;
+                        } else if (type == 'assignment') {
+                          iconBg = const Color(0xFFDBEAFE);
+                          iconColor = const Color(0xFF2563EB);
+                          icon = Icons.assignment_rounded;
+                        }
+
+                        String timeStr = date;
+                        if (date.contains(' ')) {
+                          timeStr = date.split(' ')[1];
+                          if (timeStr.length > 5) {
+                            timeStr = timeStr.substring(0, 5);
+                          }
+                        }
+
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.pop(sheetContext); // Close bottom sheet
+                            handleNotificationNavigation(
+                              context,
+                              Map<String, dynamic>.from(n),
+                            );
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: iconBg,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(icon, color: iconColor, size: 20),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              title,
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: const Color(0xFF1F2937),
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            timeStr,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 11,
+                                              color: const Color(0xFF9CA3AF),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        body,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          color: const Color(0xFF6B7280),
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+// ==========================================================
 // WIDGET UI: HOME TAB
 // ==========================================================
 
@@ -1313,7 +1683,7 @@ class HomeTab extends StatelessWidget {
               alignment: Alignment.topRight,
               children: [
                 IconButton(
-                  onPressed: () => _showNotificationSheet(context),
+                  onPressed: () => showAppNotificationSheet(context),
                   icon: const Icon(
                     Icons.notifications_none,
                     color: Colors.black87,
@@ -1352,297 +1722,6 @@ class HomeTab extends StatelessWidget {
           },
         ),
       ],
-    );
-  }
-
-  void _showNotificationSheet(BuildContext context) {
-    final future = NotificationService().getNotifications();
-    final parentContext = context;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return FutureBuilder<List<dynamic>>(
-          future: future,
-          builder: (context, snapshot) {
-            final isLoading =
-                snapshot.connectionState == ConnectionState.waiting;
-            final notifs = snapshot.data ?? [];
-            final isEmpty = !isLoading && notifs.isEmpty;
-
-            return Container(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.85,
-              ),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 12, bottom: 8),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          "Notifikasi",
-                          style: GoogleFonts.poppins(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF1F2937),
-                          ),
-                        ),
-                        if (!isLoading && notifs.isNotEmpty)
-                          TextButton(
-                            onPressed: () async {
-                              await NotificationService().clearNotifications();
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                              }
-                            },
-                            child: Text(
-                              "Hapus Semua",
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF2563EB),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (isLoading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.notifications_none_rounded,
-                            size: 48,
-                            color: Colors.grey[300],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            "Tidak ada notifikasi",
-                            style: GoogleFonts.poppins(
-                              color: Colors.grey[500],
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    Flexible(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                        itemCount: notifs.length,
-                        itemBuilder: (context, index) {
-                          final n = notifs[index];
-                          final String title = n['title'] ?? 'Title';
-                          final String body = n['body'] ?? 'Body';
-                          final String date = n['created_at'] ?? '';
-                          final String status = n['status'] ?? '';
-                          final String type = n['type'] ?? '';
-
-                          Color iconBg = Colors.grey[200]!;
-                          Color iconColor = Colors.grey;
-                          IconData icon = Icons.notifications;
-
-                          if (type == 'incoming' || status == 'Pending') {
-                            iconBg = const Color(0xFFFEF3C7);
-                            iconColor = const Color(0xFFD97706);
-                            icon = Icons.access_time_filled;
-                          } else if (status == 'Approved') {
-                            iconBg = const Color(0xFFDCFCE7);
-                            iconColor = const Color(0xFF166534);
-                            icon = Icons.check_circle;
-                          } else if (status == 'Rejected') {
-                            iconBg = const Color(0xFFFEE2E2);
-                            iconColor = const Color(0xFFDC2626);
-                            icon = Icons.cancel;
-                          } else if (type == 'assignment') {
-                            iconBg = const Color(0xFFDBEAFE);
-                            iconColor = const Color(0xFF2563EB);
-                            icon = Icons.assignment_rounded;
-                          }
-
-                          String timeStr = date;
-                          if (date.contains(' ')) {
-                            timeStr = date.split(' ')[1];
-                            if (timeStr.length > 5) {
-                              timeStr = timeStr.substring(0, 5);
-                            }
-                          }
-
-                          return GestureDetector(
-                            onTap: () {
-                              // Dismiss this notification from server
-                              final notifKey = n['id']?.toString() ?? '';
-                              if (notifKey.isNotEmpty) {
-                                NotificationService().dismissNotification(
-                                  notifKey,
-                                );
-                              }
-
-                              Navigator.pop(context); // Close bottom sheet
-                              if (type == 'assignment') {
-                                final taskId =
-                                    n['task_id']?.toString() ??
-                                    n['reference_id']?.toString();
-                                if (taskId != null) {
-                                  Navigator.push(
-                                    parentContext,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) => TaskDetailScreen(
-                                            taskId: int.parse(taskId),
-                                          ),
-                                    ),
-                                  );
-                                } else {
-                                  Navigator.push(
-                                    parentContext,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) => const AssignmentScreen(),
-                                    ),
-                                  );
-                                }
-                              } else if (n['screen'] == 'approval') {
-                                Navigator.push(
-                                  parentContext,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => const MainPermitScreen(
-                                          initialIndex: 1,
-                                        ),
-                                  ),
-                                );
-                              } else {
-                                Navigator.push(
-                                  parentContext,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => const MainPermitScreen(),
-                                  ),
-                                );
-                              }
-                            },
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.02),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: iconBg,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      icon,
-                                      color: iconColor,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                title,
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: const Color(
-                                                    0xFF1F2937,
-                                                  ),
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              timeStr,
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 11,
-                                                color: const Color(0xFF9CA3AF),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          body,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 12,
-                                            color: const Color(0xFF6B7280),
-                                            height: 1.4,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
   }
 

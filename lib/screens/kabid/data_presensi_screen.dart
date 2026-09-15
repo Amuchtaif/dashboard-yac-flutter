@@ -24,6 +24,7 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
+  String? _selectedStatusFilter;
 
   @override
   void initState() {
@@ -192,7 +193,28 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
     }
   }
 
-  List<StaffAttendance> get _filteredAttendanceList {
+  bool _matchesStatusFilter(StaffAttendance item, String filter) {
+    final s = item.status.trim().toLowerCase();
+    switch (filter) {
+      case 'HADIR':
+        return s == 'hadir';
+      case 'TELAT':
+        return s == 'terlambat' || s == 'telat';
+      case 'IZIN':
+        return s == 'izin' || s == 'sakit' || s == 'cuti';
+      case 'ALPHA':
+        return s != 'hadir' &&
+            s != 'terlambat' &&
+            s != 'telat' &&
+            s != 'izin' &&
+            s != 'sakit' &&
+            s != 'cuti';
+      default:
+        return true;
+    }
+  }
+
+  List<StaffAttendance> get _unitAndSearchFilteredList {
     return _attendanceList.where((item) {
       final matchesUnit =
           _selectedUnit == _departmentName ||
@@ -207,6 +229,12 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
     }).toList();
   }
 
+  List<StaffAttendance> get _filteredAttendanceList {
+    final list = _unitAndSearchFilteredList;
+    if (_selectedStatusFilter == null) return list;
+    return list.where((item) => _matchesStatusFilter(item, _selectedStatusFilter!)).toList();
+  }
+
   Future<void> _pickDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -217,7 +245,10 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
     );
 
     if (picked != null && picked != _selectedDate) {
-      setState(() => _selectedDate = picked);
+      setState(() {
+        _selectedDate = picked;
+        _selectedStatusFilter = null;
+      });
       _fetchAttendance();
     }
   }
@@ -371,6 +402,7 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
                         if (newValue != null && newValue != _selectedUnit) {
                           setState(() {
                             _selectedUnit = newValue;
+                            _selectedStatusFilter = null;
                           });
                           _fetchAttendance();
                         }
@@ -442,80 +474,201 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
   }
 
   Widget _buildSummaryCards() {
-    final list = _filteredAttendanceList;
-    int hadir = list.where((e) => e.status == 'Hadir').length;
-    int terlambat = list.where((e) => e.status == 'Terlambat').length;
-    int izin =
-        list.where((e) => ['Izin', 'Sakit', 'Cuti'].contains(e.status)).length;
-    int alpha =
-        list
-            .where(
-              (e) =>
-                  ![
-                    'Hadir',
-                    'Terlambat',
-                    'Izin',
-                    'Sakit',
-                    'Cuti',
-                  ].contains(e.status),
-            )
-            .length;
+    final list = _unitAndSearchFilteredList;
+    int hadir = list.where((e) => _matchesStatusFilter(e, 'HADIR')).length;
+    int terlambat = list.where((e) => _matchesStatusFilter(e, 'TELAT')).length;
+    int izin = list.where((e) => _matchesStatusFilter(e, 'IZIN')).length;
+    int alpha = list.where((e) => _matchesStatusFilter(e, 'ALPHA')).length;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _buildStatItem('HADIR', hadir, const Color(0xFF10B981)),
+              const SizedBox(width: 8),
+              _buildStatItem('TELAT', terlambat, const Color(0xFFF59E0B)),
+              const SizedBox(width: 8),
+              _buildStatItem('IZIN', izin, const Color(0xFF3B82F6)),
+              const SizedBox(width: 8),
+              _buildStatItem('ALPHA', alpha, const Color(0xFFEF4444)),
+            ],
+          ),
+          if (_selectedStatusFilter != null) ...[
+            const SizedBox(height: 10),
+            _buildActiveFilterIndicator(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'HADIR':
+        return const Color(0xFF10B981);
+      case 'TELAT':
+        return const Color(0xFFF59E0B);
+      case 'IZIN':
+        return const Color(0xFF3B82F6);
+      case 'ALPHA':
+      default:
+        return const Color(0xFFEF4444);
+    }
+  }
+
+  Widget _buildActiveFilterIndicator() {
+    final activeColor = _getStatusColor(_selectedStatusFilter!);
+    final count = _filteredAttendanceList.length;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
       child: Row(
         children: [
-          _buildStatItem('HADIR', hadir, const Color(0xFF10B981)),
-          const SizedBox(width: 8),
-          _buildStatItem('TELAT', terlambat, const Color(0xFFF59E0B)),
-          const SizedBox(width: 8),
-          _buildStatItem('IZIN', izin, const Color(0xFF3B82F6)),
-          const SizedBox(width: 8),
-          _buildStatItem('ALPHA', alpha, const Color(0xFFEF4444)),
+          Icon(Icons.filter_list_rounded, size: 14, color: activeColor),
+          const SizedBox(width: 6),
+          Text(
+            'Menampilkan: ',
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: const Color(0xFF64748B),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: activeColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              '$_selectedStatusFilter ($count)',
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: activeColor,
+              ),
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedStatusFilter = null;
+              });
+            },
+            child: Row(
+              children: [
+                Text(
+                  'Tampilkan Semua',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF2563EB),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                const Icon(
+                  Icons.close_rounded,
+                  size: 14,
+                  color: Color(0xFF2563EB),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildStatItem(String label, int value, Color color) {
+    final bool isSelected = _selectedStatusFilter == label;
+    final bool hasFilter = _selectedStatusFilter != null;
+    final double opacity = (!hasFilter || isSelected) ? 1.0 : 0.45;
+
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-        decoration: BoxDecoration(
-          color: color,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              if (_selectedStatusFilter == label) {
+                _selectedStatusFilter = null;
+              } else {
+                _selectedStatusFilter = label;
+              }
+            });
+          },
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Text(
-              '$value',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: opacity,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(12),
+                border: isSelected
+                    ? Border.all(color: Colors.white, width: 2)
+                    : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: isSelected
+                        ? color.withValues(alpha: 0.5)
+                        : color.withValues(alpha: 0.2),
+                    blurRadius: isSelected ? 12 : 8,
+                    offset: isSelected ? const Offset(0, 6) : const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    '$value',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isSelected) ...[
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          size: 10,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 2),
+                      ],
+                      Flexible(
+                        child: Text(
+                          label,
+                          style: GoogleFonts.poppins(
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white.withValues(alpha: 0.9),
+                            letterSpacing: 0.5,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-                color: Colors.white.withValues(alpha: 0.9),
-                letterSpacing: 0.5,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -538,9 +691,26 @@ class _DataPresensiScreenState extends State<DataPresensiScreen> {
             Text(
               _attendanceList.isEmpty
                   ? 'Tidak ada data presensi'
-                  : 'Tidak ada staf yang sesuai filter',
+                  : (_selectedStatusFilter != null
+                      ? 'Tidak ada pegawai dengan status $_selectedStatusFilter'
+                      : 'Tidak ada staf yang sesuai filter'),
               style: GoogleFonts.poppins(color: Colors.grey[500]),
             ),
+            if (_selectedStatusFilter != null) ...[
+              const SizedBox(height: 12),
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _selectedStatusFilter = null;
+                  });
+                },
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Tampilkan Semua Status'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF2563EB),
+                ),
+              ),
+            ],
           ],
         ),
       );

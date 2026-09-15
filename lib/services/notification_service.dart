@@ -33,6 +33,11 @@ class NotificationService {
       StreamController<int>.broadcast();
   Stream<int> get unreadCountStream => _unreadCountController.stream;
 
+  final StreamController<List<dynamic>> _notificationsStreamController =
+      StreamController<List<dynamic>>.broadcast();
+  Stream<List<dynamic>> get notificationsStream =>
+      _notificationsStreamController.stream;
+
   // 2. Initialization
   Future<void> init() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -97,6 +102,7 @@ class NotificationService {
     _timer?.cancel();
     _unreadCountController.close();
     _selectNotificationController.close();
+    _notificationsStreamController.close();
   }
 
   // 4. Fetch API
@@ -130,6 +136,9 @@ class NotificationService {
       final notifications = await getNotifications();
       if (!_unreadCountController.isClosed) {
         _unreadCountController.add(notifications.length);
+      }
+      if (!_notificationsStreamController.isClosed) {
+        _notificationsStreamController.add(notifications);
       }
     } catch (e) {
       debugPrint('Error refreshing badge: $e');
@@ -188,8 +197,13 @@ class NotificationService {
         prefs.getStringList('shown_notification_ids') ?? [];
     _processedIds.addAll(savedIds);
 
-    // Broadcast count for badge
-    _unreadCountController.add(notifications.length);
+    // Broadcast count for badge and notification stream
+    if (!_unreadCountController.isClosed) {
+      _unreadCountController.add(notifications.length);
+    }
+    if (!_notificationsStreamController.isClosed) {
+      _notificationsStreamController.add(notifications);
+    }
 
     for (var note in notifications) {
       String id = note['id'].toString();
@@ -268,6 +282,9 @@ class NotificationService {
       // Broadcast 0 to reset the bell badge immediately
       if (!_unreadCountController.isClosed) {
         _unreadCountController.add(0);
+      }
+      if (!_notificationsStreamController.isClosed) {
+        _notificationsStreamController.add([]);
       }
     } catch (e) {
       debugPrint('Error clearing notifications: $e');

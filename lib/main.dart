@@ -15,12 +15,14 @@ import 'providers/quran_provider.dart';
 import 'providers/app_status_provider.dart';
 import 'providers/tahfidz_dashboard_provider.dart';
 import 'providers/student_activity_provider.dart';
+import 'providers/network_provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'firebase_options.dart';
 import 'config/api_config.dart';
 import 'screens/maintenance_screen.dart';
+import 'screens/no_internet_screen.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -121,6 +123,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => QuranProvider()),
         ChangeNotifierProvider(create: (_) => StudentActivityProvider()),
         ChangeNotifierProvider(create: (_) => TahfidzDashboardProvider()),
+        ChangeNotifierProvider(create: (_) => NetworkProvider()),
         ChangeNotifierProvider(
           create:
               (_) => AppStatusProvider(
@@ -234,8 +237,11 @@ class _MyAppState extends State<MyApp> {
       supportedLocales: const [Locale('id', 'ID')],
       locale: const Locale('id', 'ID'),
       builder: (context, child) {
-        return Consumer<AppStatusProvider>(
-          builder: (context, appStatus, _) {
+        return Consumer2<AppStatusProvider, NetworkProvider>(
+          builder: (context, appStatus, network, _) {
+            if (network.hasCheckedInitially && network.isOffline) {
+              return const NoInternetScreen();
+            }
             if (appStatus.isMaintenance) {
               return MaintenanceScreen(
                 message:
