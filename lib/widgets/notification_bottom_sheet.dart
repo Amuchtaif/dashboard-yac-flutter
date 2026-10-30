@@ -235,6 +235,17 @@ class _NotificationBottomSheetState extends State<NotificationBottomSheet> {
         iconColor = const Color(0xFF3730A3);
         icon = Icons.assignment_rounded;
         break;
+      case 'meeting':
+      case 'meeting_invitation':
+        iconBg = const Color(0xFFEDE9FE);
+        iconColor = const Color(0xFF7C3AED);
+        icon = Icons.groups_rounded;
+        break;
+      case 'teaching_reminder':
+        iconBg = const Color(0xFFE0F2FE);
+        iconColor = const Color(0xFF0284C7);
+        icon = Icons.school_rounded;
+        break;
       case 'check_in':
         iconBg = const Color(0xFFDCFCE7);
         iconColor = const Color(0xFF166534);

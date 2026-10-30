@@ -1220,7 +1220,7 @@ void handleNotificationNavigation(
         builder: (context) => IzinSantriScreen(initialPermitId: id),
       ),
     );
-  } else if (screen == 'meeting') {
+  } else if (screen == 'meeting' || type == 'meeting' || type == 'meeting_invitation') {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const MeetingListScreen()),
@@ -1367,6 +1367,14 @@ void showAppNotificationSheet(BuildContext context) {
                           iconBg = const Color(0xFFDBEAFE);
                           iconColor = const Color(0xFF2563EB);
                           icon = Icons.assignment_rounded;
+                        } else if (type == 'meeting' || type == 'meeting_invitation') {
+                          iconBg = const Color(0xFFEDE9FE);
+                          iconColor = const Color(0xFF7C3AED);
+                          icon = Icons.groups_rounded;
+                        } else if (type == 'teaching_reminder') {
+                          iconBg = const Color(0xFFE0F2FE);
+                          iconColor = const Color(0xFF0284C7);
+                          icon = Icons.school_rounded;
                         }
 
                         String timeStr = date;

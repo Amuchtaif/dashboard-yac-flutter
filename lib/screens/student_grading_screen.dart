@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/grading_service.dart';
+import '../services/teacher_service.dart';
 import 'input_grading_screen.dart';
 import 'grade_recap_full_screen.dart';
 import 'package:intl/intl.dart';
@@ -956,7 +957,9 @@ class GradingDetailScreen extends StatefulWidget {
 
 class _GradingDetailScreenState extends State<GradingDetailScreen> {
   final GradingService _gradingService = GradingService();
+  final TeacherService _teacherService = TeacherService();
   Map<String, dynamic>? _assessmentDetail;
+  List<Map<String, dynamic>> _mergedStudents = [];
   bool _isLoading = true;
 
   @override
@@ -970,17 +973,109 @@ class _GradingDetailScreenState extends State<GradingDetailScreen> {
     final detail = await _gradingService.getAssessmentDetail(
       widget.assessmentId,
     );
-    if (mounted) {
-      if (detail == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Detail data tidak ditemukan atau ID tidak valid'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      } else {
-        debugPrint('GradingDetailScreen: Detail keys: ${detail.keys.toList()}');
+    if (!mounted) return;
+
+    if (detail == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Detail data tidak ditemukan atau ID tidak valid'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      setState(() {
+        _assessmentDetail = null;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    String? classId = (detail['class_id'] ?? detail['id_kelas'] ?? detail['grade_id'])?.toString();
+    if (classId == null || classId == '0' || classId.isEmpty) {
+      final className = (detail['class_name'] ?? detail['grade_name'] ?? '').toString();
+      if (className.isNotEmpty) {
+        try {
+          final classes = await _teacherService.getClassList();
+          final match = classes.firstWhere(
+            (c) => (c['name'] ?? c['class_name'] ?? '').toString() == className,
+            orElse: () => {},
+          );
+          if (match.isNotEmpty) {
+            classId = match['id']?.toString();
+          }
+        } catch (e) {
+          debugPrint('Error resolving classId by name: $e');
+        }
       }
+    }
+
+    final List<dynamic> rawDetails = detail['details'] ?? [];
+    final Map<String, Map<String, dynamic>> scoredMap = {};
+    for (var d in rawDetails) {
+      final sId = (d['student_id'] ??
+              d['id_student'] ??
+              d['id_siswa'] ??
+              d['id'] ??
+              d['student_id_master'] ??
+              '')
+          .toString();
+      if (sId.isNotEmpty && sId != 'null') {
+        scoredMap[sId] = Map<String, dynamic>.from(d);
+      }
+    }
+
+    List<Map<String, dynamic>> allStudents = [];
+    if (classId != null && classId.isNotEmpty && classId != '0') {
+      try {
+        allStudents = await _gradingService.getStudentsByClass(classId);
+      } catch (e) {
+        debugPrint('Error fetching class students for detail: $e');
+      }
+    }
+
+    if (allStudents.isNotEmpty) {
+      final Set<String> processedIds = {};
+      final List<Map<String, dynamic>> merged = [];
+
+      for (var s in allStudents) {
+        final sId = (s['id'] ?? s['student_id'] ?? '').toString();
+        processedIds.add(sId);
+        if (scoredMap.containsKey(sId)) {
+          final scoredData = scoredMap[sId]!;
+          merged.add({
+            ...s,
+            'score': scoredData['score'],
+            'student_name': scoredData['student_name'] ?? s['name'] ?? s['student_name'],
+            'nis': scoredData['nis'] ?? s['nis'] ?? s['nomor_induk'],
+          });
+        } else {
+          // Skipped / not yet graded
+          merged.add({
+            ...s,
+            'score': null,
+            'student_name': s['name'] ?? s['student_name'],
+            'nis': s['nis'] ?? s['nomor_induk'],
+          });
+        }
+      }
+
+      // Add any students from rawDetails that were not in allStudents
+      for (var entry in scoredMap.entries) {
+        if (!processedIds.contains(entry.key)) {
+          merged.add(entry.value);
+        }
+      }
+      _mergedStudents = merged;
+    } else {
+      _mergedStudents = rawDetails.map((e) => Map<String, dynamic>.from(e)).toList();
+    }
+
+    // Update detail with merged students & resolved class_id for passing to edit screen
+    detail['details'] = _mergedStudents;
+    if (classId != null && classId.isNotEmpty) {
+      detail['class_id'] = classId;
+    }
+
+    if (mounted) {
       setState(() {
         _assessmentDetail = detail;
         _isLoading = false;
@@ -1032,7 +1127,16 @@ class _GradingDetailScreenState extends State<GradingDetailScreen> {
     }
 
     final assessment = _assessmentDetail!;
-    final List<dynamic> details = assessment['details'] ?? [];
+    final List<dynamic> details = _mergedStudents.isNotEmpty
+        ? _mergedStudents
+        : (assessment['details'] ?? []);
+
+    final int totalCount = _mergedStudents.isNotEmpty
+        ? _mergedStudents.length
+        : (assessment['student_count'] ?? assessment['total_students'] ?? details.length);
+    final int gradedCount = details
+        .where((s) => s['score'] != null && s['score'].toString().isNotEmpty)
+        .length;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
@@ -1162,7 +1266,9 @@ class _GradingDetailScreenState extends State<GradingDetailScreen> {
                   _buildDetailRow(
                     Icons.people_outline,
                     'Total Siswa',
-                    '${assessment['student_count'] ?? assessment['total_students'] ?? 0} Orang',
+                    gradedCount < totalCount
+                        ? '$totalCount Orang ($gradedCount Dinilai)'
+                        : '$totalCount Orang',
                   ),
                 ],
               ),
@@ -1244,15 +1350,31 @@ class _GradingDetailScreenState extends State<GradingDetailScreen> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
+                          color: (student['score'] != null &&
+                                  student['score'].toString().isNotEmpty)
+                              ? const Color(0xFFF1F5F9)
+                              : const Color(0xFFFFFBEB),
                           borderRadius: BorderRadius.circular(10),
+                          border: (student['score'] != null &&
+                                  student['score'].toString().isNotEmpty)
+                              ? null
+                              : Border.all(color: const Color(0xFFFDE68A)),
                         ),
                         child: Text(
-                          student['score']?.toString() ?? '0',
+                          (student['score'] != null &&
+                                  student['score'].toString().isNotEmpty)
+                              ? student['score'].toString()
+                              : 'Belum dinilai',
                           style: GoogleFonts.poppins(
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: const Color(0xFF1E293B),
+                            fontSize: (student['score'] != null &&
+                                    student['score'].toString().isNotEmpty)
+                                ? 16
+                                : 11,
+                            color: (student['score'] != null &&
+                                    student['score'].toString().isNotEmpty)
+                                ? const Color(0xFF1E293B)
+                                : const Color(0xFFD97706),
                           ),
                         ),
                       ),

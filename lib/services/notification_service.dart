@@ -302,19 +302,22 @@ class NotificationService {
     if (payload != null) {
       try {
         final data = jsonDecode(payload);
-        // Handle both FCM (using notification_id or task_id) and API Polling (using id "asn_123")
+        // Handle FCM (using notification_id, meeting_id, or task_id) and API Polling (using id "asn_123", "meet_123")
         String rawId =
             data['notification_id']?.toString() ??
+            data['meeting_id']?.toString() ??
             data['id']?.toString() ??
             data['task_id']?.toString() ??
             '';
 
         if (rawId.isNotEmpty) {
-          // Normalize ID: "asn_123" -> "123"
+          // Normalize ID: "asn_123" -> "123", "meet_123" -> "123"
           final cleanedId = rawId
               .replaceAll('asn_', '')
               .replaceAll('upd_', '')
-              .replaceAll('inc_', '');
+              .replaceAll('inc_', '')
+              .replaceAll('meet_', '')
+              .replaceAll('sched_rem_', '');
           stableKey = "stable_$cleanedId";
         }
       } catch (e) {

@@ -7,8 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-import 'screens/login_screen.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/splash_screen.dart';
 import 'services/permission_service.dart';
 import 'providers/tahfidz_provider.dart';
 import 'providers/quran_provider.dart';
@@ -254,7 +253,7 @@ class _MyAppState extends State<MyApp> {
           },
         );
       },
-      home: widget.isSessionValid ? const DashboardScreen() : const LoginScreen(),
+      home: SplashScreen(isSessionValid: widget.isSessionValid),
       debugShowCheckedModeBanner: false,
     );
   }

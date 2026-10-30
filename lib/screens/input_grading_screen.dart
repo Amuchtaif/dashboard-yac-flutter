@@ -81,13 +81,17 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
                 final name = (c['name'] ?? c['class_name'] ?? '').toString();
                 return taughtClassNames.contains(name);
               }).toList();
-
-          if (_isEditMode) {
-            _prepareEditData();
-          }
-
-          _isLoading = false;
         });
+
+        if (_isEditMode) {
+          await _prepareEditData();
+        }
+
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -99,7 +103,7 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
     }
   }
 
-  void _prepareEditData() {
+  Future<void> _prepareEditData() async {
     final data = widget.editData!;
 
     // 1. Set Date
@@ -221,22 +225,85 @@ class _InputGradingScreenState extends State<InputGradingScreen> {
       }
     }
 
-    // 5. Populate Students and Scores
+    // 5. Populate Students and Scores (Include ALL students in class, merging existing scores)
     final List<dynamic> details = data['details'] ?? [];
-    _students = details.map((e) => Map<String, dynamic>.from(e)).toList();
-
-    for (var s in _students) {
-      final studentId = (s['student_id'] ??
-              s['id_student'] ??
-              s['id_siswa'] ??
-              s['id'] ??
-              s['student_id_master'] ??
+    final Map<String, dynamic> scoredMap = {};
+    for (var d in details) {
+      final sId = (d['student_id'] ??
+              d['id_student'] ??
+              d['id_siswa'] ??
+              d['id'] ??
+              d['student_id_master'] ??
               '')
           .toString();
-      if (studentId.isNotEmpty && studentId != 'null') {
-        _scoreControllers[studentId] = TextEditingController(
-          text: s['score']?.toString() ?? '0',
+      if (sId.isNotEmpty && sId != 'null') {
+        scoredMap[sId] = d['score'];
+      }
+    }
+
+    List<Map<String, dynamic>> classStudents = [];
+    if (_selectedClassId != null && _selectedClassId != '0') {
+      try {
+        classStudents = await _gradingService.getStudentsByClass(_selectedClassId!);
+      } catch (e) {
+        debugPrint('Error fetching class students in edit mode: $e');
+      }
+    }
+
+    _scoreControllers.clear();
+
+    if (classStudents.isNotEmpty) {
+      final Set<String> processedIds = {};
+      final List<Map<String, dynamic>> merged = [];
+
+      for (var s in classStudents) {
+        final sId = (s['id'] ?? s['student_id'] ?? '').toString();
+        processedIds.add(sId);
+        final score = scoredMap[sId];
+        merged.add({
+          ...s,
+          'score': score,
+        });
+        _scoreControllers[sId] = TextEditingController(
+          text: (score != null && score.toString().isNotEmpty) ? score.toString() : '',
         );
+      }
+
+      // Preserve any student from details that wasn't in classStudents list
+      for (var d in details) {
+        final sId = (d['student_id'] ??
+                d['id_student'] ??
+                d['id_siswa'] ??
+                d['id'] ??
+                d['student_id_master'] ??
+                '')
+            .toString();
+        if (sId.isNotEmpty && sId != 'null' && !processedIds.contains(sId)) {
+          merged.add(Map<String, dynamic>.from(d));
+          final score = d['score'];
+          _scoreControllers[sId] = TextEditingController(
+            text: (score != null && score.toString().isNotEmpty) ? score.toString() : '',
+          );
+        }
+      }
+
+      _students = merged;
+    } else {
+      _students = details.map((e) => Map<String, dynamic>.from(e)).toList();
+      for (var s in _students) {
+        final studentId = (s['student_id'] ??
+                s['id_student'] ??
+                s['id_siswa'] ??
+                s['id'] ??
+                s['student_id_master'] ??
+                '')
+            .toString();
+        if (studentId.isNotEmpty && studentId != 'null') {
+          final score = s['score'];
+          _scoreControllers[studentId] = TextEditingController(
+            text: (score != null && score.toString().isNotEmpty) ? score.toString() : '',
+          );
+        }
       }
     }
   }
