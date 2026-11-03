@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
@@ -40,6 +41,7 @@ class NotificationService {
 
   // 2. Initialization
   Future<void> init() async {
+    if (kIsWeb) return;
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@drawable/ic_stat_yac___white');
 
@@ -162,7 +164,6 @@ class NotificationService {
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       debugPrint('NotificationService: Response Code: ${response.statusCode}');
@@ -248,7 +249,6 @@ class NotificationService {
           '${ApiConfig.baseUrl}/dismiss_notification.php?user_id=$userId&notification_key=${Uri.encodeComponent(notificationKey)}';
       await http.get(
         Uri.parse(url),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       // Refresh badge count
@@ -268,7 +268,6 @@ class NotificationService {
           '${ApiConfig.baseUrl}/delete_notifications.php?user_id=$userId';
       final response = await http.get(
         Uri.parse(url),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -293,10 +292,12 @@ class NotificationService {
 
   Future<void> showLocalNotification({
     required String id,
+
     required String title,
     required String body,
     String? payload,
   }) async {
+    if (kIsWeb) return;
     // 1. Better Deduplication using Stable IDs
     String? stableKey;
     if (payload != null) {

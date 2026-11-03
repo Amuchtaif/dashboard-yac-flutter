@@ -13,7 +13,6 @@ class AttendanceService {
     try {
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -45,7 +44,6 @@ class AttendanceService {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode(body),
       );
@@ -78,7 +76,6 @@ class AttendanceService {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({
           'action': 'check_in',
@@ -123,7 +120,6 @@ class AttendanceService {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({
           'action': 'check_out',

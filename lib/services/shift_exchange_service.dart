@@ -29,7 +29,6 @@ class ShiftExchangeService {
 
       final response = await http.get(
         Uri.parse('${ApiConstants.shiftSummary}?user_id=$userId'),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -63,7 +62,6 @@ class ShiftExchangeService {
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -98,7 +96,6 @@ class ShiftExchangeService {
 
       final response = await http.get(
         Uri.parse('${ApiConstants.shiftGetList}?user_id=$userId&type=$type'),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -129,7 +126,6 @@ class ShiftExchangeService {
         Uri.parse(ApiConstants.shiftCreate),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({
           'requester_id': userId,
@@ -163,7 +159,6 @@ class ShiftExchangeService {
         Uri.parse(ApiConstants.shiftUpdateStatus),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({'id': id, 'status': status, 'user_id': userId}),
       );

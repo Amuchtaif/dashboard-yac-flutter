@@ -15,7 +15,6 @@ class NewsService {
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       debugPrint("FETCH NEWS STATUS: ${response.statusCode}");
@@ -49,7 +48,7 @@ class NewsService {
         Uri.parse(ApiConstants.submitNews),
       );
 
-      request.headers.addAll({'ngrok-skip-browser-warning': 'true'});
+      request.headers.addAll({});
 
       request.fields['user_id'] = userId.toString();
       request.fields['title'] = title;
@@ -99,7 +98,6 @@ class NewsService {
         Uri.parse(ApiConstants.toggleLikeNews),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({'news_id': newsId, 'user_id': userId}),
       );
@@ -119,7 +117,6 @@ class NewsService {
         Uri.parse(ApiConstants.viewNews),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({'news_id': newsId}),
       );

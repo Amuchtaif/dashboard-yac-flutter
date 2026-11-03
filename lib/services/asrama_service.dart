@@ -16,7 +16,6 @@ class AsramaService {
       final url = Uri.parse('${ApiConstants.boardingGetRooms}?supervisor_id=$userId&date=$targetDate');
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -39,7 +38,6 @@ class AsramaService {
       
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -82,7 +80,6 @@ class AsramaService {
         Uri.parse(ApiConstants.boardingSubmitAttendance),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode(payload),
       );

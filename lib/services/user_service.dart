@@ -20,7 +20,7 @@ class UserService {
         Uri.parse(ApiConstants.updateProfile),
       );
 
-      request.headers.addAll({'ngrok-skip-browser-warning': 'true'});
+      request.headers.addAll({});
 
       request.fields['user_id'] = userId.toString();
       if (fullName != null) request.fields['full_name'] = fullName;

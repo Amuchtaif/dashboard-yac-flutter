@@ -12,7 +12,6 @@ class InventoryService {
       final url = Uri.parse('${ApiConstants.inventoryGetItems}?search=$search${locationId != null ? '&location_id=$locationId' : ''}');
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -36,7 +35,6 @@ class InventoryService {
       final url = Uri.parse(ApiConstants.inventoryGetLocations);
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -62,10 +60,10 @@ class InventoryService {
       
       final response = await (isUpdate 
         ? http.put(url, 
-            headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'}, 
+            headers: {'Content-Type': 'application/json'}, 
             body: jsonEncode(itemData))
         : http.post(url, 
-            headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'}, 
+            headers: {'Content-Type': 'application/json'}, 
             body: jsonEncode(itemData)));
 
       return jsonDecode(response.body);
@@ -87,7 +85,6 @@ class InventoryService {
       
       // Headers
       request.headers.addAll({
-        'ngrok-skip-browser-warning': 'true',
       });
 
       // Fields
@@ -133,7 +130,7 @@ class InventoryService {
     try {
       final response = await http.post(
         Uri.parse(ApiConstants.inventoryDeleteItem),
-        headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'},
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'id': id}),
       );
       return jsonDecode(response.body);
@@ -149,10 +146,10 @@ class InventoryService {
       
       final response = await (isUpdate 
         ? http.put(url, 
-            headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'}, 
+            headers: {'Content-Type': 'application/json'}, 
             body: jsonEncode(locationData))
         : http.post(url, 
-            headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'}, 
+            headers: {'Content-Type': 'application/json'}, 
             body: jsonEncode(locationData)));
 
       return jsonDecode(response.body);
@@ -165,7 +162,7 @@ class InventoryService {
     try {
       final response = await http.post(
         Uri.parse(ApiConstants.inventoryDeleteLocation),
-        headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'},
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'id': id}),
       );
       return jsonDecode(response.body);

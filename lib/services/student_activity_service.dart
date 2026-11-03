@@ -29,7 +29,6 @@ class StudentActivityService {
     try {
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -52,7 +51,6 @@ class StudentActivityService {
     try {
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -97,7 +95,6 @@ class StudentActivityService {
     try {
       final response = await http.get(
         uri,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -142,7 +139,6 @@ class StudentActivityService {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({
           'activity_type_id': activityTypeId,
@@ -181,7 +177,6 @@ class StudentActivityService {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({
           'activity_type_id': activityTypeId,
@@ -221,7 +216,6 @@ class StudentActivityService {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({
           if (activityTypeId != null) 'activity_type_id': activityTypeId,
@@ -250,7 +244,6 @@ class StudentActivityService {
     try {
       final response = await http.delete(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
       final data = jsonDecode(response.body);
       return data;
@@ -268,7 +261,6 @@ class StudentActivityService {
     try {
       final request = http.MultipartRequest('POST', url);
       request.headers.addAll({
-        'ngrok-skip-browser-warning': 'true',
       });
       request.fields['user_id'] = userId.toString();
       request.fields['caption'] = caption;
@@ -295,7 +287,6 @@ class StudentActivityService {
     try {
       final response = await http.delete(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
       final data = jsonDecode(response.body);
       return data;

@@ -42,7 +42,6 @@ class _DetailPengampuPimpinanScreenState extends State<DetailPengampuPimpinanScr
         Uri.parse("$baseUrl/tahfidz/dashboard_pimpinan?action=detail_pengampu&id=${widget.teacherId}&user_id=$userId"),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
           if (token.isNotEmpty) 'Authorization': 'Bearer $token',
         },
       ).timeout(const Duration(seconds: 15));

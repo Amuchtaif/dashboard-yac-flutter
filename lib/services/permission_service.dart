@@ -75,7 +75,6 @@ class PermissionService {
 
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       debugPrint("🌐 Permission API Status: ${response.statusCode}");

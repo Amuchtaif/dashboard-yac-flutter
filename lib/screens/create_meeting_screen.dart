@@ -123,7 +123,6 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: body,
       ).timeout(const Duration(seconds: 15));
@@ -215,7 +214,6 @@ class _CreateMeetingScreenState extends State<CreateMeetingScreen> {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: body,
       );
@@ -994,7 +992,6 @@ class _ParticipantSelectionBottomSheetState
 
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -1043,7 +1040,6 @@ class _ParticipantSelectionBottomSheetState
 
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {

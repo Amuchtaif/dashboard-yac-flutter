@@ -13,7 +13,6 @@ class TahfidzRepository {
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'ngrok-skip-browser-warning': 'true',
       if (token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }

@@ -22,7 +22,6 @@ class WorkReportService {
           'POST',
           Uri.parse(ApiConstants.workReportSave),
         );
-        request.headers['ngrok-skip-browser-warning'] = 'true';
 
         data.forEach((key, value) {
           if (value != null) {
@@ -46,7 +45,6 @@ class WorkReportService {
           Uri.parse(ApiConstants.workReportSave),
           headers: {
             'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true',
           },
           body: jsonEncode(data),
         );
@@ -65,7 +63,6 @@ class WorkReportService {
       final userId = await _getUserId();
       final response = await http.get(
         Uri.parse('${ApiConstants.workReportGetMy}?user_id=$userId'),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -96,7 +93,6 @@ class WorkReportService {
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -116,7 +112,6 @@ class WorkReportService {
     try {
       final response = await http.get(
         Uri.parse(ApiConstants.workReportGetCategories),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {

@@ -42,7 +42,6 @@ class _DetailHalaqahPimpinanScreenState extends State<DetailHalaqahPimpinanScree
         Uri.parse("$baseUrl/tahfidz/dashboard_pimpinan?action=detail_halaqoh&id=${widget.halaqahId}&user_id=$userId"),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
           if (token.isNotEmpty) 'Authorization': 'Bearer $token',
         },
       ).timeout(const Duration(seconds: 15));

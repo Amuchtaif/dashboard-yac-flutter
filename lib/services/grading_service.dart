@@ -22,7 +22,6 @@ class GradingService {
         Uri.parse(
           '${ApiConstants.baseUrl}teacher/get_my_teaching_info.php?employee_id=$employeeId',
         ),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
         if (response.statusCode == 200) {
@@ -47,7 +46,6 @@ class GradingService {
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       debugPrint('GradingService: History Response Status: ${response.statusCode}');
@@ -78,7 +76,6 @@ class GradingService {
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       debugPrint(
@@ -106,7 +103,6 @@ class GradingService {
     try {
       final response = await http.get(
         Uri.parse(ApiConstants.gradingGetTypes),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -128,7 +124,6 @@ class GradingService {
         Uri.parse(
           '${ApiConstants.baseUrl}get_class_detail.php?class_id=$classId',
         ),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -152,7 +147,6 @@ class GradingService {
         Uri.parse(ApiConstants.gradingSubmit),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode(data),
       );
@@ -189,7 +183,6 @@ class GradingService {
         Uri.parse(ApiConstants.gradingUpdate),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode(data),
       );
@@ -219,7 +212,6 @@ class GradingService {
         Uri.parse(ApiConstants.gradingDelete),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({'id': id}),
       );

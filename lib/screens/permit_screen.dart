@@ -171,7 +171,6 @@ class _PermitScreenState extends State<PermitScreen> {
         'POST',
         Uri.parse("${ApiConfig.baseUrl}/submit_permit.php"),
       );
-      request.headers['ngrok-skip-browser-warning'] = 'true';
 
       // Form Fields
       request.fields['user_id'] = userId.toString();

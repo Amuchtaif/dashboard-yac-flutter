@@ -51,7 +51,6 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
         Uri.parse("${ApiConfig.baseUrl}/homeroom/dashboard.php"),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({
           "user_id": _userId,
@@ -115,7 +114,6 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
         Uri.parse("${ApiConfig.baseUrl}/homeroom/dashboard.php"),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({
           "user_id": _userId,

@@ -66,7 +66,6 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
       );
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -97,7 +96,6 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
         Uri.parse(ApiConstants.meetingNotesAdd),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({
           'meeting_id': widget.meeting.id,
@@ -321,7 +319,6 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: body,
       );
@@ -348,7 +345,6 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
       );
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -1284,7 +1280,6 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode({
           'meeting_id': widget.meeting.id,

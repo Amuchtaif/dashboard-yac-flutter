@@ -20,8 +20,7 @@ class AuthService {
       final response = await http.post(
         Uri.parse(ApiConstants.loginEndpoint),
         headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
+          'Content-Type': kIsWeb ? 'text/plain' : 'application/json'
         },
         body: jsonEncode({'email': email, 'password': password}),
       );
@@ -143,8 +142,7 @@ class AuthService {
       final response = await http.post(
         Uri.parse(ApiConstants.changePassword),
         headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
+          'Content-Type': kIsWeb ? 'text/plain' : 'application/json'
         },
         body: jsonEncode({
           'user_id': userId,

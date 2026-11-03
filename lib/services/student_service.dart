@@ -12,7 +12,6 @@ class StudentService {
     try {
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {

@@ -22,7 +22,6 @@ class PerpulanganService {
       );
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -51,7 +50,6 @@ class PerpulanganService {
       );
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
@@ -83,7 +81,6 @@ class PerpulanganService {
       debugPrint('🔍 Fetching Students: $url');
       final response = await http.get(
         url,
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       debugPrint('📥 Response Status: ${response.statusCode}');
@@ -131,7 +128,6 @@ class PerpulanganService {
         Uri.parse(ApiConstants.perpulanganSubmit),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode(payload),
       );
@@ -149,7 +145,6 @@ class PerpulanganService {
         Uri.parse(ApiConstants.perpulanganUpdateStatus),
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
         },
         body: jsonEncode(payload),
       );
@@ -163,7 +158,6 @@ class PerpulanganService {
     try {
       final response = await http.get(
         Uri.parse(ApiConstants.boardingGetHolidays),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {

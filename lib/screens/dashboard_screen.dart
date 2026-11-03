@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:ui';
 import 'dart:math' as math;
@@ -84,6 +85,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   // Fungsi untuk ambil token & kirim ke PHP
   Future<void> _updateMyToken() async {
+    if (kIsWeb) return;
     try {
       // 1. Minta Izin Notifikasi (Wajib untuk Android 13+)
       FirebaseMessaging messaging = FirebaseMessaging.instance;
@@ -112,7 +114,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           url,
           headers: {
             'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true',
           },
           body: jsonEncode({"user_id": userId.toString(), "fcm_token": token}),
         );
@@ -181,6 +182,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _initNotifications() async {
+    if (kIsWeb) return;
     // Initialize local notification plugin FIRST
     await NotificationService().init();
     debugPrint("âœ… NotificationService initialized");
@@ -353,6 +355,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- LOGIC: HANDLE NOTIFICATION CLICK ---
   Future<void> setupInteractedMessage() async {
+    if (kIsWeb) return;
     // 1. App from Terminated State
     RemoteMessage? initialMessage =
         await FirebaseMessaging.instance.getInitialMessage();
@@ -537,7 +540,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final response = await http.get(
         Uri.parse(url),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {

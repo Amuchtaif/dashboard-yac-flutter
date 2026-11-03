@@ -11,7 +11,6 @@ class ViolationService {
   static Future<Map<String, String>> _headers() async {
     return {
       'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': 'true',
     };
   }
 
@@ -191,7 +190,6 @@ class ViolationService {
           Uri.parse("$endpoint/create.php"),
         );
         request.headers.addAll({
-          'ngrok-skip-browser-warning': 'true',
         });
         request.fields['user_id'] = userId;
         request.fields['santri_id'] = santriId.toString();

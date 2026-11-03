@@ -17,7 +17,6 @@ class AssignmentService {
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       debugPrint(
@@ -52,7 +51,6 @@ class AssignmentService {
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       debugPrint(
@@ -87,7 +85,6 @@ class AssignmentService {
 
       final response = await http.get(
         Uri.parse("${ApiConstants.getAssignmentDetail}?id=$id"),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       debugPrint(
@@ -127,7 +124,7 @@ class AssignmentService {
         Uri.parse(ApiConstants.createAssignment),
       );
 
-      request.headers.addAll({'ngrok-skip-browser-warning': 'true'});
+      request.headers.addAll({});
 
       request.fields['title'] = title;
       request.fields['description'] = description;
@@ -159,7 +156,6 @@ class AssignmentService {
     try {
       final response = await http.post(
         Uri.parse(ApiConstants.updateAssignmentStatus),
-        headers: {'ngrok-skip-browser-warning': 'true'},
         body: {'task_id': taskId.toString(), 'status': status},
       );
 
@@ -176,7 +172,6 @@ class AssignmentService {
     try {
       final response = await http.post(
         Uri.parse(ApiConstants.updateAssignmentProgress),
-        headers: {'ngrok-skip-browser-warning': 'true'},
         body: {'task_id': taskId.toString(), 'progress': progress.toString()},
       );
 
@@ -200,7 +195,7 @@ class AssignmentService {
         Uri.parse(ApiConstants.submitAssignmentReport),
       );
 
-      request.headers.addAll({'ngrok-skip-browser-warning': 'true'});
+      request.headers.addAll({});
       request.fields['task_id'] = taskId.toString();
       request.fields['report_notes'] = reportNotes;
 
@@ -229,7 +224,6 @@ class AssignmentService {
         Uri.parse(
           "${ApiConstants.getSubordinates}?supervisor_id=$supervisorId",
         ),
-        headers: {'ngrok-skip-browser-warning': 'true'},
       );
 
       if (response.statusCode == 200) {
