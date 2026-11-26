@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/meal_attendance_model.dart';
+import 'offline_sync_service.dart';
 
 class MealAttendanceService {
   static const String endpoint = "${ApiConfig.baseUrl}/meal_attendance";
@@ -16,6 +18,55 @@ class MealAttendanceService {
     if (status == 'success' || status == true || status == 'true' || status == 1 || status == '1') return true;
     
     return false;
+  }
+
+  static List<MealStudent> _applyPendingOfflineTasks(
+    List<MealStudent> list,
+    String date,
+    String mealType,
+  ) {
+    final offlineSync = OfflineSyncService();
+    if (offlineSync.queue.isEmpty) return list;
+
+    final updated = List<MealStudent>.from(list);
+    for (final task in offlineSync.queue) {
+      if (task.type == 'meal_scan') {
+        final payload = task.payload;
+        if (payload['meal_type']?.toString().toLowerCase() ==
+            mealType.toLowerCase()) {
+          final studentId =
+              int.tryParse(payload['student_id']?.toString() ?? '0');
+          for (int i = 0; i < updated.length; i++) {
+            if (updated[i].id == studentId && updated[i].attendanceId == null) {
+              updated[i] = updated[i].copyWith(
+                attendanceId: -1,
+                checkTime: 'Offline',
+              );
+            }
+          }
+        }
+      } else if (task.type == 'meal_bulk') {
+        final payload = task.payload;
+        if (payload['date'] == date &&
+            payload['meal_type']?.toString().toLowerCase() ==
+                mealType.toLowerCase()) {
+          final studentIds = (payload['student_ids'] as List<dynamic>?)
+                  ?.map((id) => int.tryParse(id.toString()) ?? 0)
+                  .toSet() ??
+              {};
+          for (int i = 0; i < updated.length; i++) {
+            if (studentIds.contains(updated[i].id) &&
+                updated[i].attendanceId == null) {
+              updated[i] = updated[i].copyWith(
+                attendanceId: -1,
+                checkTime: 'Offline',
+              );
+            }
+          }
+        }
+      }
+    }
+    return updated;
   }
 
   static Future<List<MealStudent>> getStudents({
@@ -33,20 +84,37 @@ class MealAttendanceService {
       },
     );
 
+    final cacheKey = 'meal_students_${mealType}_$date';
+    final offlineSync = OfflineSyncService();
+
     try {
-      final response = await http.get(url);
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (_isSuccess(data)) {
-          return (data['data'] as List)
-              .map((item) => MealStudent.fromJson(item))
-              .toList();
+          final list = data['data'] as List;
+          await offlineSync.saveCache(cacheKey, list);
+          await offlineSync.saveCache('meal_students_latest', list);
+          final studentList =
+              list.map((item) => MealStudent.fromJson(item)).toList();
+          return _applyPendingOfflineTasks(studentList, date, mealType);
         }
       }
-      return [];
     } catch (e) {
-      return [];
+      debugPrint('Error fetching meal students (trying cache): $e');
     }
+
+    // Fallback cache offline
+    final cached = await offlineSync.getCache(cacheKey) ??
+        await offlineSync.getCache('meal_students_latest');
+    if (cached != null && cached is List) {
+      debugPrint('📦 Menggunakan cache lokal untuk absensi makan ($mealType)');
+      final studentList =
+          cached.map((item) => MealStudent.fromJson(item)).toList();
+      return _applyPendingOfflineTasks(studentList, date, mealType);
+    }
+
+    return [];
   }
 
   static Future<List<MealStudent>> getStudentsByMusyrif({
@@ -62,20 +130,37 @@ class MealAttendanceService {
       },
     );
 
+    final cacheKey = 'meal_students_musyrif_${musyrifId}_${mealType}_$date';
+    final offlineSync = OfflineSyncService();
+
     try {
-      final response = await http.get(url);
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (_isSuccess(data)) {
-          return (data['data'] as List)
-              .map((item) => MealStudent.fromJson(item))
-              .toList();
+          final list = data['data'] as List;
+          await offlineSync.saveCache(cacheKey, list);
+          await offlineSync.saveCache('meal_students_musyrif_latest', list);
+          final studentList =
+              list.map((item) => MealStudent.fromJson(item)).toList();
+          return _applyPendingOfflineTasks(studentList, date, mealType);
         }
       }
-      return [];
     } catch (e) {
-      return [];
+      debugPrint('Error fetching meal students by musyrif (trying cache): $e');
     }
+
+    // Fallback cache offline
+    final cached = await offlineSync.getCache(cacheKey) ??
+        await offlineSync.getCache('meal_students_musyrif_latest');
+    if (cached != null && cached is List) {
+      debugPrint('📦 Menggunakan cache lokal untuk musyrif ($mealType)');
+      final studentList =
+          cached.map((item) => MealStudent.fromJson(item)).toList();
+      return _applyPendingOfflineTasks(studentList, date, mealType);
+    }
+
+    return [];
   }
 
   static Future<List<MealStudent>> getStudentsByWaliKelas({
@@ -87,28 +172,44 @@ class MealAttendanceService {
     final url = Uri.parse("$endpoint/get_students_by_wali_kelas.php").replace(
       queryParameters: {
         'wali_kelas_id': waliKelasId.toString(),
-        'user_id': waliKelasId.toString(), // Add user_id as fallback/alternative
+        'user_id': waliKelasId.toString(),
         'date': date,
         'meal_type': mealType,
       },
     );
 
+    final cacheKey = 'meal_students_wali_${waliKelasId}_${mealType}_$date';
+    final offlineSync = OfflineSyncService();
+
     try {
-      final response = await http.get(url);
+      final response = await http.get(url).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (_isSuccess(data)) {
-          return (data['data'] as List)
-              .map((item) => MealStudent.fromJson(item))
-              .toList();
-        } else {
-          throw Exception(data['message'] ?? 'Gagal mengambil data');
+          final list = data['data'] as List;
+          await offlineSync.saveCache(cacheKey, list);
+          await offlineSync.saveCache('meal_students_wali_latest', list);
+          final studentList =
+              list.map((item) => MealStudent.fromJson(item)).toList();
+          return _applyPendingOfflineTasks(studentList, date, mealType);
         }
       }
-      throw Exception('Gagal menghubungi server');
     } catch (e) {
-      rethrow;
+      debugPrint('Error fetching meal students by wali kelas (trying cache): $e');
     }
+
+    // Fallback cache offline
+    final cached = await offlineSync.getCache(cacheKey) ??
+        await offlineSync.getCache('meal_students_wali_latest') ??
+        await offlineSync.getCache('meal_students_latest');
+    if (cached != null && cached is List) {
+      debugPrint('📦 Menggunakan cache lokal untuk wali kelas ($mealType)');
+      final studentList =
+          cached.map((item) => MealStudent.fromJson(item)).toList();
+      return _applyPendingOfflineTasks(studentList, date, mealType);
+    }
+
+    return [];
   }
 
   static Future<bool> markAsEaten({
@@ -120,14 +221,29 @@ class MealAttendanceService {
         Uri.parse("$endpoint/scan.php"),
         body: json.encode({'student_id': studentId, 'meal_type': mealType}),
         headers: {'Content-Type': 'application/json'},
-      );
+      ).timeout(const Duration(seconds: 8));
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return _isSuccess(data);
+      } else {
+        // Server status non-200, enqueue offline
+        await OfflineSyncService().enqueueTask(
+          type: 'meal_scan',
+          payload: {'student_id': studentId, 'meal_type': mealType},
+          description: 'Makan $mealType: Santri #$studentId',
+        );
+        return true;
       }
-      return false;
     } catch (e) {
-      return false;
+      debugPrint('Network error marking meal, enqueuing offline task: $e');
+      // Simpan di antrean offline saat koneksi putus
+      await OfflineSyncService().enqueueTask(
+        type: 'meal_scan',
+        payload: {'student_id': studentId, 'meal_type': mealType},
+        description: 'Makan $mealType: Santri #$studentId',
+      );
+      return true; // Kembalikan true agar UI segera terupdate
     }
   }
 
@@ -145,14 +261,27 @@ class MealAttendanceService {
           'student_ids': studentIds,
         }),
         headers: {'Content-Type': 'application/json'},
-      );
+      ).timeout(const Duration(seconds: 10));
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return _isSuccess(data);
+      } else {
+        await OfflineSyncService().enqueueTask(
+          type: 'meal_bulk',
+          payload: {'date': date, 'meal_type': mealType, 'student_ids': studentIds},
+          description: 'Makan Massal $mealType (${studentIds.length} Santri)',
+        );
+        return true;
       }
-      return false;
     } catch (e) {
-      return false;
+      debugPrint('Network error saveBulk, enqueuing offline task: $e');
+      await OfflineSyncService().enqueueTask(
+        type: 'meal_bulk',
+        payload: {'date': date, 'meal_type': mealType, 'student_ids': studentIds},
+        description: 'Makan Massal $mealType (${studentIds.length} Santri)',
+      );
+      return true;
     }
   }
 

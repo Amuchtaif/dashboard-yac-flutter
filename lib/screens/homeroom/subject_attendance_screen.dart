@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../../config/api_config.dart';
+import '../../services/offline_sync_service.dart';
+import '../../widgets/offline_sync_banner.dart';
 
 import 'subject_attendance_detail_screen.dart';
 
@@ -12,7 +14,8 @@ class SubjectAttendanceScreen extends StatefulWidget {
   const SubjectAttendanceScreen({super.key});
 
   @override
-  State<SubjectAttendanceScreen> createState() => _SubjectAttendanceScreenState();
+  State<SubjectAttendanceScreen> createState() =>
+      _SubjectAttendanceScreenState();
 }
 
 class _SubjectAttendanceScreenState extends State<SubjectAttendanceScreen> {
@@ -30,7 +33,8 @@ class _SubjectAttendanceScreenState extends State<SubjectAttendanceScreen> {
   Future<void> _loadUserId() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _userId = (prefs.getInt('user_id') ?? prefs.getInt('userId') ?? 0).toString();
+      _userId =
+          (prefs.getInt('user_id') ?? prefs.getInt('userId') ?? 0).toString();
     });
     if (_userId != "0") {
       _fetchData();
@@ -39,34 +43,61 @@ class _SubjectAttendanceScreenState extends State<SubjectAttendanceScreen> {
 
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
+    final dateStr = DateFormat('y-MM-dd').format(_selectedDate);
+    final cacheKey = 'homeroom_subject_attendance_${_userId}_$dateStr';
+    final offlineSync = OfflineSyncService();
+
     try {
-      final response = await http.post(
-        Uri.parse("${ApiConfig.baseUrl}/homeroom/dashboard.php"),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          "user_id": _userId,
-          "action": "get_subject_attendance",
-          "date": DateFormat('y-MM-dd').format(_selectedDate),
-        }),
-      );
+      final response = await http
+          .post(
+            Uri.parse("${ApiConfig.baseUrl}/homeroom/dashboard.php"),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              "user_id": _userId,
+              "action": "get_subject_attendance",
+              "date": dateStr,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
+          final list = data['data'] ?? [];
+          await offlineSync.saveCache(cacheKey, list);
+          await offlineSync.saveCache(
+            'homeroom_subject_attendance_${_userId}_latest',
+            list,
+          );
           setState(() {
-            _data = data['data'] ?? [];
+            _data = list;
             _isLoading = false;
           });
-        } else {
-          _showError(data['message'] ?? "Gagal mengambil data");
+          return;
         }
       }
     } catch (e) {
-      _showError("Error: $e");
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      debugPrint('Error fetching subject attendance (trying cache): $e');
+    }
+
+    final cached =
+        await offlineSync.getCache(cacheKey) ??
+        await offlineSync.getCache(
+          'homeroom_subject_attendance_${_userId}_latest',
+        );
+    if (cached != null && cached is List) {
+      setState(() {
+        _data = cached;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+      _showError(
+        "Tidak dapat memuat data absensi mapel. Periksa koneksi internet.",
+      );
     }
   }
 
@@ -91,7 +122,10 @@ class _SubjectAttendanceScreenState extends State<SubjectAttendanceScreen> {
           children: [
             Text(
               "Absensi Per Mapel",
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
             ),
             Text(
               DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(_selectedDate),
@@ -104,7 +138,10 @@ class _SubjectAttendanceScreenState extends State<SubjectAttendanceScreen> {
         foregroundColor: Colors.black87,
         actions: [
           IconButton(
-            icon: const Icon(Icons.calendar_month_rounded, color: Colors.blueAccent),
+            icon: const Icon(
+              Icons.calendar_month_rounded,
+              color: Colors.blueAccent,
+            ),
             onPressed: () async {
               final picked = await showDatePicker(
                 context: context,
@@ -121,19 +158,33 @@ class _SubjectAttendanceScreenState extends State<SubjectAttendanceScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _fetchData,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
-            : _data.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _data.length,
-                    itemBuilder: (context, index) {
-                      return _buildSubjectCard(_data[index]);
-                    },
-                  ),
+      body: Column(
+        children: [
+          const OfflineSyncBanner(
+            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _fetchData,
+              child:
+                  _isLoading
+                      ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.blueAccent,
+                        ),
+                      )
+                      : _data.isEmpty
+                      ? _buildEmptyState()
+                      : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _data.length,
+                        itemBuilder: (context, index) {
+                          return _buildSubjectCard(_data[index]);
+                        },
+                      ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -149,11 +200,18 @@ class _SubjectAttendanceScreenState extends State<SubjectAttendanceScreen> {
               const SizedBox(height: 16),
               Text(
                 "Tidak ada jadwal pelajaran",
-                style: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 16, fontWeight: FontWeight.w600),
+                style: GoogleFonts.poppins(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               Text(
                 "Tidak ditemukan jadwal untuk hari ini",
-                style: GoogleFonts.poppins(color: Colors.grey[400], fontSize: 13),
+                style: GoogleFonts.poppins(
+                  color: Colors.grey[400],
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
@@ -174,18 +232,20 @@ class _SubjectAttendanceScreenState extends State<SubjectAttendanceScreen> {
   Widget _buildSubjectCard(Map<String, dynamic> item) {
     bool hasJournal = item['journal_id'] != null;
     return GestureDetector(
-      onTap: hasJournal
-          ? () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SubjectAttendanceDetailScreen(
-                    journalId: int.parse(item['journal_id'].toString()),
+      onTap:
+          hasJournal
+              ? () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder:
+                        (context) => SubjectAttendanceDetailScreen(
+                          journalId: int.parse(item['journal_id'].toString()),
+                        ),
                   ),
-                ),
-              );
-            }
-          : null,
+                );
+              }
+              : null,
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
@@ -210,7 +270,11 @@ class _SubjectAttendanceScreenState extends State<SubjectAttendanceScreen> {
                   color: Colors.blueAccent.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.book_outlined, color: Colors.blueAccent, size: 24),
+                child: const Icon(
+                  Icons.book_outlined,
+                  color: Colors.blueAccent,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -219,17 +283,28 @@ class _SubjectAttendanceScreenState extends State<SubjectAttendanceScreen> {
                   children: [
                     Text(
                       item['subject_name'] ?? '-',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15, color: const Color(0xFF1E293B)),
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: const Color(0xFF1E293B),
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       "${_formatTime(item['start_time'])} - ${_formatTime(item['end_time'])}",
-                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       item['teacher_name'] ?? '-',
-                      style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500]),
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: Colors.grey[500],
+                      ),
                     ),
                   ],
                 ),
@@ -237,7 +312,10 @@ class _SubjectAttendanceScreenState extends State<SubjectAttendanceScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: hasJournal ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
+                  color:
+                      hasJournal
+                          ? Colors.green.withValues(alpha: 0.1)
+                          : Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

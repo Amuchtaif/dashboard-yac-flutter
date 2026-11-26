@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
+import 'offline_sync_service.dart';
 
 class TahfidzRepository {
   final String _baseUrl = ApiConfig.baseUrl;
@@ -103,27 +104,92 @@ class TahfidzRepository {
   }
 
   Future<Map<String, dynamic>> getEntries(Map<String, dynamic> filters) async {
+    final offlineSync = OfflineSyncService();
+    final dateStr = filters['date']?.toString() ??
+        filters['start_date']?.toString() ??
+        filters['end_date']?.toString() ??
+        '';
+    final cacheKey = dateStr.isNotEmpty
+        ? 'tahfidz_entries_$dateStr'
+        : 'tahfidz_entries_latest';
+
     try {
       final headers = await _getHeaders();
-      final queryParams = filters.map((key, value) => MapEntry(key, value?.toString() ?? ''));
+      final queryParams = filters
+          .map((key, value) => MapEntry(key, value?.toString() ?? ''));
       // Remove empty params
       queryParams.removeWhere((key, value) => value.isEmpty);
-      final uri = Uri.parse("$_baseUrl/tahfidz/entries").replace(queryParameters: queryParams);
+      final uri = Uri.parse("$_baseUrl/tahfidz/entries")
+          .replace(queryParameters: queryParams);
 
-      final response = await http.get(
-        uri,
-        headers: headers,
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            uri,
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 8));
 
       _checkResponse(response);
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic> &&
+            decoded['success'] == true &&
+            decoded['data'] != null) {
+          await offlineSync.saveCache(cacheKey, decoded['data']);
+          await offlineSync.saveCache('tahfidz_entries_latest', decoded['data']);
+        }
+        return decoded;
       }
-      return {'success': false, 'message': 'HTTP ${response.statusCode}'};
     } catch (e) {
-      return {'success': false, 'message': 'Timeout or Network Error: $e'};
+      debugPrint("Error fetching tahfidz entries (using offline cache): $e");
     }
+
+    // Fallback: baca dari cache lokal dan gabungkan dengan antrean offline jika ada
+    List<dynamic> entries = [];
+    final cached = await offlineSync.getCache(cacheKey) ??
+        await offlineSync.getCache('tahfidz_entries_latest');
+    if (cached != null && cached is List) {
+      entries = List.from(cached);
+    }
+
+    // Gabungkan dengan antrean setoran offline jika tanggal sesuai
+    final offlineTasks =
+        offlineSync.queue.where((t) => t.type == 'tahfidz_setoran');
+    for (var task in offlineTasks) {
+      final payload = task.payload;
+      final taskDate = payload['date']?.toString() ??
+          payload['created_at']?.toString() ??
+          '';
+      if (dateStr.isEmpty || taskDate.contains(dateStr)) {
+        entries.insert(0, {
+          'id': -DateTime.now().millisecondsSinceEpoch,
+          'student_id': payload['student_id'],
+          'teacher_id': payload['teacher_id'],
+          'date': taskDate.isNotEmpty ? taskDate : dateStr,
+          'session': payload['session'] ?? payload['session_name'],
+          'start_surah_id': payload['start_surah_id'] ?? payload['surah_id'],
+          'surah_start': payload['surah_start'],
+          'start_ayah': payload['start_ayah'] ?? payload['ayat_start'],
+          'end_surah_id': payload['end_surah_id'],
+          'surah_end': payload['surah_end'],
+          'end_ayah': payload['end_ayah'] ?? payload['ayat_end'],
+          'quality': payload['status'] ?? 'LANCAR',
+          'status': payload['status'] ?? 'LANCAR',
+          'entry_type':
+              payload['entry_type'] ?? payload['jenis_setoran'] ?? 'HAFALAN_BARU',
+          'notes': payload['notes'],
+          'is_offline_pending': true,
+        });
+      }
+    }
+
+    return {
+      'success': true,
+      'isOffline': true,
+      'data': entries,
+      'message': 'Data dimuat dari cache lokal',
+    };
   }
 
   Future<Map<String, dynamic>> getEntry(int id) async {

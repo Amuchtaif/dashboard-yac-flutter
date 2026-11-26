@@ -8,6 +8,7 @@ import '../../services/perpulangan_service.dart';
 import '../../models/asrama_model.dart';
 import '../../services/asrama_service.dart';
 import '../../services/permission_service.dart';
+import '../../widgets/offline_sync_banner.dart';
 
 class IzinSantriScreen extends StatefulWidget {
   final String? initialPermitId;
@@ -96,6 +97,9 @@ class _IzinSantriScreenState extends State<IzinSantriScreen> {
         child: Column(
           children: [
             _buildAppBar(),
+            const OfflineSyncBanner(
+              margin: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            ),
             Expanded(
               child: _isLoading && _stats == null
                   ? const Center(child: CircularProgressIndicator())

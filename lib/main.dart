@@ -23,6 +23,10 @@ import 'firebase_options.dart';
 import 'config/api_config.dart';
 import 'screens/maintenance_screen.dart';
 import 'screens/no_internet_screen.dart';
+import 'services/app_update_service.dart';
+import 'services/offline_sync_service.dart';
+
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -88,6 +92,9 @@ void main() async {
     debugPrint("ℹ️ NO ACTIVE SESSION");
     await prefs.clear();
   }
+
+  // Inisialisasi service antrean offline & auto-sync
+  await OfflineSyncService().init();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -169,26 +176,37 @@ class _MyAppState extends State<MyApp> {
   void _setupFCMMaintenanceListener() {
     // Subscribe to maintenance topic
     FirebaseMessaging.instance.subscribeToTopic('maintenance');
+    // Subscribe to app_updates and all_users topics for OTA updates & broadcast
+    FirebaseMessaging.instance.subscribeToTopic('app_updates');
+    FirebaseMessaging.instance.subscribeToTopic('all_users');
 
     // Handle messages while app is in foreground
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       debugPrint("FCM Message Received: ${message.data}");
-      _handleMaintenanceMessage(message);
+      _handleFCMMessage(message);
     });
 
     // Handle messages when app is opened from notification
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      _handleMaintenanceMessage(message);
+      _handleFCMMessage(message);
     });
   }
 
-  void _handleMaintenanceMessage(RemoteMessage message) {
-    if (message.data['type'] == 'maintenance') {
-      final bool isMaint = message.data['status'] == 'true' || message.data['status'] == '1';
+  void _handleFCMMessage(RemoteMessage message) {
+    final type = message.data['type'];
+    if (type == 'maintenance') {
+      final bool isMaint =
+          message.data['status'] == 'true' || message.data['status'] == '1';
       final String? msg = message.data['message'];
 
       if (mounted) {
         context.read<AppStatusProvider>().updateStatus(isMaint, msg);
+      }
+    } else if (type == 'app_update') {
+      debugPrint("FCM App Update notification triggered");
+      final navContext = rootNavigatorKey.currentContext;
+      if (navContext != null) {
+        AppUpdateService().checkAppUpdate(navContext);
       }
     }
   }
@@ -199,6 +217,7 @@ class _MyAppState extends State<MyApp> {
       "MyApp Build - isMaintenance: ${widget.isMaintenance}, isSessionValid: ${widget.isSessionValid}",
     );
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       title: 'Aplikasi YAC',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueAccent),
@@ -241,8 +260,10 @@ class _MyAppState extends State<MyApp> {
       builder: (context, child) {
         return Consumer2<AppStatusProvider, NetworkProvider>(
           builder: (context, appStatus, network, _) {
-            if (network.hasCheckedInitially && network.isOffline) {
-              return const NoInternetScreen();
+            if (network.hasCheckedInitially &&
+                network.isOffline &&
+                !network.isDismissedByUser) {
+              return NoInternetScreen(isSessionValid: widget.isSessionValid);
             }
             if (appStatus.isMaintenance) {
               return MaintenanceScreen(

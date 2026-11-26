@@ -9,6 +9,7 @@ import '../../models/surah_model.dart';
 import '../../screens/login_screen.dart';
 import './form_setoran_screen.dart';
 import './detail_setoran_screen.dart';
+import '../../widgets/offline_sync_banner.dart';
 
 class CatatanSetoranScreen extends StatefulWidget {
   const CatatanSetoranScreen({super.key});
@@ -52,17 +53,19 @@ class _CatatanSetoranScreenState extends State<CatatanSetoranScreen> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final int? teacherId = prefs.getInt('userId');
+      final dynamic rawId = prefs.get('userId') ?? prefs.get('user_id');
+      final int? teacherId =
+          rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
 
-      // Fetch teacher's students
+      // Fetch teacher's students (dengan multi-tier offline fallback)
       final studentsList = await _tahfidzService.getMyStudents(teacherId);
 
-      // Fetch surahs if empty
+      // Fetch surahs if empty (dengan fallback offline static 114 surah)
       if (_surahList.isEmpty) {
         _surahList = await _quranService.getAllSurahs();
       }
 
-      // Fetch entries for the selected date
+      // Fetch entries for the selected date (dengan fallback cache & antrean offline)
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final entriesResult = await _repository.getEntries({
         'date': dateStr,
@@ -79,20 +82,22 @@ class _CatatanSetoranScreenState extends State<CatatanSetoranScreen> {
             _isLoading = false;
           });
         } else {
-          if (entriesResult['message'] != null && entriesResult['message'].toString().contains('Unauthorized')) {
+          if (entriesResult['message'] != null &&
+              entriesResult['message'].toString().contains('Unauthorized')) {
             _handleLogout();
           } else {
             setState(() {
-              _errorMessage = entriesResult['message'] ?? 'Gagal memuat data setoran';
+              _students = studentsList;
+              _entries = entriesResult['data'] ?? [];
               _isLoading = false;
             });
           }
         }
       }
     } catch (e) {
+      debugPrint("CatatanSetoran _fetchData error: $e");
       if (mounted) {
         setState(() {
-          _errorMessage = 'Terjadi kesalahan: $e';
           _isLoading = false;
         });
       }
@@ -210,6 +215,10 @@ class _CatatanSetoranScreenState extends State<CatatanSetoranScreen> {
       ),
       body: Column(
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: OfflineSyncBanner(isCard: true),
+          ),
           // Date Selector Bar
           Container(
             margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),

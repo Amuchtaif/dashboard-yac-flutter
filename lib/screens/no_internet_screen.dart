@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 import '../providers/network_provider.dart';
 
 class NoInternetScreen extends StatefulWidget {
-  const NoInternetScreen({super.key});
+  final bool isSessionValid;
+  const NoInternetScreen({super.key, this.isSessionValid = false});
 
   @override
   State<NoInternetScreen> createState() => _NoInternetScreenState();
@@ -205,28 +206,60 @@ class _NoInternetScreenState extends State<NoInternetScreen> {
                         ],
                       )
                     else
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _handleRetry,
-                          icon: const Icon(Icons.refresh_rounded, size: 20),
-                          label: Text(
-                            "Coba Lagi",
-                            style: GoogleFonts.poppins(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                      Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _handleRetry,
+                              icon: const Icon(Icons.refresh_rounded, size: 20),
+                              label: Text(
+                                "Coba Lagi",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2563EB),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                elevation: 0,
+                              ),
                             ),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                          if (widget.isSessionValid) ...[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  context.read<NetworkProvider>().dismissOfflineBlock();
+                                },
+                                icon: const Icon(Icons.offline_pin_outlined, size: 20),
+                                label: Text(
+                                  "Lanjutkan dalam Mode Offline",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF2563EB),
+                                  side: const BorderSide(
+                                      color: Color(0xFFBFDBFE), width: 1.5),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                              ),
                             ),
-                            elevation: 0,
-                          ),
-                        ),
+                          ],
+                        ],
                       ),
                     const SizedBox(height: 20),
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/teacher_service.dart';
+import '../widgets/offline_sync_banner.dart';
 import 'teaching_journal_screen.dart';
 import 'class_journal_screen.dart';
 
@@ -63,7 +64,8 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
     debugPrint('Fetching schedule for day: $day ($englishDay), date: $formattedDate');
 
     try {
-      final data = await _teacherService.getDailySchedule(day, date: formattedDate);
+      final data =
+          await _teacherService.getDailySchedule(day, date: formattedDate);
       if (mounted) {
         setState(() {
           schedules = data;
@@ -75,9 +77,10 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
         setState(() {
           isLoading = false;
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal memuat jadwal: $e')));
+        if (schedules.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Gagal memuat jadwal: $e')));
+        }
       }
     }
   }
@@ -109,6 +112,9 @@ class _TeachingScheduleScreenState extends State<TeachingScheduleScreen> {
       ),
       body: Column(
         children: [
+          const OfflineSyncBanner(
+            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
           _buildDateSelector(),
           Expanded(
             child: isLoading

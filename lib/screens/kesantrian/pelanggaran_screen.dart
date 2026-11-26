@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/violation_model.dart';
 import '../../services/violation_service.dart';
+import '../../widgets/offline_sync_banner.dart';
 
 class PelanggaranScreen extends StatefulWidget {
   const PelanggaranScreen({super.key});
@@ -71,6 +72,9 @@ class _PelanggaranScreenState extends State<PelanggaranScreen> {
         child: Column(
           children: [
             _buildAppBar(),
+            const OfflineSyncBanner(
+              margin: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            ),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _fetchData,

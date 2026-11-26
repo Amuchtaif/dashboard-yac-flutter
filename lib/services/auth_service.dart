@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_constants.dart';
 import '../models/user_model.dart';
@@ -17,12 +18,27 @@ class AuthResult {
 class AuthService {
   Future<AuthResult> login(String email, String password) async {
     try {
+      String appVersion = '1.0.0';
+      int buildNumber = 1;
+      try {
+        final info = await PackageInfo.fromPlatform();
+        appVersion = info.version;
+        buildNumber = int.tryParse(info.buildNumber) ?? 1;
+      } catch (e) {
+        debugPrint('Error reading package info: $e');
+      }
+
       final response = await http.post(
         Uri.parse(ApiConstants.loginEndpoint),
         headers: {
           'Content-Type': kIsWeb ? 'text/plain' : 'application/json'
         },
-        body: jsonEncode({'email': email, 'password': password}),
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          'app_version': appVersion,
+          'build_number': buildNumber,
+        }),
       );
 
       if (response.statusCode == 200) {

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/teacher_service.dart';
+import '../widgets/offline_sync_banner.dart';
 import 'teaching_journal_screen.dart';
 
 class ClassJournalScreen extends StatefulWidget {
@@ -252,6 +253,7 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
       if (mounted) {
         setState(() => isSubmitting = false);
         if (result['success'] == true) {
+          final isOffline = result['isOffline'] == true;
           _savedTopic = _topicController.text;
           _savedNotes = _summaryController.text;
           if (widget.existingJournal != null) {
@@ -264,15 +266,25 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
               SnackBar(
                 content: Row(
                   children: [
-                    const Icon(Icons.check_circle, color: Colors.white),
+                    Icon(
+                      isOffline ? Icons.cloud_off : Icons.check_circle,
+                      color: Colors.white,
+                    ),
                     const SizedBox(width: 10),
-                    Text(
-                      'Jurnal berhasil diperbarui',
-                      style: GoogleFonts.poppins(),
+                    Expanded(
+                      child: Text(
+                        result['message'] ??
+                            (isOffline
+                                ? 'Tersimpan lokal (Mode Offline)'
+                                : 'Jurnal berhasil diperbarui'),
+                        style: GoogleFonts.poppins(),
+                      ),
                     ),
                   ],
                 ),
-                backgroundColor: const Color(0xFF10B981),
+                backgroundColor: isOffline
+                    ? const Color(0xFFF59E0B)
+                    : const Color(0xFF10B981),
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -280,7 +292,7 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
               ),
             );
           } else {
-            _showSuccessDialog();
+            _showSuccessDialog(isOffline: isOffline);
           }
         } else {
           final message = result['message'] ?? 'Gagal menyimpan data.';
@@ -299,7 +311,7 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
     }
   }
 
-  void _showSuccessDialog() {
+  void _showSuccessDialog({bool isOffline = false}) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -311,10 +323,16 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check_circle, color: Colors.blue, size: 60),
+                Icon(
+                  isOffline ? Icons.offline_pin_rounded : Icons.check_circle,
+                  color: isOffline ? const Color(0xFFF59E0B) : Colors.blue,
+                  size: 60,
+                ),
                 const SizedBox(height: 16),
                 Text(
-                  'Jurnal Berhasil Disimpan',
+                  isOffline
+                      ? 'Tersimpan di HP (Mode Offline)'
+                      : 'Jurnal Berhasil Disimpan',
                   style: GoogleFonts.poppins(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -322,6 +340,17 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
+                if (isOffline) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Data tersimpan aman di perangkat dan otomatis terkirim saat tersambung sinyal/internet.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: const Color(0xFF64748B),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ],
             ),
             actions: [
@@ -329,7 +358,9 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E88E5),
+                    backgroundColor: isOffline
+                        ? const Color(0xFFF59E0B)
+                        : const Color(0xFF1E88E5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -506,6 +537,9 @@ class _ClassJournalScreenState extends State<ClassJournalScreen> {
       ),
       body: Column(
         children: [
+          const OfflineSyncBanner(
+            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
           if (_isLoadingData)
             const LinearProgressIndicator(
               minHeight: 3,

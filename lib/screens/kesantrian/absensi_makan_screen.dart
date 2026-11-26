@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/meal_attendance_model.dart';
 import '../../services/meal_attendance_service.dart';
+import '../../widgets/offline_sync_banner.dart';
 
 class AbsensiMakanScreen extends StatefulWidget {
   const AbsensiMakanScreen({super.key});
@@ -40,7 +41,9 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id');
+      final rawUserId = prefs.get('user_id') ?? prefs.get('userId');
+      final userId =
+          rawUserId != null ? int.tryParse(rawUserId.toString()) : null;
       final positionName = prefs.getString('positionName') ?? '';
       final isMusyrif = positionName.toLowerCase().contains('musyrif');
 
@@ -92,6 +95,18 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
             attendanceId: student.attendanceId!);
 
     if (success) {
+      if (student.attendanceId == null) {
+        final idx = _students.indexWhere((s) => s.id == student.id);
+        if (idx != -1) {
+          setState(() {
+            _students[idx] = _students[idx].copyWith(
+              attendanceId: -1,
+              checkTime: 'Offline',
+            );
+            _filterStudents(_searchController.text);
+          });
+        }
+      }
       _fetchData();
     } else {
       if (mounted) {
@@ -110,6 +125,9 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
         child: Column(
           children: [
             _buildAppBar(),
+            const OfflineSyncBanner(
+              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
             _buildMealTabs(),
             _buildSearchBar(),
             Expanded(
@@ -407,6 +425,18 @@ class _AbsensiMakanScreenState extends State<AbsensiMakanScreen> {
         studentIds: untreated.map((s) => s.id).toList(),
       );
       if (success) {
+        final untreatedIds = untreated.map((s) => s.id).toSet();
+        setState(() {
+          for (int i = 0; i < _students.length; i++) {
+            if (untreatedIds.contains(_students[i].id)) {
+              _students[i] = _students[i].copyWith(
+                attendanceId: -1,
+                checkTime: 'Offline',
+              );
+            }
+          }
+          _filterStudents(_searchController.text);
+        });
         _fetchData();
       } else {
         setState(() => _isLoading = false);

@@ -3,23 +3,21 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_constants.dart';
+import 'offline_sync_service.dart';
 
 class TeacherService {
   Future<List<Map<String, dynamic>>> getDailySchedule(String day, {String? date}) async {
+    final offlineSync = OfflineSyncService();
+    String employeeId = '0';
+
     try {
       final prefs = await SharedPreferences.getInstance();
-
-      // Handle both String and Int types for user_id safely
-      String employeeId = '0';
-      if (prefs.containsKey('user_id')) {
-        final userId = prefs.get('user_id');
-        if (userId is int) {
-          employeeId = userId.toString();
-        } else if (userId is String) {
-          employeeId = userId;
-        }
+      final rawUserId = prefs.get('user_id') ?? prefs.get('userId');
+      if (rawUserId != null) {
+        employeeId = rawUserId.toString();
       }
 
+      final cacheKey = 'teacher_schedule_${employeeId}_$day';
       final Map<String, String> queryParams = {
         'employee_id': employeeId,
         'day': day,
@@ -34,23 +32,36 @@ class TeacherService {
 
       debugPrint('TeacherService: Fetching schedule from $uri');
 
-      final response = await http.get(uri);
+      try {
+        final response =
+            await http.get(uri).timeout(const Duration(seconds: 8));
 
-      debugPrint('TeacherService: Response Status: ${response.statusCode}');
-      debugPrint('TeacherService: Response Body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final result = jsonDecode(response.body);
-        // Debug: print keys to verify structure
-        debugPrint('Result keys: ${result.keys}');
-
-        // Handle {"status": "success", "data": [...]} structure
-        if (result['status'] == 'success' || result['success'] == true) {
-          if (result['data'] != null) {
-            return List<Map<String, dynamic>>.from(result['data']);
+        if (response.statusCode == 200) {
+          final result = jsonDecode(response.body);
+          if (result['status'] == 'success' || result['success'] == true) {
+            if (result['data'] != null) {
+              final list = List<Map<String, dynamic>>.from(result['data']);
+              await offlineSync.saveCache(cacheKey, list);
+              await offlineSync.saveCache(
+                  'teacher_schedule_${employeeId}_latest', list);
+              return _overlayOfflineScheduleTasks(list, date);
+            }
           }
         }
+      } catch (e) {
+        debugPrint('TeacherService error (trying cache): $e');
       }
+
+      // Fallback cache offline
+      final cached = await offlineSync.getCache(cacheKey) ??
+          await offlineSync.getCache('teacher_schedule_${employeeId}_latest');
+      if (cached != null && cached is List) {
+        debugPrint('📦 Menggunakan cache lokal untuk jadwal mengajar ($day)');
+        final list = List<Map<String, dynamic>>.from(
+            cached.map((e) => Map<String, dynamic>.from(e)));
+        return _overlayOfflineScheduleTasks(list, date);
+      }
+
       return [];
     } catch (e) {
       debugPrint('Error fetching schedule: $e');
@@ -58,10 +69,43 @@ class TeacherService {
     }
   }
 
+  List<Map<String, dynamic>> _overlayOfflineScheduleTasks(
+      List<Map<String, dynamic>> schedules, String? date) {
+    final offlineSync = OfflineSyncService();
+    if (offlineSync.queue.isEmpty) return schedules;
+
+    final updated = List<Map<String, dynamic>>.from(schedules);
+    for (final task in offlineSync.queue) {
+      if (task.type == 'teacher_attendance') {
+        final payload = task.payload;
+        final scheduleId = payload['schedule_id']?.toString();
+        final taskDate = payload['date']?.toString();
+
+        if (date == null || taskDate == null || taskDate == date) {
+          for (int i = 0; i < updated.length; i++) {
+            if (updated[i]['id']?.toString() == scheduleId) {
+              updated[i] = Map<String, dynamic>.from(updated[i]);
+              updated[i]['has_attendance'] = 1;
+              if (payload['topic'] != null &&
+                  payload['topic'].toString().trim().isNotEmpty) {
+                updated[i]['is_journal_filled'] = 1;
+              }
+            }
+          }
+        }
+      }
+    }
+    return updated;
+  }
+
   Future<Map<String, dynamic>> getStudentsBySchedule(
     String scheduleId,
     String date,
   ) async {
+    final offlineSync = OfflineSyncService();
+    final cacheKey = 'schedule_students_${scheduleId}_$date';
+    final fallbackKey = 'schedule_students_${scheduleId}_latest';
+
     try {
       final uri = Uri.parse(
         ApiConstants.teacherStudents,
@@ -69,21 +113,34 @@ class TeacherService {
 
       debugPrint('TeacherService: Fetching students from $uri');
 
-      final response = await http.get(uri);
+      try {
+        final response =
+            await http.get(uri).timeout(const Duration(seconds: 8));
 
-      debugPrint(
-        'TeacherService: Students Response Status: ${response.statusCode}',
-      );
-      debugPrint('TeacherService: Students Response Body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final result = jsonDecode(response.body);
-        if (result['status'] == 'success' || result['success'] == true) {
-          if (result['data'] != null) {
-            return result['data'];
+        if (response.statusCode == 200) {
+          final result = jsonDecode(response.body);
+          if (result['status'] == 'success' || result['success'] == true) {
+            if (result['data'] != null) {
+              final data = Map<String, dynamic>.from(result['data']);
+              await offlineSync.saveCache(cacheKey, data);
+              await offlineSync.saveCache(fallbackKey, data);
+              return _overlayOfflineStudentTasks(data, scheduleId, date);
+            }
           }
         }
+      } catch (e) {
+        debugPrint('TeacherService getStudents error (trying cache): $e');
       }
+
+      // Fallback cache offline
+      final cached = await offlineSync.getCache(cacheKey) ??
+          await offlineSync.getCache(fallbackKey);
+      if (cached != null && cached is Map<String, dynamic>) {
+        debugPrint('📦 Menggunakan cache lokal untuk santri jadwal #$scheduleId');
+        final data = Map<String, dynamic>.from(cached);
+        return _overlayOfflineStudentTasks(data, scheduleId, date);
+      }
+
       return {};
     } catch (e) {
       debugPrint('Error fetching students: $e');
@@ -91,34 +148,125 @@ class TeacherService {
     }
   }
 
+  Map<String, dynamic> _overlayOfflineStudentTasks(
+      Map<String, dynamic> data, String scheduleId, String date) {
+    final offlineSync = OfflineSyncService();
+    if (offlineSync.queue.isEmpty) return data;
+
+    final updatedData = Map<String, dynamic>.from(data);
+    for (final task in offlineSync.queue) {
+      if (task.type == 'teacher_attendance') {
+        final payload = task.payload;
+        if (payload['schedule_id']?.toString() == scheduleId &&
+            payload['date']?.toString() == date) {
+          // Overlay attendances
+          if (payload['attendances'] != null &&
+              updatedData['students'] != null &&
+              updatedData['students'] is List) {
+            final attendances = (payload['attendances'] as List<dynamic>)
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+            final Map<String, String> statusMap = {
+              for (var att in attendances)
+                att['student_id'].toString(): att['status'].toString()
+            };
+
+            final studentsList =
+                List<Map<String, dynamic>>.from(updatedData['students']);
+            for (int i = 0; i < studentsList.length; i++) {
+              final stId = studentsList[i]['student_id']?.toString() ??
+                  studentsList[i]['id']?.toString() ??
+                  '';
+              if (statusMap.containsKey(stId)) {
+                studentsList[i] = Map<String, dynamic>.from(studentsList[i]);
+                studentsList[i]['status'] = statusMap[stId];
+              }
+            }
+            updatedData['students'] = studentsList;
+          }
+
+          // Overlay journal
+          if (payload['topic'] != null || payload['notes'] != null) {
+            final journal = Map<String, dynamic>.from(
+                updatedData['journal'] as Map<String, dynamic>? ?? {});
+            if (payload['topic'] != null) journal['topic'] = payload['topic'];
+            if (payload['notes'] != null) journal['notes'] = payload['notes'];
+            updatedData['journal'] = journal;
+          }
+        }
+      }
+    }
+    return updatedData;
+  }
+
   Future<Map<String, dynamic>> submitAttendance(
     Map<String, dynamic> data,
   ) async {
+    final offlineSync = OfflineSyncService();
+    final scheduleId = data['schedule_id']?.toString() ?? '';
+    final date = data['date']?.toString() ?? '';
+
+    // Update local cache immediately
     try {
+      final cacheKey = 'schedule_students_${scheduleId}_$date';
+      final cached = await offlineSync.getCache(cacheKey) ??
+          await offlineSync.getCache('schedule_students_${scheduleId}_latest');
+      if (cached != null && cached is Map<String, dynamic>) {
+        final updatedData = _overlayOfflineStudentTasks(
+            cached, scheduleId, date);
+        await offlineSync.saveCache(cacheKey, updatedData);
+        await offlineSync.saveCache(
+            'schedule_students_${scheduleId}_latest', updatedData);
+      }
+    } catch (_) {}
+
+    try {
+      debugPrint('TeacherService: submitting attendance to server...');
       final response = await http.post(
         Uri.parse(ApiConstants.submitTeacherAttendance),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(data),
-      );
-
-      debugPrint('TeacherService: submitting to ${response.request?.url}');
-      debugPrint('TeacherService: payload: ${jsonEncode(data)}');
-      debugPrint('TeacherService: Submit Response: ${response.body}');
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
-        return {
-          'success': result['status'] == 'success' || result['success'] == true,
-          'message': result['message'] ?? 'Unknown error',
-        };
+        if (result['status'] == 'success' || result['success'] == true) {
+          return {
+            'success': true,
+            'isOffline': false,
+            'message': result['message'] ?? 'Absensi berhasil disimpan',
+          };
+        }
       }
+
+      // If server returned non-200 or failure, enqueue offline
+      await offlineSync.enqueueTask(
+        type: 'teacher_attendance',
+        payload: data,
+        description:
+            'Jurnal & Absensi Mengajar Jadwal #$scheduleId ($date)',
+      );
       return {
-        'success': false,
-        'message': 'HTTP Error: ${response.statusCode}',
+        'success': true,
+        'isOffline': true,
+        'message':
+            'Disimpan lokal di perangkat (Server Sibuk). Akan otomatis disinkronkan saat server pulih.',
       };
     } catch (e) {
-      debugPrint('Error submitting attendance: $e');
-      return {'success': false, 'message': 'Connection error: $e'};
+      debugPrint(
+          'Network error submitting teacher attendance, enqueuing offline: $e');
+      await offlineSync.enqueueTask(
+        type: 'teacher_attendance',
+        payload: data,
+        description:
+            'Jurnal & Absensi Mengajar Jadwal #$scheduleId ($date)',
+      );
+      return {
+        'success': true,
+        'isOffline': true,
+        'message':
+            'Tersimpan di HP (Mode Offline). Akan otomatis terkirim saat sinyal kembali.',
+      };
     }
   }
 

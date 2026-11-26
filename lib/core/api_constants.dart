@@ -10,6 +10,7 @@ class ApiConstants {
   // Auth Endpoints
   static const String loginEndpoint = '${baseUrl}login.php';
   static const String changePassword = '${baseUrl}change_password.php';
+  static const String appVersion = '${baseUrl}app_version.php';
 
   // Teacher Endpoints
   static const String teacherSchedule = '${baseUrl}teacher/get_schedule.php';
@@ -189,4 +190,8 @@ class ApiConstants {
   // Meeting Notes Endpoints
   static const String meetingNotesGet = '${baseUrl}meeting_notes/get.php';
   static const String meetingNotesAdd = '${baseUrl}meeting_notes/add.php';
+
+  // Feedback & Suggestions Endpoints
+  static const String feedbackSubmit = '${baseUrl}feedback/submit.php';
+  static const String feedbackGetMy = '${baseUrl}feedback/my_feedbacks.php';
 }

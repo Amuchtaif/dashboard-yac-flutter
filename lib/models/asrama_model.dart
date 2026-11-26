@@ -41,6 +41,17 @@ class Asrama {
       sudahAbsen: isCompleted,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'room_id': id,
+      'room_name': nama,
+      'building_name': gedung,
+      'total_students': totalSantri,
+      'attended_count': hadir,
+      'is_filled': sudahAbsen ? 1 : 0,
+    };
+  }
 }
 
 class SantriAsrama {
@@ -74,5 +85,15 @@ class SantriAsrama {
       status: json['status'] ?? json['absensi_status'] ?? '', 
       keterangan: json['notes'] ?? json['keterangan'] ?? json['keterangan_absen'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'nama_siswa': nama,
+      'kelas': kelas,
+      'status': status,
+      'notes': keterangan,
+    };
   }
 }

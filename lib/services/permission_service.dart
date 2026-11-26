@@ -126,11 +126,32 @@ class PermissionService {
     }
 
     // ============================================
-    // FALLBACK strictly division-based
+    // OFFLINE-FIRST RESOLUTION:
     // ============================================
-    debugPrint("⚠️ API unavailable or failed, using strict fallback...");
-
+    // Jika panggilan API gagal (offline / no internet / timeout),
+    // cek apakah sudah ada hak akses resmi dari sesi sebelumnya yang tersimpan di cache.
+    // JANGAN PERNAH MENGHAPUS / MENIMPA CACHE RESMI JIKA SUDAH ADA!
     final prefs = await SharedPreferences.getInstance();
+    final cachedPermissions = prefs.getStringList('user_permissions');
+    final bool hasValidCachedPermissions = (_activePermissions.isNotEmpty) ||
+        (cachedPermissions != null && cachedPermissions.isNotEmpty);
+
+    if (hasValidCachedPermissions) {
+      // Pastikan data di memori sinkron dengan cache lokal
+      if (!_isLoaded || _activePermissions.isEmpty) {
+        await loadFromCache();
+      }
+      debugPrint(
+        "📦 Mode Offline: Mempertahankan hak akses resmi dari cache lokal (${_activePermissions.length} permissions, isWaliKelas=$_isWaliKelas, canApprove=$_canApprovePermits)",
+      );
+      return true; // Sukses menggunakan izin resmi dari cache
+    }
+
+    // ============================================
+    // FALLBACK strictly division-based (HANYA JIKA TIDAK ADA CACHE SAMA SEKALI)
+    // ============================================
+    debugPrint("⚠️ API unavailable & tidak ada cache lokal, using strict fallback...");
+
     final int positionLevel = prefs.getInt('positionLevel') ?? 99;
     final String positionName = prefs.getString('positionName') ?? '';
     final String divisionName = prefs.getString('divisionName') ?? '';
@@ -277,15 +298,30 @@ class PermissionService {
       }
     }
 
+    // Alias checking for Wali Kelas
+    if (permissionName == 'is_wali_kelas' || permissionName == 'wali_kelas') {
+      if (_isWaliKelas ||
+          _activePermissions.contains('is_wali_kelas') ||
+          _activePermissions.contains('wali_kelas')) {
+        debugPrint("🔐 ✅ Wali Kelas FOUND via alias check");
+        return true;
+      }
+    }
+
     // Fallback untuk backward compatibility jika diperlukan
     switch (permissionName) {
       case 'create_meeting':
+      case 'can_create_meeting':
         return _canCreateMeeting;
       case 'approve_permits':
+      case 'can_approve_permits':
         return _canApprovePermits;
       case 'can_access_tahfidz_monitoring':
       case 'access_tahfidz_monitoring':
         return _canAccessTahfidzMonitoring;
+      case 'is_wali_kelas':
+      case 'wali_kelas':
+        return _isWaliKelas;
       default:
         debugPrint("🔐 ❌ '$permissionName' NOT FOUND in activePermissions");
         return false;

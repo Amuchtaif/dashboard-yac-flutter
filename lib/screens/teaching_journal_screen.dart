@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/teacher_service.dart';
-
+import '../widgets/offline_sync_banner.dart';
 import 'class_journal_screen.dart';
 
 class TeachingJournalScreen extends StatefulWidget {
@@ -150,7 +150,7 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
     }
   }
 
-  Future<bool> _saveAttendanceExplicit() async {
+  Future<Map<String, dynamic>> _saveAttendanceExplicit() async {
     try {
       if (teacherId == null) {
         final prefs = await SharedPreferences.getInstance();
@@ -175,11 +175,10 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
         'attendances': attendances,
       };
 
-      final result = await _teacherService.submitAttendance(payload);
-      return result['success'] == true;
+      return await _teacherService.submitAttendance(payload);
     } catch (e) {
       debugPrint('Error saving attendance: $e');
-      return false;
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
     }
   }
 
@@ -282,6 +281,10 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const OfflineSyncBanner(
+                        isCard: true,
+                        margin: EdgeInsets.only(bottom: 16),
+                      ),
                       _buildSummaryCards(),
                       const SizedBox(height: 24),
                       _buildStudentList(),
@@ -303,18 +306,21 @@ class _TeachingJournalScreenState extends State<TeachingJournalScreen> {
                             ? null
                             : () async {
                                 setState(() => isSubmitting = true);
-                                final success = await _saveAttendanceExplicit();
+                                final result = await _saveAttendanceExplicit();
                                 if (!context.mounted) return;
                                 setState(() => isSubmitting = false);
-                                if (success) {
+                                if (result['success'] == true) {
+                                  final isOffline = result['isOffline'] == true;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        'Perubahan absensi berhasil disimpan',
+                                        result['message'] ??
+                                            'Perubahan absensi berhasil disimpan',
                                         style: GoogleFonts.poppins(),
                                       ),
-                                      backgroundColor:
-                                          const Color(0xFF10B981),
+                                      backgroundColor: isOffline
+                                          ? const Color(0xFFF59E0B)
+                                          : const Color(0xFF10B981),
                                       behavior: SnackBarBehavior.floating,
                                       shape: RoundedRectangleBorder(
                                         borderRadius:

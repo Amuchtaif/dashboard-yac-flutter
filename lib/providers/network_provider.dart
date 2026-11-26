@@ -12,10 +12,18 @@ class NetworkProvider extends ChangeNotifier {
   bool _isOffline = false;
   bool _isChecking = false;
   bool _hasCheckedInitially = false;
+  bool _isDismissedByUser = false;
 
   bool get isOffline => _isOffline;
   bool get isChecking => _isChecking;
   bool get hasCheckedInitially => _hasCheckedInitially;
+  bool get isDismissedByUser => _isDismissedByUser;
+
+  /// User memilih untuk melanjutkan dalam mode offline
+  void dismissOfflineBlock() {
+    _isDismissedByUser = true;
+    notifyListeners();
+  }
 
   NetworkProvider() {
     _init();
@@ -101,6 +109,9 @@ class NetworkProvider extends ChangeNotifier {
   }
 
   void _setOffline(bool offline) {
+    if (!offline) {
+      _isDismissedByUser = false;
+    }
     if (_isOffline != offline) {
       _isOffline = offline;
       notifyListeners();

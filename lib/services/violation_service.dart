@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../models/violation_model.dart';
+import 'offline_sync_service.dart';
 
 class ViolationService {
   static const String endpoint = "${ApiConfig.baseUrl}/student_violations";
@@ -26,6 +27,7 @@ class ViolationService {
     int? santriId,
     String? search,
   }) async {
+    final offlineSync = OfflineSyncService();
     try {
       final userId = await _getUserId();
       final url = Uri.parse("$endpoint/list.php").replace(queryParameters: {
@@ -36,41 +38,58 @@ class ViolationService {
         if (search != null) 'search': search,
       });
 
-      final response = await http.get(url, headers: await _headers());
+      final response = await http
+          .get(url, headers: await _headers())
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
-          return (data['data'] as List)
-              .map((item) => Violation.fromJson(item))
-              .toList();
+          final list = data['data'] as List;
+          if (search == null || search.isEmpty) {
+            await offlineSync.saveCache('violation_list_latest', list);
+          }
+          return list.map((item) => Violation.fromJson(item)).toList();
         }
       }
-      return [];
     } catch (e) {
-      return [];
+      // Fallback ke cache offline
     }
+
+    final cached = await offlineSync.getCache('violation_list_latest');
+    if (cached != null && cached is List) {
+      return cached.map((item) => Violation.fromJson(item)).toList();
+    }
+    return [];
   }
 
   static Future<List<ViolationCategory>> getCategories() async {
+    final offlineSync = OfflineSyncService();
     try {
       final userId = await _getUserId();
       final url =
           Uri.parse("$endpoint/get_categories.php").replace(queryParameters: {
         'user_id': userId,
       });
-      final response = await http.get(url, headers: await _headers());
+      final response = await http
+          .get(url, headers: await _headers())
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
-          return (data['data'] as List)
-              .map((item) => ViolationCategory.fromJson(item))
-              .toList();
+          final list = data['data'] as List;
+          await offlineSync.saveCache('violation_categories_latest', list);
+          return list.map((item) => ViolationCategory.fromJson(item)).toList();
         }
       }
-      return [];
     } catch (e) {
-      return [];
+      // Fallback ke cache offline
     }
+
+    final cached = await offlineSync.getCache('violation_categories_latest');
+    if (cached != null && cached is List) {
+      return cached.map((item) => ViolationCategory.fromJson(item)).toList();
+    }
+    return [];
   }
 
   static Future<Map<String, dynamic>> getDetail(int id) async {

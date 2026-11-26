@@ -9,6 +9,7 @@ import '../../models/surah_model.dart';
 import '../../providers/tahfidz_provider.dart';
 import '../../utils/access_control.dart';
 import './riwayat_setoran_screen.dart';
+import '../../widgets/offline_sync_banner.dart';
 
 class SetoranTahfidzScreen extends StatefulWidget {
   const SetoranTahfidzScreen({super.key});
@@ -86,8 +87,11 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final int? teacherId = prefs.getInt('userId');
-      final String? teacherName = prefs.getString('fullName');
+      final dynamic rawId = prefs.get('userId') ?? prefs.get('user_id');
+      final int? teacherId =
+          rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
+      final String? teacherName =
+          prefs.getString('fullName') ?? prefs.getString('full_name');
 
       // Use provider to fetch students
       if (!mounted) return;
@@ -515,6 +519,7 @@ class _SetoranTahfidzScreenState extends State<SetoranTahfidzScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeader(context),
+                      const OfflineSyncBanner(),
                       const SizedBox(height: 20),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,

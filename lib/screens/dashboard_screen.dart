@@ -17,14 +17,18 @@ import 'quran_list_screen.dart';
 import 'dzikir_doa_screen.dart';
 import 'assunnah_tv_screen.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'meeting_list_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/tahfidz_provider.dart';
 
 import '../services/notification_service.dart';
 import '../services/permission_service.dart';
+import '../services/offline_sync_service.dart';
 import '../widgets/notification_popup_dialog.dart';
+import '../widgets/attendance_success_dialog.dart';
+import '../widgets/offline_sync_banner.dart';
+import '../services/app_update_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../config/api_config.dart';
 import '../core/api_constants.dart';
 import 'inventory_category_screen.dart';
@@ -106,16 +110,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
       int? userId = prefs.getInt('userId');
 
       if (userId != null) {
-        // 4. Kirim ke API PHP
+        String appVersion = '1.0.0';
+        int buildNumber = 1;
+        try {
+          final info = await PackageInfo.fromPlatform();
+          appVersion = info.version;
+          buildNumber = int.tryParse(info.buildNumber) ?? 1;
+        } catch (_) {}
+
+        // 4. Kirim ke API PHP beserta versi aplikasi
         var url = Uri.parse("$baseUrl/update_fcm_token.php");
-        // Ganti 10.0.2.2 dengan IP Laptop jika pakai HP Asli (misal: 192.168.1.XX)
 
         var response = await http.post(
           url,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({"user_id": userId.toString(), "fcm_token": token}),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            "user_id": userId.toString(),
+            "fcm_token": token,
+            "app_version": appVersion,
+            "build_number": buildNumber,
+          }),
         );
 
         debugPrint("Update Token Status: ${response.body}");
@@ -150,6 +164,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _canApprovePermits = false;
   bool _isWaliKelas = false;
   int _positionLevel = 99;
+  bool _isSubmittingAttendance = false;
 
   StreamSubscription<RemoteMessage>? _fcmSubscription;
   StreamSubscription<String?>? _notificationSubscription;
@@ -179,6 +194,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // 1. Init Notification Service FIRST (must be before any showLocalNotification calls)
     _initNotifications();
     _fetchCurrentLocation();
+    _checkAppUpdate();
+  }
+
+  void _checkAppUpdate() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        AppUpdateService().checkAppUpdate(context);
+      }
+    });
   }
 
   Future<void> _initNotifications() async {
@@ -213,47 +237,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         payloadData['body'] = message.notification!.body;
       }
 
-      if (message.notification != null) {
-        if (!mounted) return;
+      if (!mounted) return;
 
-        // Tampilkan Notifikasi Sistem (Floating / Heads Up)
-        debugPrint("ðŸ”” Showing local notification for FCM message...");
-        FlutterLocalNotificationsPlugin().show(
-          message.notification.hashCode,
-          message.notification!.title ?? 'Notifikasi Baru',
-          message.notification!.body ?? '',
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'high_importance_channel',
-              'High Importance Notifications',
-              channelDescription: 'Dipakai untuk notifikasi penting.',
-              importance: Importance.max,
-              priority: Priority.high,
-              icon: '@mipmap/ic_launcher',
-            ),
-          ),
-          payload: jsonEncode(payloadData),
-        );
-      } else {
-        // Fallback jika notifikasi null tapi ada data (kadang terjadi)
-        debugPrint("ðŸ”” FCM notification is null, using data fields...");
-        FlutterLocalNotificationsPlugin().show(
-          message.hashCode,
-          message.data['title'] ?? 'Notifikasi Baru',
-          message.data['body'] ?? 'Anda memiliki notifikasi baru',
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'high_importance_channel',
-              'High Importance Notifications',
-              channelDescription: 'Dipakai untuk notifikasi penting.',
-              importance: Importance.max,
-              priority: Priority.high,
-              icon: '@mipmap/ic_launcher',
-            ),
-          ),
-          payload: jsonEncode(payloadData),
-        );
-      }
+      final notifTitle =
+          message.notification?.title ??
+          message.data['title'] ??
+          'Notifikasi Baru';
+      final notifBody =
+          message.notification?.body ?? message.data['body'] ?? '';
+      final notifId = message.messageId ?? message.hashCode.toString();
+
+      debugPrint(
+        "🔔 Showing local notification via NotificationService: $notifTitle",
+      );
+      NotificationService().showLocalNotification(
+        id: notifId,
+        title: notifTitle,
+        body: notifBody,
+        payload: jsonEncode(payloadData),
+      );
 
       // Immediately refresh badge count so bell icon updates in real-time
       NotificationService().refreshBadge();
@@ -479,6 +481,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await prefs.reload(); // Force sync with disk to get latest update
     if (!mounted) return;
 
+    // Muat hak akses dari cache lokal terlebih dahulu (0ms instant)
+    await PermissionService().loadFromCache();
+
     setState(() {
       _fullName = prefs.getString('fullName') ?? 'User';
       _unitName = prefs.getString('unitName') ?? '';
@@ -491,6 +496,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           prefs.getInt('userId') ??
           0; // Try both keys
       _userId = id.toString();
+      _canApprovePermits = PermissionService().canApprovePermits;
+      _isWaliKelas = PermissionService().isWaliKelas;
     });
 
     // Fetch news regardless of userId for general feed
@@ -538,14 +545,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final url = "$baseUrl/get_dashboard_data.php?user_id=$_userId";
 
     try {
-      final response = await http.get(
-        Uri.parse(url),
-      );
+      final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
         if (data['success'] == true && mounted) {
+          // Cache data dashboard untuk offline
+          OfflineSyncService().saveCache('dashboard_summary_$_userId', data);
+          OfflineSyncService().precacheMasterData(_userId);
+
           setState(() {
             // 1. Status
             _attendanceStatus = data['status_absensi'] ?? "BELUM_ABSEN";
@@ -581,7 +590,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
         debugPrint("Server Error: ${response.statusCode}");
       }
     } catch (e) {
-      debugPrint("Error Fetch Dashboard: $e");
+      debugPrint("Error Fetch Dashboard (checking offline cache): $e");
+      final cached =
+          await OfflineSyncService().getCache('dashboard_summary_$_userId');
+      if (cached != null && cached is Map && mounted) {
+        final data = Map<String, dynamic>.from(cached);
+        setState(() {
+          _attendanceStatus = data['status_absensi'] ?? "BELUM_ABSEN";
+          _todaySchedule = data['today_schedule'] ?? "Tidak Ada Jadwal";
+          if (data['data_hari_ini'] != null && data['data_hari_ini'] is Map) {
+            _timeIn = data['data_hari_ini']['time_in'] ?? "-";
+            _timeOut = data['data_hari_ini']['time_out'] ?? "-";
+          }
+          _recentActivities = data['history'] ?? [];
+          _isSwapped = data['is_swapped'] == true;
+          _swapPartnerName = data['swap_partner_name'];
+          _isKoordinator =
+              data['user_profile']?['is_koordinator'] == 1 ||
+              data['user_profile']?['is_koordinator'] == true ||
+              data['user_profile']?['is_koordinator'] == "1" ||
+              _positionName.toLowerCase().contains('koordinator');
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoadingActivity = false);
     }
@@ -589,16 +619,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- LOGIC 3: EKSEKUSI ABSEN ---
   Future<void> _handleAttendance() async {
+    if (_isSubmittingAttendance) return;
     if (_attendanceStatus == "SELESAI") return;
 
     // --- INTEGRASI IZIN ---
     if (_attendanceStatus == "BELUM_ABSEN") {
-      _showLoadingSnackBar("Memeriksa status izin...");
       final hasPermit = await PermitService().hasApprovedFullDayPermitToday(
         int.parse(_userId),
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).clearSnackBars();
       if (hasPermit) {
         _showErrorDialog(
           "Anda tidak dapat melakukan absensi masuk karena hari ini Anda tercatat sedang izin yang telah disetujui.",
@@ -610,10 +639,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_attendanceStatus == "BELUM_ABSEN" ||
         _attendanceStatus == "SUDAH_MASUK") {
       if (_locations.isEmpty) {
-        _showLoadingSnackBar("Mengambil data lokasi...");
         await _fetchLocations();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).clearSnackBars();
       }
 
       if (_locations.isEmpty) {
@@ -633,13 +660,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _handleAttendanceWithGPS(LocationModel location) async {
+    if (_isSubmittingAttendance) return;
+    setState(() => _isSubmittingAttendance = true);
     // Ambil GPS & Cek Mock
     Position? position;
     try {
-      _showLoadingSnackBar("Mengambil lokasi GPS...");
       position = await _determinePosition();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).clearSnackBars();
 
       if (position.isMocked) {
         _showInvalidLocationDialog();
@@ -655,6 +682,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).clearSnackBars();
       _showSnackBar(message: "Gagal ambil lokasi: $e", isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmittingAttendance = false);
+      } else {
+        _isSubmittingAttendance = false;
+      }
     }
   }
 
@@ -688,7 +721,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Position position,
   ) async {
     try {
-      _showLoadingSnackBar("Sedang mengirim absensi...");
       final result = await AttendanceService().checkIn(
         userId: int.parse(_userId),
         locationId: location.id,
@@ -697,10 +729,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).clearSnackBars();
 
       if (result['success'] == true || result['status'] == true) {
-        _showSnackBar(message: result['message'] ?? "Absen masuk berhasil");
+        _fetchDashboardData();
+        if (mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            barrierColor: Colors.black.withValues(alpha: 0.65),
+            builder:
+                (ctx) => AttendanceSuccessDialog(
+                  type: 'IN',
+                  message:
+                      result['message'] ??
+                      'Anda berhasil melakukan absensi masuk',
+                ),
+          );
+        }
         _fetchDashboardData();
       } else {
         _showErrorDialog(result['message'] ?? "Gagal melakukan absensi");
@@ -714,7 +759,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _executeCheckOut(Position position) async {
     try {
-      _showLoadingSnackBar("Sedang mengirim absensi...");
       final result = await AttendanceService().checkOut(
         userId: int.parse(_userId),
         lat: position.latitude,
@@ -722,10 +766,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).clearSnackBars();
 
       if (result['success'] == true || result['status'] == true) {
-        _showSnackBar(message: result['message'] ?? "Absen pulang berhasil");
+        _fetchDashboardData();
+        if (mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            barrierColor: Colors.black.withValues(alpha: 0.65),
+            builder:
+                (ctx) => AttendanceSuccessDialog(
+                  type: 'OUT',
+                  message:
+                      result['message'] ??
+                      'Anda berhasil melakukan absensi pulang',
+                ),
+          );
+        }
         _fetchDashboardData();
       } else {
         _showErrorDialog(result['message'] ?? "Gagal melakukan absensi");
@@ -735,29 +792,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ScaffoldMessenger.of(context).clearSnackBars();
       _showSnackBar(message: "Kesalahan jaringan: $e", isError: true);
     }
-  }
-
-  void _showLoadingSnackBar(String message) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(message),
-          ],
-        ),
-        duration: const Duration(seconds: 10),
-      ),
-    );
   }
 
   void _showErrorDialog(String message) {
@@ -1048,6 +1082,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         swapPartnerName: _swapPartnerName,
         canApprovePermits: _canApprovePermits,
         isWaliKelas: _isWaliKelas,
+        isSubmittingAttendance: _isSubmittingAttendance,
         positionLevel: _positionLevel,
         currentAddress: _currentAddress,
         currentPosition: _currentPosition,
@@ -1222,7 +1257,9 @@ void handleNotificationNavigation(
         builder: (context) => IzinSantriScreen(initialPermitId: id),
       ),
     );
-  } else if (screen == 'meeting' || type == 'meeting' || type == 'meeting_invitation') {
+  } else if (screen == 'meeting' ||
+      type == 'meeting' ||
+      type == 'meeting_invitation') {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const MeetingListScreen()),
@@ -1369,7 +1406,8 @@ void showAppNotificationSheet(BuildContext context) {
                           iconBg = const Color(0xFFDBEAFE);
                           iconColor = const Color(0xFF2563EB);
                           icon = Icons.assignment_rounded;
-                        } else if (type == 'meeting' || type == 'meeting_invitation') {
+                        } else if (type == 'meeting' ||
+                            type == 'meeting_invitation') {
                           iconBg = const Color(0xFFEDE9FE);
                           iconColor = const Color(0xFF7C3AED);
                           icon = Icons.groups_rounded;
@@ -1506,6 +1544,7 @@ class HomeTab extends StatelessWidget {
   final String currentAddress;
   final Position? currentPosition;
   final Future<void> Function() onRefresh;
+  final bool isSubmittingAttendance;
 
   const HomeTab({
     super.key,
@@ -1533,6 +1572,7 @@ class HomeTab extends StatelessWidget {
     this.currentPosition,
     required this.onRefresh,
     required this.onSeeAllNews,
+    this.isSubmittingAttendance = false,
   });
 
   final List<News> newsList;
@@ -1540,19 +1580,26 @@ class HomeTab extends StatelessWidget {
   final VoidCallback onSeeAllNews;
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: SafeArea(
-        bottom: false,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 20),
-              _buildStatusCard(),
+    return SafeArea(
+      bottom: false,
+      child: Column(
+        children: [
+          // Banner sticky di atas profil
+          const OfflineSyncBanner(
+            margin: EdgeInsets.fromLTRB(16, 6, 16, 4),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: onRefresh,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(context),
+                    const SizedBox(height: 20),
+                    _buildStatusCard(),
               const SizedBox(height: 16),
               _buildLocationCard(),
               const SizedBox(height: 27),
@@ -1611,7 +1658,10 @@ class HomeTab extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  ],
+),
+);
   }
 
   Widget _buildHeader(BuildContext context) {
@@ -2036,9 +2086,22 @@ class HomeTab extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: attendanceStatus == "SELESAI" ? null : onAttendanceTap,
-              icon: Icon(btnIcon),
-              label: Text(btnText),
+              onPressed:
+                  (attendanceStatus == "SELESAI" || isSubmittingAttendance)
+                      ? null
+                      : onAttendanceTap,
+              icon:
+                  isSubmittingAttendance
+                      ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                      : Icon(btnIcon),
+              label: Text(isSubmittingAttendance ? "Memproses..." : btnText),
               style: ElevatedButton.styleFrom(
                 backgroundColor: btnColor,
                 foregroundColor: Colors.white,

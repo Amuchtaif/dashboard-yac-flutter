@@ -417,7 +417,8 @@ class _FormSetoranScreenState extends State<FormSetoranScreen> {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      _teacherId = prefs.getInt('userId');
+      final dynamic rawId = prefs.get('userId') ?? prefs.get('user_id');
+      _teacherId = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
 
       final studentsList = await _tahfidzService.getMyStudents(_teacherId);
       final surahsList = await _quranService.getAllSurahs();

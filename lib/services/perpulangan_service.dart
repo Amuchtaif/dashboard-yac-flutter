@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/perpulangan_model.dart';
 import '../core/api_constants.dart';
+import 'offline_sync_service.dart';
 
 class PerpulanganService {
   Future<List<PerpulanganPermit>> getActivePermits({
@@ -14,7 +15,9 @@ class PerpulanganService {
       int? finalSupervisorId = supervisorId;
       if (finalSupervisorId == null) {
         final prefs = await SharedPreferences.getInstance();
-        finalSupervisorId = prefs.getInt('userId');
+        final rawId = prefs.get('userId') ?? prefs.get('user_id');
+        finalSupervisorId =
+            rawId != null ? int.tryParse(rawId.toString()) : null;
       }
 
       final url = Uri.parse(
@@ -22,18 +25,29 @@ class PerpulanganService {
       );
       final response = await http.get(
         url,
-      );
+      ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {
           final List<dynamic> list = data['data'];
+          if (search.isEmpty) {
+            await OfflineSyncService()
+                .saveCache('perpulangan_active_permits_latest', list);
+          }
           return list.map((json) => PerpulanganPermit.fromJson(json)).toList();
         }
       }
     } catch (e) {
       debugPrint('Error fetch active permits: $e');
     }
+
+    final cached = await OfflineSyncService()
+        .getCache('perpulangan_active_permits_latest');
+    if (cached != null && cached is List) {
+      return cached.map((json) => PerpulanganPermit.fromJson(json)).toList();
+    }
+
     return [];
   }
 
@@ -42,7 +56,9 @@ class PerpulanganService {
       int? finalSupervisorId = supervisorId;
       if (finalSupervisorId == null) {
         final prefs = await SharedPreferences.getInstance();
-        finalSupervisorId = prefs.getInt('userId');
+        final rawId = prefs.get('userId') ?? prefs.get('user_id');
+        finalSupervisorId =
+            rawId != null ? int.tryParse(rawId.toString()) : null;
       }
 
       final url = Uri.parse(
@@ -50,17 +66,26 @@ class PerpulanganService {
       );
       final response = await http.get(
         url,
-      );
+      ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {
+          await OfflineSyncService()
+              .saveCache('perpulangan_stats_latest', data['data']);
           return PerpulanganStats.fromJson(data['data']);
         }
       }
     } catch (e) {
       debugPrint('Error fetching perpulangan stats: $e');
     }
+
+    final cached =
+        await OfflineSyncService().getCache('perpulangan_stats_latest');
+    if (cached != null && cached is Map<String, dynamic>) {
+      return PerpulanganStats.fromJson(cached);
+    }
+
     return null;
   }
 

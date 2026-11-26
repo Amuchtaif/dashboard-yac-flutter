@@ -68,4 +68,17 @@ class Surah {
       ayat: ayatList,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'nomor': nomor,
+      'nama': nama,
+      'namaLatin': namaLatin,
+      'jumlahAyat': jumlahAyat,
+      'tempatTurun': tempatTurun,
+      'arti': arti,
+      'deskripsi': deskripsi,
+      'audioFull': audioFull,
+    };
+  }
 }

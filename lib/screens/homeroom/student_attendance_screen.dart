@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../../config/api_config.dart';
+import '../../services/offline_sync_service.dart';
+import '../../widgets/offline_sync_banner.dart';
 
 class StudentAttendanceScreen extends StatefulWidget {
   const StudentAttendanceScreen({super.key});
@@ -46,6 +48,12 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
 
   Future<void> _fetchClassInfo() async {
     setState(() => _isLoading = true);
+    final dateStr = DateFormat('y-MM-dd').format(_selectedDate);
+    final cacheKey = 'homeroom_class_info_${_userId}_$dateStr';
+    final offlineSync = OfflineSyncService();
+
+    Map<String, dynamic>? data;
+
     try {
       final response = await http.post(
         Uri.parse("${ApiConfig.baseUrl}/homeroom/dashboard.php"),
@@ -55,74 +63,123 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
         body: jsonEncode({
           "user_id": _userId,
           "action": "get_class_info",
-          "date": DateFormat('y-MM-dd').format(_selectedDate),
+          "date": dateStr,
         }),
-      );
+      ).timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          setState(() {
-            _classInfo = data['class'];
-            _students = data['students'] ?? [];
-            final existingAttendance =
-                data['attendance'] as Map<String, dynamic>? ?? {};
-
-            // Initialize status and notes
-            _attendanceStatus.clear();
-            for (var controller in _noteControllers.values) {
-              controller.dispose();
-            }
-            _noteControllers.clear();
-
-            for (var student in _students) {
-              int id = int.parse(student['id'].toString());
-              // Use existing status from attendance map if available, otherwise default to 'H'
-              _attendanceStatus[id] = existingAttendance[id.toString()] ?? 'H';
-              _noteControllers[id] = TextEditingController(
-                text: '',
-              ); // Notes not in map currently
-            }
-            _isLoading = false;
-            // Enter edit mode if no attendance found for this date
-            _isEditMode = existingAttendance.isEmpty;
-          });
-        } else {
-          _showError(data['message'] ?? "Gagal mengambil data kelas");
+        final decoded = jsonDecode(response.body);
+        if (decoded['success'] == true) {
+          data = decoded;
+          await offlineSync.saveCache(cacheKey, data);
+          await offlineSync.saveCache('homeroom_class_info_${_userId}_latest', data);
         }
       }
     } catch (e) {
-      _showError("Error: $e");
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      debugPrint('Error fetching class info (falling back to cache): $e');
+    }
+
+    // Fallback to cache if network failed
+    if (data == null) {
+      final cached = await offlineSync.getCache(cacheKey) ??
+          await offlineSync.getCache('homeroom_class_info_${_userId}_latest');
+      if (cached != null && cached is Map<String, dynamic>) {
+        data = cached;
+      }
+    }
+
+    if (data != null && data['success'] == true) {
+      final existingAttendance =
+          Map<String, dynamic>.from(data['attendance'] as Map? ?? {});
+
+      // Check if there is an offline pending submission for this date & user
+      for (final task in offlineSync.queue) {
+        if (task.type == 'homeroom_attendance' &&
+            task.payload['date'] == dateStr &&
+            task.payload['user_id']?.toString() == _userId?.toString()) {
+          final attList = task.payload['attendance'] as List<dynamic>? ?? [];
+          for (var item in attList) {
+            if (item['student_id'] != null && item['status'] != null) {
+              existingAttendance[item['student_id'].toString()] =
+                  item['status'].toString();
+            }
+          }
+        }
+      }
+
+      setState(() {
+        _classInfo = data!['class'];
+        _students = data['students'] ?? [];
+
+        // Initialize status and notes
+        _attendanceStatus.clear();
+        for (var controller in _noteControllers.values) {
+          controller.dispose();
+        }
+        _noteControllers.clear();
+
+        for (var student in _students) {
+          int id = int.parse(student['id'].toString());
+          _attendanceStatus[id] = existingAttendance[id.toString()] ?? 'H';
+          _noteControllers[id] = TextEditingController(text: '');
+        }
+        _isLoading = false;
+        _isEditMode = existingAttendance.isEmpty;
+      });
+    } else {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError("Tidak dapat memuat data kelas. Periksa koneksi internet.");
+      }
     }
   }
 
   Future<void> _submitAttendance() async {
     setState(() => _isLoading = true);
-    try {
-      List<Map<String, dynamic>> attendanceData = [];
-      _attendanceStatus.forEach((studentId, status) {
-        attendanceData.add({
-          "student_id": studentId,
-          "status": status,
-          "notes": _noteControllers[studentId]?.text ?? "",
-        });
-      });
+    final dateStr = DateFormat('y-MM-dd').format(_selectedDate);
+    final offlineSync = OfflineSyncService();
 
+    List<Map<String, dynamic>> attendanceData = [];
+    _attendanceStatus.forEach((studentId, status) {
+      attendanceData.add({
+        "student_id": studentId,
+        "status": status,
+        "notes": _noteControllers[studentId]?.text ?? "",
+      });
+    });
+
+    final payload = {
+      "user_id": _userId,
+      "action": "submit_attendance",
+      "date": dateStr,
+      "grade_level_id": _classInfo?['id'],
+      "attendance": attendanceData,
+    };
+
+    // Update local cache immediately
+    final cacheKey = 'homeroom_class_info_${_userId}_$dateStr';
+    final cached = await offlineSync.getCache(cacheKey) ??
+        await offlineSync.getCache('homeroom_class_info_${_userId}_latest');
+    if (cached != null && cached is Map<String, dynamic>) {
+      final updatedAttendance =
+          Map<String, dynamic>.from(cached['attendance'] as Map? ?? {});
+      for (var item in attendanceData) {
+        updatedAttendance[item['student_id'].toString()] = item['status'];
+      }
+      cached['attendance'] = updatedAttendance;
+      await offlineSync.saveCache(cacheKey, cached);
+      await offlineSync.saveCache(
+          'homeroom_class_info_${_userId}_latest', cached);
+    }
+
+    try {
       final response = await http.post(
         Uri.parse("${ApiConfig.baseUrl}/homeroom/dashboard.php"),
         headers: {
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({
-          "user_id": _userId,
-          "action": "submit_attendance",
-          "date": DateFormat('y-MM-dd').format(_selectedDate),
-          "grade_level_id": _classInfo?['id'],
-          "attendance": attendanceData,
-        }),
-      );
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -132,19 +189,60 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
               const SnackBar(
                 content: Text("Absensi berhasil disimpan"),
                 backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
               ),
             );
           }
-          _fetchClassInfo();
-          setState(() => _isEditMode = false);
-        } else {
-          _showError(data['message'] ?? "Gagal simpan absensi");
+          setState(() {
+            _isEditMode = false;
+            _isLoading = false;
+          });
+          return;
         }
       }
+      // If server returned non-200 or success != true, queue offline
+      await offlineSync.enqueueTask(
+        type: 'homeroom_attendance',
+        payload: payload,
+        description:
+            'Absensi Kelas ${_classInfo?['name'] ?? ''} ($dateStr)',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                "Disimpan lokal di perangkat. Akan otomatis disinkronkan saat server pulih."),
+            backgroundColor: Color(0xFFF59E0B),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      setState(() {
+        _isEditMode = false;
+        _isLoading = false;
+      });
     } catch (e) {
-      _showError("Error: $e");
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      // Offline / network failure -> enqueue task
+      await offlineSync.enqueueTask(
+        type: 'homeroom_attendance',
+        payload: payload,
+        description:
+            'Absensi Kelas ${_classInfo?['name'] ?? ''} ($dateStr)',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                "Tersimpan di HP (Mode Offline). Akan otomatis terkirim saat sinyal kembali."),
+            backgroundColor: Color(0xFFF59E0B),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      setState(() {
+        _isEditMode = false;
+        _isLoading = false;
+      });
     }
   }
 
@@ -265,6 +363,9 @@ class _StudentAttendanceScreenState extends State<StudentAttendanceScreen> {
               ? _buildEmptyState()
               : Column(
                 children: [
+                  const OfflineSyncBanner(
+                    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
                   _buildTopStats(),
                   _buildSearchBar(),
                   Expanded(

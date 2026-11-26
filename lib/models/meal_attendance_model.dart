@@ -41,6 +41,33 @@ class MealStudent {
       checkTime: json['check_time'],
     );
   }
+
+  MealStudent copyWith({
+    int? attendanceId,
+    String? checkTime,
+  }) {
+    return MealStudent(
+      id: id,
+      namaSiswa: namaSiswa,
+      nomorInduk: nomorInduk,
+      kelas: kelas,
+      roomName: roomName,
+      attendanceId: attendanceId ?? this.attendanceId,
+      checkTime: checkTime ?? this.checkTime,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'nama_siswa': namaSiswa,
+      'nomor_induk': nomorInduk,
+      'kelas': kelas,
+      'room_name': roomName,
+      'attendance_id': attendanceId,
+      'check_time': checkTime,
+    };
+  }
 }
 
 class MealStats {

@@ -6,6 +6,17 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
+import 'perpulangan_service.dart';
+
+@pragma('vm:entry-point')
+void notificationTapBackground(NotificationResponse notificationResponse) {
+  if (notificationResponse.actionId != null) {
+    NotificationService.handleActionResponse(
+      notificationResponse.actionId!,
+      notificationResponse.payload,
+    );
+  }
+}
 
 class NotificationService {
   // 1. Singleton Pattern
@@ -47,27 +58,34 @@ class NotificationService {
 
     const DarwinInitializationSettings initializationSettingsDarwin =
         DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        );
 
     const InitializationSettings initializationSettings =
         InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsDarwin,
-    );
+          android: initializationSettingsAndroid,
+          iOS: initializationSettingsDarwin,
+        );
 
     await flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
+      onDidReceiveNotificationResponse: (NotificationResponse response) async {
         debugPrint(
-          'NotificationService: Local Notification Tapped with payload: ${response.payload}',
+          'NotificationService: Local Notification Tapped with action: ${response.actionId}, payload: ${response.payload}',
         );
-        if (response.payload != null) {
+        if (response.actionId == 'action_approve' ||
+            response.actionId == 'action_reject') {
+          await NotificationService.handleActionResponse(
+            response.actionId!,
+            response.payload,
+          );
+        } else if (response.payload != null) {
           _selectNotificationController.add(response.payload);
         }
       },
+      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
 
     // Request Permissions (Android 13+)
@@ -162,9 +180,7 @@ class NotificationService {
 
       debugPrint('NotificationService: Request URL: $url');
 
-      final response = await http.get(
-        Uri.parse(url),
-      );
+      final response = await http.get(Uri.parse(url));
 
       debugPrint('NotificationService: Response Code: ${response.statusCode}');
       debugPrint('NotificationService: Response Body: ${response.body}');
@@ -247,9 +263,7 @@ class NotificationService {
 
       final url =
           '${ApiConfig.baseUrl}/dismiss_notification.php?user_id=$userId&notification_key=${Uri.encodeComponent(notificationKey)}';
-      await http.get(
-        Uri.parse(url),
-      );
+      await http.get(Uri.parse(url));
 
       // Refresh badge count
       await refreshBadge();
@@ -266,9 +280,7 @@ class NotificationService {
 
       final url =
           '${ApiConfig.baseUrl}/delete_notifications.php?user_id=$userId';
-      final response = await http.get(
-        Uri.parse(url),
-      );
+      final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
         debugPrint('NotificationService: All notifications cleared');
@@ -348,28 +360,64 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('shown_notification_ids', _processedIds.toList());
 
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    bool isActionablePermit = false;
+    if (payload != null) {
+      try {
+        final data = jsonDecode(payload);
+        final type = (data['type'] ?? '').toString().toLowerCase();
+        final screen = (data['screen'] ?? '').toString().toLowerCase();
+        final status = (data['status'] ?? '').toString();
+
+        if (screen == 'approval' ||
+            screen == 'permit_approval' ||
+            screen == 'izin_santri' ||
+            type == 'incoming' ||
+            (type == 'permit' && status == 'Pending') ||
+            data['actionable'] == true) {
+          isActionablePermit = true;
+        }
+      } catch (_) {}
+    }
+
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'high_importance_channel', // Match main.dart & Manifest
-      'High Importance Notifications', // Match main.dart
-      channelDescription:
-          'This channel is used for important notifications.',
-      importance: Importance.max,
-      priority: Priority.high,
-      showWhen: true,
-      icon: '@drawable/ic_stat_yac___white',
-      color: Color(0xFF1F3C88), // Blue Primary
-      colorized: true,
-    );
+          'high_importance_channel', // Match main.dart & Manifest
+          'High Importance Notifications', // Match main.dart
+          channelDescription:
+              'This channel is used for important notifications.',
+          importance: Importance.max,
+          priority: Priority.high,
+          showWhen: true,
+          icon: '@drawable/ic_stat_yac___white',
+          color: const Color(0xFF1F3C88), // Blue Primary
+          colorized: true,
+          actions:
+              isActionablePermit
+                  ? const <AndroidNotificationAction>[
+                    AndroidNotificationAction(
+                      'action_approve',
+                      '✅ Setujui',
+                      showsUserInterface: false,
+                      cancelNotification: true,
+                    ),
+                    AndroidNotificationAction(
+                      'action_reject',
+                      '❌ Tolak',
+                      showsUserInterface: false,
+                      cancelNotification: true,
+                    ),
+                  ]
+                  : null,
+        );
 
     const DarwinNotificationDetails darwinPlatformChannelSpecifics =
         DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        );
 
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
       iOS: darwinPlatformChannelSpecifics,
     );
@@ -381,5 +429,113 @@ class NotificationService {
       platformChannelSpecifics,
       payload: payload,
     );
+  }
+
+  /// Handler untuk aksi dari bilah notifikasi (Setujui / Tolak)
+  static Future<void> handleActionResponse(
+    String actionId,
+    String? payload,
+  ) async {
+    if (payload == null) return;
+    debugPrint(
+      '⚡ Handling Actionable Notification: actionId=$actionId, payload=$payload',
+    );
+
+    try {
+      final data = jsonDecode(payload);
+      final String permitId =
+          (data['permit_id'] ?? data['id'] ?? data['reference_id'] ?? '')
+              .toString();
+      if (permitId.isEmpty) return;
+
+      final String screen = (data['screen'] ?? '').toString().toLowerCase();
+      final String category = (data['category'] ?? '').toString().toLowerCase();
+      final bool isSantri =
+          screen == 'izin_santri' || category.contains('santri');
+      final bool isApprove = actionId == 'action_approve';
+      final String actionText = isApprove ? 'Disetujui' : 'Ditolak';
+
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('userId');
+
+      bool isSuccess = false;
+      String feedbackMessage = '';
+
+      if (isSantri) {
+        // Approval izin santri via PerpulanganService
+        final permitIdInt = int.tryParse(
+          permitId.replaceAll(RegExp(r'[^0-9]'), ''),
+        );
+        if (permitIdInt != null) {
+          final res = await PerpulanganService().updateStatus(
+            permitIdInt,
+            isApprove ? 'Approved' : 'Rejected',
+          );
+          isSuccess = res['success'] == true;
+          feedbackMessage =
+              res['message'] ?? 'Izin santri #$permitId berhasil $actionText';
+        }
+      } else {
+        // Approval izin pegawai via action_permit.php
+        final cleanPermitId = permitId.replaceAll(RegExp(r'[^0-9]'), '');
+        final url = Uri.parse("${ApiConfig.baseUrl}/action_permit.php");
+        final bodyData = jsonEncode({
+          'user_id': userId,
+          'approver_id': userId,
+          'permit_id': cleanPermitId,
+          'action': isApprove ? 'approve' : 'reject',
+        });
+
+        final response = await http
+            .post(
+              url,
+              headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+              },
+              body: bodyData,
+            )
+            .timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200 && response.body.isNotEmpty) {
+          final res = jsonDecode(response.body);
+          isSuccess = res['success'] == true;
+          feedbackMessage =
+              res['message'] ??
+              'Izin pegawai #$cleanPermitId berhasil $actionText';
+        }
+      }
+
+      // Tampilkan notifikasi feedback ringkas
+      final FlutterLocalNotificationsPlugin fln =
+          FlutterLocalNotificationsPlugin();
+      const AndroidNotificationDetails feedbackDetails =
+          AndroidNotificationDetails(
+            'high_importance_channel',
+            'High Importance Notifications',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@drawable/ic_stat_yac___white',
+            color: Color(0xFF1F3C88),
+          );
+
+      await fln.show(
+        DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        isSuccess ? '✅ Berhasil $actionText' : '❌ Gagal Memproses Aksi',
+        feedbackMessage.isNotEmpty
+            ? feedbackMessage
+            : 'Status izin berhasil diperbarui.',
+        const NotificationDetails(android: feedbackDetails),
+      );
+
+      // Dismiss notifikasi asli & refresh badge
+      final notifKey = data['id']?.toString() ?? '';
+      if (notifKey.isNotEmpty) {
+        await NotificationService().dismissNotification(notifKey);
+      }
+      await NotificationService().refreshBadge();
+    } catch (e) {
+      debugPrint('⚠️ Error handling notification action: $e');
+    }
   }
 }

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/meal_attendance_model.dart';
 import '../services/meal_attendance_service.dart';
+import '../widgets/offline_sync_banner.dart';
 
 class AbsensiMakanPendidikanScreen extends StatefulWidget {
   const AbsensiMakanPendidikanScreen({super.key});
@@ -63,7 +64,9 @@ class _AbsensiMakanPendidikanScreenState
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        if (_students.isEmpty) {
+          _errorMessage = e.toString().replaceAll('Exception: ', '');
+        }
       });
     }
   }
@@ -115,6 +118,9 @@ class _AbsensiMakanPendidikanScreenState
         child: Column(
           children: [
             _buildAppBar(),
+            const OfflineSyncBanner(
+              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
             if (_errorMessage != null)
               Padding(
                 padding: const EdgeInsets.all(20),

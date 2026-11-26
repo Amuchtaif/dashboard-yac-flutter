@@ -9,6 +9,7 @@ import '../../providers/tahfidz_provider.dart';
 import '../../utils/access_control.dart';
 import './setoran_tahfidz_screen.dart';
 import './catatan_setoran_screen.dart';
+import '../../widgets/offline_sync_banner.dart';
 
 class AbsensiTahfidzScreen extends StatefulWidget {
   const AbsensiTahfidzScreen({super.key});
@@ -94,8 +95,14 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
 
   Future<void> _loadTeacherId() async {
     final prefs = await SharedPreferences.getInstance();
-    int? id = prefs.getInt('userId');
-    String? name = prefs.getString('fullName');
+    final dynamic rawId = prefs.get('userId') ?? prefs.get('user_id');
+    int? id;
+    if (rawId is int) {
+      id = rawId;
+    } else if (rawId is String) {
+      id = int.tryParse(rawId);
+    }
+    String? name = prefs.getString('fullName') ?? prefs.getString('full_name');
     setState(() => _teacherId = id);
 
     if (!_isKoordinator && _teacherId != null) {
@@ -104,6 +111,10 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
         context,
         listen: false,
       ).setTeacherInfo(id, name);
+
+      // Pre-cache santri halaqoh saat pertama kali buka layar agar tersedia saat offline
+      _service.getMyStudents(_teacherId);
+
       await _checkHalaqohStatus();
     } else {
       setState(() => _isLoading = false);
@@ -151,15 +162,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
         });
       }
     } catch (e) {
-      debugPrint("Error checking halaqoh status: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal mengecek status: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      debugPrint("Error checking halaqoh status (offline fallback active): $e");
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -202,8 +205,29 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
       });
       if (mounted) {
         Provider.of<TahfidzProvider>(context, listen: false).checkHalaqohStatus();
+        if (result['isOffline'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Halaqoh dibuka (Mode Offline). Presensi ustadz tersimpan di HP.',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Color(0xFF2E7D32),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
       }
-      _fetchStudents();
+      await _fetchStudents();
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -274,6 +298,27 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
       });
       if (mounted) {
         Provider.of<TahfidzProvider>(context, listen: false).checkHalaqohStatus();
+        if (result['isOffline'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.cloud_off_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Halaqoh ditutup (Mode Offline). Data tersimpan di HP.',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Color(0xFF2E7D32),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
       }
     } else {
       if (!mounted) return;
@@ -289,35 +334,40 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
   Future<void> _fetchStudents() async {
     setState(() => _isLoading = true);
     try {
-      final provider = Provider.of<TahfidzProvider>(context, listen: false);
-      await provider.fetchMyStudents(_teacherId);
+      final effectiveTeacherId = _teacherId ??
+          Provider.of<TahfidzProvider>(context, listen: false).teacherId;
+
+      // Ambil daftar santri langsung dari service yang memiliki multi-layer fallback cache
+      final studentsList = await _service.getMyStudents(effectiveTeacherId);
 
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final attendanceHistory = await _service.getStudentAttendanceHistory(
         date: dateStr,
         session: _selectedSession,
-        teacherId: _teacherId,
+        teacherId: effectiveTeacherId,
       );
 
       if (mounted) {
         setState(() {
-          _students = provider.myStudents;
+          _students = studentsList;
           _isAttendanceSubmitted = attendanceHistory.isNotEmpty;
 
           final Map<int, String> newStatus = {};
           final Map<int, String> historyMap = {};
           for (var record in attendanceHistory) {
-            int sId = int.tryParse(record['student_id'].toString()) ?? 0;
+            int sId = int.tryParse(
+                    record['student_id']?.toString() ??
+                        record['id']?.toString() ??
+                        '0') ??
+                0;
             if (sId != 0) {
               historyMap[sId] = record['status'] ?? 'Hadir';
             }
           }
 
           for (var s in _students) {
-            int id =
-                int.tryParse(
-                  s['student_id']?.toString() ?? s['id']?.toString() ?? '0',
-                ) ??
+            int id = int.tryParse(
+                    s['student_id']?.toString() ?? s['id']?.toString() ?? '0') ??
                 0;
             if (id != 0) {
               newStatus[id] = historyMap[id] ?? 'Hadir';
@@ -326,13 +376,14 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
           _attendanceStatus.clear();
           _attendanceStatus.addAll(newStatus);
         });
+
+        // Sinkronkan data ke provider
+        final provider = Provider.of<TahfidzProvider>(context, listen: false);
+        provider.setTeacherInfo(effectiveTeacherId, provider.teacherName);
+        provider.fetchMyStudents(effectiveTeacherId);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
+      debugPrint("Error fetching students: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -597,6 +648,12 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
                             ),
                           ),
                         ),
+                        const SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            child: OfflineSyncBanner(isCard: true),
+                          ),
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 12)),
                         _buildStudentSliverList(),
                       ],
@@ -623,6 +680,12 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
           backgroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
+        ),
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(24, 16, 24, 0),
+            child: OfflineSyncBanner(isCard: true),
+          ),
         ),
         SliverToBoxAdapter(
           child: Container(
@@ -806,6 +869,12 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
           backgroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
+        ),
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(24, 16, 24, 0),
+            child: OfflineSyncBanner(isCard: true),
+          ),
         ),
         SliverFillRemaining(
           hasScrollBody: false,
@@ -1067,16 +1136,60 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
       return SliverFillRemaining(
         hasScrollBody: false,
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.group_off_outlined, size: 64, color: Colors.grey[300]),
-              const SizedBox(height: 16),
-              Text(
-                "Anda belum memiliki daftar santri.",
-                style: GoogleFonts.poppins(color: Colors.grey),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.group_off_outlined, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  "Daftar santri belum termuat.",
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Jika dalam Mode Offline, Anda dapat memuat ulang atau menambahkan santri ke halaqoh secara langsung.",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () => _fetchStudents(),
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                  label: Text("Muat Ulang",
+                      style: GoogleFonts.poppins(
+                          color: Colors.white, fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _showAddStudentBottomSheet,
+                  icon: const Icon(Icons.person_add_alt_1_rounded,
+                      color: Colors.indigo),
+                  label: Text("Tambah Santri ke Halaqoh",
+                      style: GoogleFonts.poppins(
+                          color: Colors.indigo, fontWeight: FontWeight.w600)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
+                    side: const BorderSide(color: Colors.indigo),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -1087,7 +1200,10 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate((context, index) {
           final student = filteredStudents[index];
-          final id = int.tryParse(student['id'].toString()) ?? 0;
+          final id = int.tryParse(student['student_id']?.toString() ??
+                  student['id']?.toString() ??
+                  '0') ??
+              0;
           return _buildStudentCard(student, id);
         }, childCount: filteredStudents.length),
       ),
@@ -1103,6 +1219,7 @@ class _AbsensiTahfidzScreenState extends State<AbsensiTahfidzScreen> {
                 student['nama_lengkap'] ??
                 student['full_name'] ??
                 student['name'] ??
+                student['student_name'] ??
                 'Santri')
             .toString();
 

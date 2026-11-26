@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../models/asrama_model.dart';
 import '../../services/asrama_service.dart';
+import '../../widgets/offline_sync_banner.dart';
 
 class AbsensiAsramaScreen extends StatefulWidget {
   const AbsensiAsramaScreen({super.key});
@@ -62,6 +63,9 @@ class _AbsensiAsramaScreenState extends State<AbsensiAsramaScreen> {
         child: Column(
           children: [
             _buildAppBar(),
+            const OfflineSyncBanner(
+              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
             Expanded(
               child:
                   _isLoading
@@ -491,91 +495,101 @@ class _DetailAsramaScreenState extends State<DetailAsramaScreen> {
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: _santriList.length,
-                itemBuilder: (context, index) {
-                  final s = _santriList[index];
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.02),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+              : Column(
+                  children: [
+                    const OfflineSyncBanner(
+                      isCard: true,
+                      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: const Color(0xFFF1F5F9),
-                          child: Text(
-                            s.nama[0].toUpperCase(),
-                            style: GoogleFonts.poppins(
-                              fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(20),
+                        itemCount: _santriList.length,
+                        itemBuilder: (context, index) {
+                          final s = _santriList[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                s.nama,
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: const Color(0xFFF1F5F9),
+                                  child: Text(
+                                    s.nama[0].toUpperCase(),
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                s.kelas,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              if (s.keterangan != null &&
-                                  s.keterangan!.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Row(
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Icon(
-                                        Icons.notes_rounded,
-                                        size: 14,
-                                        color: Colors.grey.shade400,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          s.keterangan!,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 11,
-                                            color: Colors.grey.shade500,
-                                            fontStyle: FontStyle.italic,
-                                          ),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
+                                      Text(
+                                        s.nama,
+                                        style: GoogleFonts.poppins(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
                                         ),
                                       ),
+                                      Text(
+                                        s.kelas,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      if (s.keterangan != null &&
+                                          s.keterangan!.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.notes_rounded,
+                                                size: 14,
+                                                color: Colors.grey.shade400,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Expanded(
+                                                child: Text(
+                                                  s.keterangan!,
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 11,
+                                                    color: Colors.grey.shade500,
+                                                    fontStyle: FontStyle.italic,
+                                                  ),
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ),
-                            ],
-                          ),
-                        ),
-                        _getStatusIcon(s.status),
-                      ],
+                                _getStatusIcon(s.status),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  );
-                },
-              ),
+                  ],
+                ),
     );
   }
 
@@ -671,6 +685,10 @@ class _InputAbsensiAsramaScreenState extends State<InputAbsensiAsramaScreen> {
               ? const Center(child: CircularProgressIndicator())
               : Column(
                 children: [
+                  const OfflineSyncBanner(
+                    isCard: true,
+                    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
                   Expanded(
                     child: ListView.builder(
                       padding: const EdgeInsets.all(20),
@@ -903,10 +921,16 @@ class _InputAbsensiAsramaScreenState extends State<InputAbsensiAsramaScreen> {
     setState(() => _isSubmitting = false);
 
     if (result['success'] == true) {
+      final isOffline = result['isOffline'] == true;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Absensi berhasil disimpan'),
-          backgroundColor: Color(0xFF10B981),
+        SnackBar(
+          content: Text(result['message'] ??
+              (isOffline
+                  ? 'Tersimpan di HP (Mode Offline). Akan otomatis terkirim saat sinyal kembali.'
+                  : 'Absensi berhasil disimpan')),
+          backgroundColor:
+              isOffline ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
         ),
       );
       Navigator.pop(context, true);

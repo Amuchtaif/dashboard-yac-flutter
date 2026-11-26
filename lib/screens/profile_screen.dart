@@ -8,6 +8,9 @@ import 'login_screen.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
 import 'help_support_screen.dart';
+import 'feedback/suggestion_feedback_screen.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import '../services/app_update_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -27,12 +30,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _profilePhoto = '';
   int _positionLevel = 99;
   bool _pushNotifications = true;
-  final String _appVersion = '1.5.5';
+  String _appVersion = '1.5.7';
+  bool _isCheckingUpdate = false;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted && info.version.isNotEmpty) {
+        setState(() {
+          _appVersion = '${info.version} (Build ${info.buildNumber})';
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadUserData() async {
@@ -343,6 +359,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 16),
               _buildActionTile(
+                icon: Icons.system_update_rounded,
+                iconColor: const Color(0xFF2563EB),
+                title: 'Cek Pembaruan Versi',
+                subtitle:
+                    _isCheckingUpdate
+                        ? 'Memeriksa ke admin panel...'
+                        : 'Versi saat ini: $_appVersion',
+                trailing:
+                    _isCheckingUpdate
+                        ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF2563EB),
+                          ),
+                        )
+                        : null,
+                onTap:
+                    _isCheckingUpdate
+                        ? null
+                        : () async {
+                          setState(() => _isCheckingUpdate = true);
+                          await AppUpdateService().checkAppUpdate(
+                            context,
+                            showFeedbackIfUpToDate: true,
+                          );
+                          if (mounted) {
+                            setState(() => _isCheckingUpdate = false);
+                          }
+                        },
+              ),
+              const SizedBox(height: 16),
+              _buildActionTile(
+                icon: Icons.lightbulb_outline_rounded,
+                iconColor: const Color(0xFFF59E0B),
+                title: 'Usulan Fitur/Lapor Kendala',
+                subtitle: 'Sampaikan ide fitur baru atau laporkan masalah',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SuggestionFeedbackScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              _buildActionTile(
                 icon: Icons.help_outline,
                 iconColor: const Color(0xFF64748B),
                 title: 'Bantuan & Dukungan',
@@ -519,7 +584,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required IconData icon,
     required Color iconColor,
     required String title,
-    required VoidCallback onTap,
+    String? subtitle,
+    Widget? trailing,
+    required VoidCallback? onTap,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -552,20 +619,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      if (subtitle != null && subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right,
-                  color: Colors.grey.withValues(alpha: 0.4),
-                  size: 20,
-                ),
+                trailing ??
+                    Icon(
+                      Icons.chevron_right,
+                      color: Colors.grey.withValues(alpha: 0.4),
+                      size: 20,
+                    ),
               ],
             ),
           ),
