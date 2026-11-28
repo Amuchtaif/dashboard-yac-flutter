@@ -194,4 +194,10 @@ class ApiConstants {
   // Feedback & Suggestions Endpoints
   static const String feedbackSubmit = '${baseUrl}feedback/submit.php';
   static const String feedbackGetMy = '${baseUrl}feedback/my_feedbacks.php';
+
+  // Exam & OMR Scanner Endpoints
+  static const String examsPackages = '${baseUrl}exams/packages.php';
+  static const String examsPackageDetail = '${baseUrl}exams/package_detail.php';
+  static const String examsSubmitScan = '${baseUrl}exams/submit_scan.php';
+  static const String examsScanResults = '${baseUrl}exams/scan_results.php';
 }

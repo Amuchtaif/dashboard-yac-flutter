@@ -70,6 +70,7 @@ import 'shift_swap_screen.dart';
 import '../services/news_service.dart';
 import '../models/news_model.dart';
 import 'student_grading_screen.dart';
+import 'exam_scanner/exam_package_list_screen.dart';
 import 'news_detail_screen.dart';
 import 'self_attendance_recap_screen.dart';
 import 'work_report_screen.dart';
@@ -2654,6 +2655,17 @@ class HomeTab extends StatelessWidget {
           'iconBgColor': Colors.white.withValues(alpha: 0.2),
         }),
         const SizedBox(height: 12),
+        _buildFullWidthMenuCard(context, {
+          'title': 'Koreksi LJK (OMR)',
+          'subtitle': 'Pindai lembar jawaban ujian siswa',
+          'icon': Icons.document_scanner_rounded,
+          'color': const Color(0xFF0D9488),
+          'gradientColors': [const Color(0xFF0D9488), const Color(0xFF14B8A6)],
+          'textColor': Colors.white,
+          'iconColor': Colors.white,
+          'iconBgColor': Colors.white.withValues(alpha: 0.2),
+        }),
+        const SizedBox(height: 12),
         Row(
           children:
               row1
@@ -3148,6 +3160,11 @@ class HomeTab extends StatelessWidget {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const StudentGradingScreen()),
+      );
+    } else if (navTitle == 'Koreksi LJK (OMR)') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ExamPackageListScreen()),
       );
     } else if (navTitle == 'Rekap Presensi') {
       Navigator.push(
